@@ -13,6 +13,7 @@
   --color-text-secondary: #6b7280;
   --color-text-muted: #9ca3af;
   --color-success: #10b981;
+  --color-error: #b91c1c;
   --color-focus-ring: #2563eb40;
 
   /* Typography Scale (major-third 1.25) */
@@ -38,6 +39,8 @@
 }
 
 body {
+  min-height: 100vh;
+  min-height: 100dvh;
   background: var(--color-background);
   color: var(--color-text-primary);
   -webkit-font-smoothing: antialiased;
