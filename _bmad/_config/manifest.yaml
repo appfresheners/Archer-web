@@ -1,0 +1,48 @@
+installation:
+  version: 6.11.0
+  installDate: 2026-08-19T05:33:28.739Z
+  lastUpdated: 2026-08-19T05:33:28.739Z
+modules:
+  - name: core
+    version: 6.11.0
+    installDate: 2026-08-19T05:33:28.588Z
+    lastUpdated: 2026-08-19T05:33:28.732Z
+    source: built-in
+    npmPackage: null
+    repoUrl: null
+  - name: bmm
+    version: 6.11.0
+    installDate: 2026-08-19T05:33:28.650Z
+    lastUpdated: 2026-08-19T05:33:28.733Z
+    source: built-in
+    npmPackage: null
+    repoUrl: null
+  - name: bmb
+    version: v2.2.1
+    installDate: 2026-08-19T05:33:28.666Z
+    lastUpdated: 2026-08-19T05:33:28.735Z
+    source: external
+    npmPackage: bmad-builder
+    repoUrl: https://github.com/bmad-code-org/bmad-builder
+    channel: stable
+    sha: 38df19573f493c5025c7efce331debe8498832c1
+  - name: bmad-loop
+    version: v0.10.0
+    installDate: 2026-08-19T05:33:28.674Z
+    lastUpdated: 2026-08-19T05:33:28.737Z
+    source: external
+    npmPackage: null
+    repoUrl: https://github.com/bmad-code-org/bmad-loop
+    channel: stable
+    sha: 8d33e927d42158e034ba28043d1ce4c9ee237716
+  - name: cis
+    version: v0.3.1
+    installDate: 2026-08-19T05:33:28.684Z
+    lastUpdated: 2026-08-19T05:33:28.739Z
+    source: external
+    npmPackage: bmad-creative-intelligence-suite
+    repoUrl: https://github.com/bmad-code-org/bmad-module-creative-intelligence-suite
+    channel: stable
+    sha: 0e4ff9233a792db1a1cd00f22a482f338168cdc3
+ides:
+  - kiro
