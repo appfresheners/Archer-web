@@ -1,13 +1,21 @@
 /**
+ * Escapes characters that could break markdown structure when user input is interpolated.
+ */
+function escapeMarkdown(text: string): string {
+    return text.replace(/[\\`*_{}[\]()#+\-.!|~>]/g, "\\$&");
+}
+
+/**
  * Generates a GTD Goal Mode markdown template with the user's goal inserted.
  * Pure function: no side effects, deterministic, synchronous.
  */
 export function generateGoalTemplate(input: string): string {
+    const safeInput = escapeMarkdown(input);
     return `<!-- GTD Goal Mode template scaffold — replace placeholders with your own content -->
 
 # My 3-Month Goal
 
-**${input}**
+**${safeInput}**
 
 ## I'll know I succeeded when…
 
