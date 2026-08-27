@@ -1,23 +1,32 @@
 "use client";
 
 import { copyToClipboard } from "@/lib/utils/clipboard";
+import { downloadMarkdown } from "@/lib/utils/download";
+import { slugify } from "@/lib/utils/slugify";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 interface ActionBarProps {
     markdown: string;
+    mode: "goal" | "project";
+    inputText: string;
 }
 
-export default function ActionBar({ markdown }: ActionBarProps) {
+export default function ActionBar({ markdown, mode, inputText }: ActionBarProps) {
     const [copied, setCopied] = useState(false);
+    const [downloaded, setDownloaded] = useState(false);
     const [showFallback, setShowFallback] = useState(false);
-    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const downloadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-    // Cleanup timeout on unmount (handles output cleared / mode switch)
+    // Cleanup timeouts on unmount (handles output cleared / mode switch)
     useEffect(() => {
         return () => {
-            if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current);
+            if (copyTimeoutRef.current) {
+                clearTimeout(copyTimeoutRef.current);
+            }
+            if (downloadTimeoutRef.current) {
+                clearTimeout(downloadTimeoutRef.current);
             }
         };
     }, []);
@@ -32,18 +41,18 @@ export default function ActionBar({ markdown }: ActionBarProps) {
 
     const handleCopy = useCallback(async () => {
         // Cancel any existing timer (rapid re-click scenario)
-        if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
+        if (copyTimeoutRef.current) {
+            clearTimeout(copyTimeoutRef.current);
+            copyTimeoutRef.current = null;
         }
 
         const result = await copyToClipboard(markdown);
 
         if (result.success) {
             setCopied(true);
-            timeoutRef.current = setTimeout(() => {
+            copyTimeoutRef.current = setTimeout(() => {
                 setCopied(false);
-                timeoutRef.current = null;
+                copyTimeoutRef.current = null;
             }, 2000);
         } else {
             // Permission denied or other error — show fallback modal
@@ -51,13 +60,30 @@ export default function ActionBar({ markdown }: ActionBarProps) {
         }
     }, [markdown]);
 
+    const handleDownload = useCallback(() => {
+        // Guard against duplicate downloads during confirmation state
+        if (downloadTimeoutRef.current) return;
+
+        const slug = slugify(inputText);
+        const filename = `archer-${mode}-${slug}.md`;
+        const result = downloadMarkdown(markdown, filename);
+
+        if (result.success) {
+            setDownloaded(true);
+            downloadTimeoutRef.current = setTimeout(() => {
+                setDownloaded(false);
+                downloadTimeoutRef.current = null;
+            }, 2000);
+        }
+    }, [markdown, mode, inputText]);
+
     const closeFallback = useCallback(() => {
         setShowFallback(false);
     }, []);
 
     return (
         <>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <button
                     type="button"
                     onClick={handleCopy}
@@ -72,9 +98,24 @@ export default function ActionBar({ markdown }: ActionBarProps) {
                     </span>
                 </button>
 
-                {/* Screen reader announcement */}
+                <button
+                    type="button"
+                    onClick={handleDownload}
+                    className="min-h-[44px] min-w-[44px] rounded-[var(--radius-md)] border border-[var(--color-border)] bg-transparent px-4 py-2 font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface)] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)]"
+                >
+                    <span
+                        className={
+                            downloaded ? "text-[var(--color-success)]" : undefined
+                        }
+                    >
+                        {downloaded ? "Downloaded ✓" : "Download .md"}
+                    </span>
+                </button>
+
+                {/* Screen reader announcements */}
                 <span aria-live="polite" className="sr-only">
                     {copied ? "Markdown copied to clipboard" : ""}
+                    {downloaded ? "Markdown file downloaded" : ""}
                 </span>
             </div>
 

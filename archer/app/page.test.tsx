@@ -1,6 +1,7 @@
 import * as goalTemplate from "@/lib/templates/goal-template";
 import * as projectTemplate from "@/lib/templates/project-template";
 import * as clipboardUtil from "@/lib/utils/clipboard";
+import * as downloadUtil from "@/lib/utils/download";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,7 +11,12 @@ vi.mock("@/lib/utils/clipboard", () => ({
     copyToClipboard: vi.fn(),
 }));
 
+vi.mock("@/lib/utils/download", () => ({
+    downloadMarkdown: vi.fn(),
+}));
+
 const mockCopyToClipboard = clipboardUtil.copyToClipboard as ReturnType<typeof vi.fn>;
+const mockDownloadMarkdown = downloadUtil.downloadMarkdown as ReturnType<typeof vi.fn>;
 
 describe("Home page with ModeToggle integration", () => {
     it("renders the ModeToggle component", () => {
@@ -381,10 +387,12 @@ describe("Reduced motion scroll behavior", () => {
 describe("ActionBar integration with Home page", () => {
     beforeEach(() => {
         mockCopyToClipboard.mockResolvedValue({ success: true });
+        mockDownloadMarkdown.mockReturnValue({ success: true });
     });
 
     afterEach(() => {
         mockCopyToClipboard.mockReset();
+        mockDownloadMarkdown.mockReset();
     });
 
     it("does NOT render ActionBar when output is empty (initial load)", () => {
@@ -457,5 +465,93 @@ describe("ActionBar integration with Home page", () => {
         await user.click(projectTab);
 
         expect(screen.queryByRole("button", { name: /copy markdown/i })).not.toBeInTheDocument();
+    });
+});
+
+
+describe("Download button integration with Home page", () => {
+    beforeEach(() => {
+        mockCopyToClipboard.mockResolvedValue({ success: true });
+        mockDownloadMarkdown.mockReturnValue({ success: true });
+    });
+
+    afterEach(() => {
+        mockCopyToClipboard.mockReset();
+        mockDownloadMarkdown.mockReset();
+    });
+
+    it("does NOT render Download button when output is empty (initial load)", () => {
+        render(<Home />);
+        expect(screen.queryByRole("button", { name: /download \.md/i })).not.toBeInTheDocument();
+    });
+
+    it("renders Download button after generating output", async () => {
+        const user = userEvent.setup();
+        render(<Home />);
+
+        const input = screen.getByRole("textbox");
+        await user.type(input, "Learn guitar");
+
+        const submitButton = screen.getByRole("button", { name: /generate/i });
+        await user.click(submitButton);
+
+        expect(screen.getByRole("button", { name: /download \.md/i })).toBeInTheDocument();
+    });
+
+    it("download triggers with correct filename format in Goal mode", async () => {
+        const user = userEvent.setup();
+        render(<Home />);
+
+        const input = screen.getByRole("textbox");
+        await user.type(input, "Become a proficient guitarist in 3 months");
+
+        const submitButton = screen.getByRole("button", { name: /generate/i });
+        await user.click(submitButton);
+
+        const downloadButton = screen.getByRole("button", { name: /download \.md/i });
+        await user.click(downloadButton);
+
+        expect(mockDownloadMarkdown).toHaveBeenCalledTimes(1);
+        const [, filename] = mockDownloadMarkdown.mock.calls[0];
+        expect(filename).toBe("archer-goal-become-a-proficient-guitarist-in-3-months.md");
+    });
+
+    it("download triggers with correct filename format in Project mode", async () => {
+        const user = userEvent.setup();
+        render(<Home />);
+
+        const projectTab = screen.getByRole("tab", { name: "Project" });
+        await user.click(projectTab);
+
+        const input = screen.getByRole("textbox");
+        await user.type(input, "Build portfolio website");
+
+        const submitButton = screen.getByRole("button", { name: /generate/i });
+        await user.click(submitButton);
+
+        const downloadButton = screen.getByRole("button", { name: /download \.md/i });
+        await user.click(downloadButton);
+
+        expect(mockDownloadMarkdown).toHaveBeenCalledTimes(1);
+        const [, filename] = mockDownloadMarkdown.mock.calls[0];
+        expect(filename).toBe("archer-project-build-portfolio-website.md");
+    });
+
+    it("Download button disappears when mode is switched (output cleared)", async () => {
+        const user = userEvent.setup();
+        render(<Home />);
+
+        const input = screen.getByRole("textbox");
+        await user.type(input, "Learn guitar");
+
+        const submitButton = screen.getByRole("button", { name: /generate/i });
+        await user.click(submitButton);
+
+        expect(screen.getByRole("button", { name: /download \.md/i })).toBeInTheDocument();
+
+        const projectTab = screen.getByRole("tab", { name: "Project" });
+        await user.click(projectTab);
+
+        expect(screen.queryByRole("button", { name: /download \.md/i })).not.toBeInTheDocument();
     });
 });

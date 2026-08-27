@@ -74,7 +74,7 @@ export default function Home() {
 
       {output && (
         <div className="mt-4">
-          <ActionBar markdown={output} />
+          <ActionBar markdown={output} mode={mode} inputText={inputText} />
         </div>
       )}
     </main>
