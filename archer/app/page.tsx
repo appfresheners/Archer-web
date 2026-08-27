@@ -1,5 +1,6 @@
 "use client";
 
+import ActionBar from "@/components/ActionBar";
 import InputSection from "@/components/InputSection";
 import ModeToggle from "@/components/ModeToggle";
 import OutputPanel from "@/components/OutputPanel";
@@ -68,6 +69,12 @@ export default function Home() {
       {output && (
         <div className="mt-[var(--spacing-section-y)]">
           <OutputPanel ref={outputRef} markdown={output} />
+        </div>
+      )}
+
+      {output && (
+        <div className="mt-4">
+          <ActionBar markdown={output} />
         </div>
       )}
     </main>
