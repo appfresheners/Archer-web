@@ -7,6 +7,7 @@ interface InputSectionProps {
     inputText: string;
     onInputChange: (text: string) => void;
     onSubmit: () => void;
+    disabled?: boolean;
 }
 
 const placeholders: Record<"goal" | "project", string> = {
@@ -19,18 +20,21 @@ export default function InputSection({
     inputText,
     onInputChange,
     onSubmit,
+    disabled = false,
 }: InputSectionProps) {
     const [validationError, setValidationError] = useState("");
     const errorId = useId();
     const inputId = useId();
 
     const isEmpty = inputText.trim() === "";
+    const isDisabled = isEmpty || disabled;
 
     const handleAttemptSubmit = () => {
         if (isEmpty) {
             setValidationError("Enter a goal or project first");
             return;
         }
+        if (disabled) return;
         onSubmit();
     };
 
@@ -71,13 +75,13 @@ export default function InputSection({
             <button
                 type="button"
                 onClick={handleAttemptSubmit}
-                aria-disabled={isEmpty ? "true" : undefined}
-                className={`w-full min-h-[44px] rounded-[var(--radius-sm)] font-bold py-3 px-6 mt-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] ${isEmpty
+                aria-disabled={isDisabled ? "true" : undefined}
+                className={`w-full min-h-[44px] rounded-[var(--radius-sm)] font-bold py-3 px-6 mt-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] ${isDisabled
                     ? "bg-primary/40 text-white/60 cursor-not-allowed pointer-events-none"
                     : "bg-primary text-white hover:bg-primary-hover motion-safe:transition-colors motion-safe:duration-150"
                     }`}
             >
-                Generate
+                {disabled ? "Generating…" : "Generate"}
             </button>
         </div>
     );

@@ -1,9 +1,19 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Home from "./page";
 
 describe("Page keyboard navigation and accessibility", () => {
+    beforeEach(() => {
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ markdown: "# Generated\n\nSome content" }),
+        });
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
     it("tab order follows expected sequence: ModeToggle → Input → Generate button", async () => {
         const user = userEvent.setup();
         render(<Home />);

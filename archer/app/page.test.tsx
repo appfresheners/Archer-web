@@ -1,8 +1,6 @@
-import * as goalTemplate from "@/lib/templates/goal-template";
-import * as projectTemplate from "@/lib/templates/project-template";
 import * as clipboardUtil from "@/lib/utils/clipboard";
 import * as downloadUtil from "@/lib/utils/download";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Home from "./page";
@@ -18,7 +16,67 @@ vi.mock("@/lib/utils/download", () => ({
 const mockCopyToClipboard = clipboardUtil.copyToClipboard as ReturnType<typeof vi.fn>;
 const mockDownloadMarkdown = downloadUtil.downloadMarkdown as ReturnType<typeof vi.fn>;
 
+const MOCK_GOAL_RESPONSE = `# My 3-Month Goal
+
+**Learn guitar**
+
+## I'll know I succeeded when…
+
+- [ ] Can play 5 songs from memory
+- [ ] Can switch between basic chords fluently
+
+## GTD Projects
+
+### Guitar basics mastered
+
+#### Purpose
+Foundation for all guitar playing
+
+#### Successful Outcome
+Can play open chords cleanly
+
+#### Next Actions
+- [ ] Open YouTube and search "beginner guitar lesson 1"
+- [ ] Watch the first 5 minutes
+`;
+
+const MOCK_PROJECT_RESPONSE = `# Build portfolio website
+
+## Purpose
+Showcase work to potential employers
+
+## Successful Outcome
+Live website accessible at a public URL with at least 3 project showcases
+
+## Next Actions
+- [ ] Open browser and navigate to vercel.com
+- [ ] Click "Sign Up" and create account
+- [ ] Open terminal and type "npx create-next-app portfolio"
+`;
+
+function mockFetchSuccess(markdown: string) {
+    global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ markdown }),
+    });
+}
+
+function mockFetchError(error: string) {
+    global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        json: () => Promise.resolve({ error }),
+    });
+}
+
 describe("Home page with ModeToggle integration", () => {
+    beforeEach(() => {
+        mockFetchSuccess(MOCK_GOAL_RESPONSE);
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
     it("renders the ModeToggle component", () => {
         render(<Home />);
         expect(screen.getByRole("tablist", { name: "Template mode" })).toBeInTheDocument();
@@ -62,31 +120,19 @@ describe("Home page with ModeToggle integration", () => {
         render(<Home />);
         const heading = screen.getByRole("heading", { name: "Archer" });
         const tablist = screen.getByRole("tablist", { name: "Template mode" });
-        // Toggle appears after the heading in the DOM
         expect(heading.compareDocumentPosition(tablist)).toBe(
             Node.DOCUMENT_POSITION_FOLLOWING
         );
     });
 });
 
-describe("Home page Goal Mode template integration", () => {
-    it("calls generateGoalTemplate on submit in Goal mode", async () => {
-        const spy = vi.spyOn(goalTemplate, "generateGoalTemplate");
-        const user = userEvent.setup();
-        render(<Home />);
-
-        const input = screen.getByRole("textbox");
-        await user.type(input, "Become a proficient guitarist in 3 months");
-
-        const submitButton = screen.getByRole("button", { name: /generate/i });
-        await user.click(submitButton);
-
-        expect(spy).toHaveBeenCalledWith("Become a proficient guitarist in 3 months");
-        spy.mockRestore();
+describe("Home page API generation integration", () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
     });
 
-    it("clears output state when mode switches", async () => {
-        const spy = vi.spyOn(goalTemplate, "generateGoalTemplate");
+    it("calls fetch with goal mode on submit in Goal mode", async () => {
+        mockFetchSuccess(MOCK_GOAL_RESPONSE);
         const user = userEvent.setup();
         render(<Home />);
 
@@ -96,205 +142,14 @@ describe("Home page Goal Mode template integration", () => {
         const submitButton = screen.getByRole("button", { name: /generate/i });
         await user.click(submitButton);
 
-        expect(spy).toHaveBeenCalledTimes(1);
-
-        const projectTab = screen.getByRole("tab", { name: "Project" });
-        await user.click(projectTab);
-
-        // After mode switch, submitting in project mode should not call goal template
-        spy.mockClear();
-        const inputAfterSwitch = screen.getByRole("textbox");
-        await user.type(inputAfterSwitch, "Build a website");
-        const submitAfterSwitch = screen.getByRole("button", { name: /generate/i });
-        await user.click(submitAfterSwitch);
-
-        expect(spy).not.toHaveBeenCalled();
-        spy.mockRestore();
+        expect(global.fetch).toHaveBeenCalledWith("/api/generate", expect.objectContaining({
+            method: "POST",
+            body: JSON.stringify({ input: "Learn guitar", mode: "goal" }),
+        }));
     });
 
-    it("does not call generateGoalTemplate in Project mode", async () => {
-        const spy = vi.spyOn(goalTemplate, "generateGoalTemplate");
-        const user = userEvent.setup();
-        render(<Home />);
-
-        const projectTab = screen.getByRole("tab", { name: "Project" });
-        await user.click(projectTab);
-
-        const input = screen.getByRole("textbox");
-        await user.type(input, "Build a portfolio website");
-
-        const submitButton = screen.getByRole("button", { name: /generate/i });
-        await user.click(submitButton);
-
-        expect(spy).not.toHaveBeenCalled();
-        spy.mockRestore();
-    });
-});
-
-describe("Home page Project Mode template integration", () => {
-    it("calls generateProjectTemplate on submit in Project mode", async () => {
-        const spy = vi.spyOn(projectTemplate, "generateProjectTemplate");
-        const user = userEvent.setup();
-        render(<Home />);
-
-        const projectTab = screen.getByRole("tab", { name: "Project" });
-        await user.click(projectTab);
-
-        const input = screen.getByRole("textbox");
-        await user.type(input, "Personal portfolio website deployed online");
-
-        const submitButton = screen.getByRole("button", { name: /generate/i });
-        await user.click(submitButton);
-
-        expect(spy).toHaveBeenCalledWith("Personal portfolio website deployed online");
-        spy.mockRestore();
-    });
-
-    it("does not call generateProjectTemplate in Goal mode", async () => {
-        const spy = vi.spyOn(projectTemplate, "generateProjectTemplate");
-        const user = userEvent.setup();
-        render(<Home />);
-
-        const input = screen.getByRole("textbox");
-        await user.type(input, "Become a proficient guitarist");
-
-        const submitButton = screen.getByRole("button", { name: /generate/i });
-        await user.click(submitButton);
-
-        expect(spy).not.toHaveBeenCalled();
-        spy.mockRestore();
-    });
-
-    it("mode switch clears output after project generation", async () => {
-        const spy = vi.spyOn(projectTemplate, "generateProjectTemplate");
-        const user = userEvent.setup();
-        render(<Home />);
-
-        const projectTab = screen.getByRole("tab", { name: "Project" });
-        await user.click(projectTab);
-
-        const input = screen.getByRole("textbox");
-        await user.type(input, "Deploy portfolio online");
-
-        const submitButton = screen.getByRole("button", { name: /generate/i });
-        await user.click(submitButton);
-
-        expect(spy).toHaveBeenCalledTimes(1);
-
-        // Switch back to goal mode — should clear everything
-        const goalTab = screen.getByRole("tab", { name: "Goal" });
-        await user.click(goalTab);
-
-        // After mode switch, submitting in goal mode should not call project template
-        spy.mockClear();
-        const inputAfterSwitch = screen.getByRole("textbox");
-        await user.type(inputAfterSwitch, "Learn guitar");
-        const submitAfterSwitch = screen.getByRole("button", { name: /generate/i });
-        await user.click(submitAfterSwitch);
-
-        expect(spy).not.toHaveBeenCalled();
-        spy.mockRestore();
-    });
-});
-
-describe("OutputPanel integration with Home page", () => {
-    it("does NOT render OutputPanel when output state is empty (initial load)", () => {
-        render(<Home />);
-        expect(screen.queryByRole("region", { name: "Generated GTD template" })).not.toBeInTheDocument();
-    });
-
-    it("renders OutputPanel after submitting valid input in Goal mode", async () => {
-        const user = userEvent.setup();
-        render(<Home />);
-
-        const input = screen.getByRole("textbox");
-        await user.type(input, "Learn guitar in 3 months");
-
-        const submitButton = screen.getByRole("button", { name: /generate/i });
-        await user.click(submitButton);
-
-        expect(screen.getByRole("region", { name: "Generated GTD template" })).toBeInTheDocument();
-    });
-
-    it("renders OutputPanel after submitting valid input in Project mode", async () => {
-        const user = userEvent.setup();
-        render(<Home />);
-
-        const projectTab = screen.getByRole("tab", { name: "Project" });
-        await user.click(projectTab);
-
-        const input = screen.getByRole("textbox");
-        await user.type(input, "Build a portfolio website");
-
-        const submitButton = screen.getByRole("button", { name: /generate/i });
-        await user.click(submitButton);
-
-        expect(screen.getByRole("region", { name: "Generated GTD template" })).toBeInTheDocument();
-    });
-
-    it("OutputPanel disappears when mode is switched (output cleared)", async () => {
-        const user = userEvent.setup();
-        render(<Home />);
-
-        const input = screen.getByRole("textbox");
-        await user.type(input, "Learn guitar");
-
-        const submitButton = screen.getByRole("button", { name: /generate/i });
-        await user.click(submitButton);
-
-        expect(screen.getByRole("region", { name: "Generated GTD template" })).toBeInTheDocument();
-
-        const projectTab = screen.getByRole("tab", { name: "Project" });
-        await user.click(projectTab);
-
-        expect(screen.queryByRole("region", { name: "Generated GTD template" })).not.toBeInTheDocument();
-    });
-
-    it("OutputPanel has correct role and aria-label after generation", async () => {
-        const user = userEvent.setup();
-        render(<Home />);
-
-        const input = screen.getByRole("textbox");
-        await user.type(input, "Learn guitar");
-
-        const submitButton = screen.getByRole("button", { name: /generate/i });
-        await user.click(submitButton);
-
-        const panel = screen.getByRole("region", { name: "Generated GTD template" });
-        expect(panel).toHaveAttribute("aria-label", "Generated GTD template");
-    });
-
-    it("focus moves to OutputPanel after generation", async () => {
-        const user = userEvent.setup();
-        render(<Home />);
-
-        const input = screen.getByRole("textbox");
-        await user.type(input, "Learn guitar");
-
-        const submitButton = screen.getByRole("button", { name: /generate/i });
-        await user.click(submitButton);
-
-        const panel = screen.getByRole("region", { name: "Generated GTD template" });
-        expect(document.activeElement).toBe(panel);
-    });
-});
-
-describe("OutputPanel renders actual template content", () => {
-    it("renders Goal Mode heading and user input after generation", async () => {
-        const user = userEvent.setup();
-        render(<Home />);
-
-        const input = screen.getByRole("textbox");
-        await user.type(input, "Learn guitar");
-
-        const submitButton = screen.getByRole("button", { name: /generate/i });
-        await user.click(submitButton);
-
-        expect(screen.getByRole("heading", { name: /3-Month Goal/i })).toBeInTheDocument();
-        expect(screen.getByText(/Learn guitar/)).toBeInTheDocument();
-    });
-
-    it("renders Project Mode heading with user input after generation", async () => {
+    it("calls fetch with project mode on submit in Project mode", async () => {
+        mockFetchSuccess(MOCK_PROJECT_RESPONSE);
         const user = userEvent.setup();
         render(<Home />);
 
@@ -307,13 +162,195 @@ describe("OutputPanel renders actual template content", () => {
         const submitButton = screen.getByRole("button", { name: /generate/i });
         await user.click(submitButton);
 
-        expect(screen.getByText(/Build portfolio/)).toBeInTheDocument();
+        expect(global.fetch).toHaveBeenCalledWith("/api/generate", expect.objectContaining({
+            method: "POST",
+            body: JSON.stringify({ input: "Build portfolio", mode: "project" }),
+        }));
+    });
+
+    it("shows loading state while generating", async () => {
+        // Make fetch never resolve to keep loading state
+        global.fetch = vi.fn().mockReturnValue(new Promise(() => { }));
+        const user = userEvent.setup();
+        render(<Home />);
+
+        const input = screen.getByRole("textbox");
+        await user.type(input, "Learn guitar");
+
+        const submitButton = screen.getByRole("button", { name: /generate/i });
+        await user.click(submitButton);
+
+        expect(screen.getByText(/Researching and generating/i)).toBeInTheDocument();
+    });
+
+    it("shows error message when API returns an error", async () => {
+        mockFetchError("OpenAI API key not configured.");
+        const user = userEvent.setup();
+        render(<Home />);
+
+        const input = screen.getByRole("textbox");
+        await user.type(input, "Learn guitar");
+
+        const submitButton = screen.getByRole("button", { name: /generate/i });
+        await user.click(submitButton);
+
+        await waitFor(() => {
+            expect(screen.getByRole("alert")).toBeInTheDocument();
+            expect(screen.getByText(/OpenAI API key not configured/i)).toBeInTheDocument();
+        });
+    });
+
+    it("clears output state when mode switches", async () => {
+        mockFetchSuccess(MOCK_GOAL_RESPONSE);
+        const user = userEvent.setup();
+        render(<Home />);
+
+        const input = screen.getByRole("textbox");
+        await user.type(input, "Learn guitar");
+
+        const submitButton = screen.getByRole("button", { name: /generate/i });
+        await user.click(submitButton);
+
+        await waitFor(() => {
+            expect(screen.getByRole("region", { name: "Generated GTD template" })).toBeInTheDocument();
+        });
+
+        const projectTab = screen.getByRole("tab", { name: "Project" });
+        await user.click(projectTab);
+
+        expect(screen.queryByRole("region", { name: "Generated GTD template" })).not.toBeInTheDocument();
+    });
+});
+
+describe("OutputPanel integration with Home page", () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it("does NOT render OutputPanel when output state is empty (initial load)", () => {
+        render(<Home />);
+        expect(screen.queryByRole("region", { name: "Generated GTD template" })).not.toBeInTheDocument();
+    });
+
+    it("renders OutputPanel after submitting valid input in Goal mode", async () => {
+        mockFetchSuccess(MOCK_GOAL_RESPONSE);
+        const user = userEvent.setup();
+        render(<Home />);
+
+        const input = screen.getByRole("textbox");
+        await user.type(input, "Learn guitar");
+
+        const submitButton = screen.getByRole("button", { name: /generate/i });
+        await user.click(submitButton);
+
+        await waitFor(() => {
+            expect(screen.getByRole("region", { name: "Generated GTD template" })).toBeInTheDocument();
+        });
+    });
+
+    it("renders OutputPanel after submitting valid input in Project mode", async () => {
+        mockFetchSuccess(MOCK_PROJECT_RESPONSE);
+        const user = userEvent.setup();
+        render(<Home />);
+
+        const projectTab = screen.getByRole("tab", { name: "Project" });
+        await user.click(projectTab);
+
+        const input = screen.getByRole("textbox");
+        await user.type(input, "Build portfolio");
+
+        const submitButton = screen.getByRole("button", { name: /generate/i });
+        await user.click(submitButton);
+
+        await waitFor(() => {
+            expect(screen.getByRole("region", { name: "Generated GTD template" })).toBeInTheDocument();
+        });
+    });
+
+    it("OutputPanel disappears when mode is switched (output cleared)", async () => {
+        mockFetchSuccess(MOCK_GOAL_RESPONSE);
+        const user = userEvent.setup();
+        render(<Home />);
+
+        const input = screen.getByRole("textbox");
+        await user.type(input, "Learn guitar");
+
+        const submitButton = screen.getByRole("button", { name: /generate/i });
+        await user.click(submitButton);
+
+        await waitFor(() => {
+            expect(screen.getByRole("region", { name: "Generated GTD template" })).toBeInTheDocument();
+        });
+
+        const projectTab = screen.getByRole("tab", { name: "Project" });
+        await user.click(projectTab);
+
+        expect(screen.queryByRole("region", { name: "Generated GTD template" })).not.toBeInTheDocument();
+    });
+
+    it("focus moves to OutputPanel after generation", async () => {
+        mockFetchSuccess(MOCK_GOAL_RESPONSE);
+        const user = userEvent.setup();
+        render(<Home />);
+
+        const input = screen.getByRole("textbox");
+        await user.type(input, "Learn guitar");
+
+        const submitButton = screen.getByRole("button", { name: /generate/i });
+        await user.click(submitButton);
+
+        await waitFor(() => {
+            const panel = screen.getByRole("region", { name: "Generated GTD template" });
+            expect(document.activeElement).toBe(panel);
+        });
+    });
+});
+
+describe("OutputPanel renders actual template content", () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it("renders Goal Mode heading and user input after generation", async () => {
+        mockFetchSuccess(MOCK_GOAL_RESPONSE);
+        const user = userEvent.setup();
+        render(<Home />);
+
+        const input = screen.getByRole("textbox");
+        await user.type(input, "Learn guitar");
+
+        const submitButton = screen.getByRole("button", { name: /generate/i });
+        await user.click(submitButton);
+
+        await waitFor(() => {
+            expect(screen.getByRole("heading", { name: /3-Month Goal/i })).toBeInTheDocument();
+            expect(screen.getByText(/Learn guitar/)).toBeInTheDocument();
+        });
+    });
+
+    it("renders Project Mode content after generation", async () => {
+        mockFetchSuccess(MOCK_PROJECT_RESPONSE);
+        const user = userEvent.setup();
+        render(<Home />);
+
+        const projectTab = screen.getByRole("tab", { name: "Project" });
+        await user.click(projectTab);
+
+        const input = screen.getByRole("textbox");
+        await user.type(input, "Build portfolio");
+
+        const submitButton = screen.getByRole("button", { name: /generate/i });
+        await user.click(submitButton);
+
+        await waitFor(() => {
+            expect(screen.getByText(/Build portfolio website/)).toBeInTheDocument();
+        });
     });
 });
 
 describe("Reduced motion scroll behavior", () => {
     afterEach(() => {
-        // Restore default matchMedia mock
+        vi.restoreAllMocks();
         Object.defineProperty(window, "matchMedia", {
             writable: true,
             value: (query: string) => ({
@@ -330,6 +367,7 @@ describe("Reduced motion scroll behavior", () => {
     });
 
     it("uses behavior 'auto' when prefers-reduced-motion is enabled", async () => {
+        mockFetchSuccess(MOCK_GOAL_RESPONSE);
         const scrollSpy = vi.fn();
         Element.prototype.scrollIntoView = scrollSpy;
 
@@ -356,14 +394,17 @@ describe("Reduced motion scroll behavior", () => {
         const submitButton = screen.getByRole("button", { name: /generate/i });
         await user.click(submitButton);
 
-        expect(scrollSpy).toHaveBeenCalledWith(
-            expect.objectContaining({ behavior: "auto" })
-        );
+        await waitFor(() => {
+            expect(scrollSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ behavior: "auto" })
+            );
+        });
 
         Element.prototype.scrollIntoView = () => { };
     });
 
     it("uses behavior 'smooth' when prefers-reduced-motion is not enabled", async () => {
+        mockFetchSuccess(MOCK_GOAL_RESPONSE);
         const scrollSpy = vi.fn();
         Element.prototype.scrollIntoView = scrollSpy;
 
@@ -376,9 +417,11 @@ describe("Reduced motion scroll behavior", () => {
         const submitButton = screen.getByRole("button", { name: /generate/i });
         await user.click(submitButton);
 
-        expect(scrollSpy).toHaveBeenCalledWith(
-            expect.objectContaining({ behavior: "smooth" })
-        );
+        await waitFor(() => {
+            expect(scrollSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ behavior: "smooth" })
+            );
+        });
 
         Element.prototype.scrollIntoView = () => { };
     });
@@ -386,6 +429,7 @@ describe("Reduced motion scroll behavior", () => {
 
 describe("ActionBar integration with Home page", () => {
     beforeEach(() => {
+        mockFetchSuccess(MOCK_GOAL_RESPONSE);
         mockCopyToClipboard.mockResolvedValue({ success: true });
         mockDownloadMarkdown.mockReturnValue({ success: true });
     });
@@ -393,6 +437,7 @@ describe("ActionBar integration with Home page", () => {
     afterEach(() => {
         mockCopyToClipboard.mockReset();
         mockDownloadMarkdown.mockReset();
+        vi.restoreAllMocks();
     });
 
     it("does NOT render ActionBar when output is empty (initial load)", () => {
@@ -410,10 +455,13 @@ describe("ActionBar integration with Home page", () => {
         const submitButton = screen.getByRole("button", { name: /generate/i });
         await user.click(submitButton);
 
-        expect(screen.getByRole("button", { name: /copy markdown/i })).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: /copy markdown/i })).toBeInTheDocument();
+        });
     });
 
     it("renders ActionBar after generating output in Project mode", async () => {
+        mockFetchSuccess(MOCK_PROJECT_RESPONSE);
         const user = userEvent.setup();
         render(<Home />);
 
@@ -426,7 +474,9 @@ describe("ActionBar integration with Home page", () => {
         const submitButton = screen.getByRole("button", { name: /generate/i });
         await user.click(submitButton);
 
-        expect(screen.getByRole("button", { name: /copy markdown/i })).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: /copy markdown/i })).toBeInTheDocument();
+        });
     });
 
     it("copy button triggers clipboard write with raw markdown (not HTML)", async () => {
@@ -439,12 +489,15 @@ describe("ActionBar integration with Home page", () => {
         const submitButton = screen.getByRole("button", { name: /generate/i });
         await user.click(submitButton);
 
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: /copy markdown/i })).toBeInTheDocument();
+        });
+
         const copyButton = screen.getByRole("button", { name: /copy markdown/i });
         await user.click(copyButton);
 
         expect(mockCopyToClipboard).toHaveBeenCalledTimes(1);
         const calledWith = mockCopyToClipboard.mock.calls[0][0];
-        // Raw markdown contains # headings, not HTML tags
         expect(calledWith).toContain("#");
         expect(calledWith).not.toContain("<h1>");
     });
@@ -459,7 +512,9 @@ describe("ActionBar integration with Home page", () => {
         const submitButton = screen.getByRole("button", { name: /generate/i });
         await user.click(submitButton);
 
-        expect(screen.getByRole("button", { name: /copy markdown/i })).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: /copy markdown/i })).toBeInTheDocument();
+        });
 
         const projectTab = screen.getByRole("tab", { name: "Project" });
         await user.click(projectTab);
@@ -468,9 +523,9 @@ describe("ActionBar integration with Home page", () => {
     });
 });
 
-
 describe("Download button integration with Home page", () => {
     beforeEach(() => {
+        mockFetchSuccess(MOCK_GOAL_RESPONSE);
         mockCopyToClipboard.mockResolvedValue({ success: true });
         mockDownloadMarkdown.mockReturnValue({ success: true });
     });
@@ -478,6 +533,7 @@ describe("Download button integration with Home page", () => {
     afterEach(() => {
         mockCopyToClipboard.mockReset();
         mockDownloadMarkdown.mockReset();
+        vi.restoreAllMocks();
     });
 
     it("does NOT render Download button when output is empty (initial load)", () => {
@@ -495,7 +551,9 @@ describe("Download button integration with Home page", () => {
         const submitButton = screen.getByRole("button", { name: /generate/i });
         await user.click(submitButton);
 
-        expect(screen.getByRole("button", { name: /download \.md/i })).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: /download \.md/i })).toBeInTheDocument();
+        });
     });
 
     it("download triggers with correct filename format in Goal mode", async () => {
@@ -508,6 +566,10 @@ describe("Download button integration with Home page", () => {
         const submitButton = screen.getByRole("button", { name: /generate/i });
         await user.click(submitButton);
 
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: /download \.md/i })).toBeInTheDocument();
+        });
+
         const downloadButton = screen.getByRole("button", { name: /download \.md/i });
         await user.click(downloadButton);
 
@@ -517,6 +579,7 @@ describe("Download button integration with Home page", () => {
     });
 
     it("download triggers with correct filename format in Project mode", async () => {
+        mockFetchSuccess(MOCK_PROJECT_RESPONSE);
         const user = userEvent.setup();
         render(<Home />);
 
@@ -528,6 +591,10 @@ describe("Download button integration with Home page", () => {
 
         const submitButton = screen.getByRole("button", { name: /generate/i });
         await user.click(submitButton);
+
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: /download \.md/i })).toBeInTheDocument();
+        });
 
         const downloadButton = screen.getByRole("button", { name: /download \.md/i });
         await user.click(downloadButton);
@@ -547,7 +614,9 @@ describe("Download button integration with Home page", () => {
         const submitButton = screen.getByRole("button", { name: /generate/i });
         await user.click(submitButton);
 
-        expect(screen.getByRole("button", { name: /download \.md/i })).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: /download \.md/i })).toBeInTheDocument();
+        });
 
         const projectTab = screen.getByRole("tab", { name: "Project" });
         await user.click(projectTab);

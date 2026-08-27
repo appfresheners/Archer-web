@@ -1,15 +1,33 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Home from "./page";
 
 describe("Page layout responsive structure", () => {
-    it("renders main element with correct responsive layout classes", () => {
+    beforeEach(() => {
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ markdown: "# Test" }),
+        });
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it("renders main element with min-h-screen for full viewport height", () => {
         render(<Home />);
         const main = screen.getByRole("main");
-        expect(main).toHaveClass("mx-auto");
-        expect(main).toHaveClass("max-w-[640px]");
-        expect(main).toHaveClass("px-[var(--spacing-page-x)]");
-        expect(main).toHaveClass("lg:px-[var(--spacing-page-x-lg)]");
+        expect(main).toHaveClass("min-h-screen");
+    });
+
+    it("renders input area within a narrow centered header", () => {
+        render(<Home />);
+        const heading = screen.getByRole("heading", { name: "Archer" });
+        const header = heading.closest("header");
+        expect(header).toHaveClass("mx-auto");
+        expect(header).toHaveClass("max-w-[640px]");
+        expect(header).toHaveClass("px-[var(--spacing-page-x)]");
+        expect(header).toHaveClass("lg:px-[var(--spacing-page-x-lg)]");
     });
 
     it("renders all child elements within the main container", () => {

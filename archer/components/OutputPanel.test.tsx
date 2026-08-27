@@ -63,12 +63,10 @@ describe("OutputPanel", () => {
         expect(region).toHaveAttribute("tabindex", "-1");
     });
 
-    it("renders card styling with border and surface background classes", () => {
+    it("renders full-width without card container (styling delegated to parent)", () => {
         render(<OutputPanel markdown={sampleMarkdown} />);
         const region = screen.getByRole("region");
-        expect(region.className).toContain("border");
-        expect(region.className).toContain("bg-[var(--color-surface)]");
-        expect(region.className).toContain("rounded-[var(--radius-md)]");
+        expect(region.className).toContain("focus:outline-none");
     });
 
     it("renders markdown tables correctly with GFM support", () => {
