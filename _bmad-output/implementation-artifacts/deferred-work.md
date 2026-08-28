@@ -28,3 +28,11 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-2-download-as-markdown-file.md`
   summary: Add loading/disabled state on Copy button while async clipboard write is pending
   evidence: Rapid clicks can queue multiple clipboard writes and flash confirmation text erratically
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-notion-optimized-markdown-quality.md`
+  summary: escapeMarkdown does not neutralize user input containing `<!--` sequences which could produce HTML comment artifacts in rendered markdown
+  evidence: Pre-existing behavior from Epic 2; escapeMarkdown escapes common markdown special chars but HTML comment delimiters are not in its character class
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-notion-optimized-markdown-quality.md`
+  summary: escapeMarkdown does not handle literal newlines or carriage returns in user input which could break table structure
+  evidence: Pre-existing behavior from Epic 2; input field is single-line so risk is minimal but the function itself has no newline handling

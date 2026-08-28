@@ -87,7 +87,7 @@ export default function ActionBar({ markdown, mode, inputText }: ActionBarProps)
                 <button
                     type="button"
                     onClick={handleCopy}
-                    className="min-h-[44px] min-w-[44px] rounded-[var(--radius-md)] bg-[var(--color-primary)] px-4 py-2 font-medium text-white transition-colors hover:bg-[var(--color-primary-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)]"
+                    className="w-full sm:w-auto min-h-[44px] min-w-[44px] rounded-[var(--radius-md)] bg-[var(--color-primary)] px-4 py-2 font-medium text-white transition-colors hover:bg-[var(--color-primary-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)]"
                 >
                     <span
                         className={
@@ -101,7 +101,7 @@ export default function ActionBar({ markdown, mode, inputText }: ActionBarProps)
                 <button
                     type="button"
                     onClick={handleDownload}
-                    className="min-h-[44px] min-w-[44px] rounded-[var(--radius-md)] border border-[var(--color-border)] bg-transparent px-4 py-2 font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface)] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)]"
+                    className="w-full sm:w-auto min-h-[44px] min-w-[44px] rounded-[var(--radius-md)] border border-[var(--color-border)] bg-transparent px-4 py-2 font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface)] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)]"
                 >
                     <span
                         className={

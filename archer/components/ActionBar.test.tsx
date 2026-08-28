@@ -210,6 +210,28 @@ describe("ActionBar component", () => {
 });
 
 
+describe("ActionBar mobile full-width buttons", () => {
+    beforeEach(() => {
+        mockCopyToClipboard.mockResolvedValue({ success: true });
+        mockDownloadMarkdown.mockReturnValue({ success: true });
+    });
+
+    afterEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it("both buttons have w-full class for full-width on mobile", () => {
+        render(<ActionBar markdown={sampleMarkdown} mode="goal" inputText="Learn guitar" />);
+        const copyButton = screen.getByRole("button", { name: /copy markdown/i });
+        const downloadButton = screen.getByRole("button", { name: /download \.md/i });
+
+        expect(copyButton.className).toContain("w-full");
+        expect(copyButton.className).toContain("sm:w-auto");
+        expect(downloadButton.className).toContain("w-full");
+        expect(downloadButton.className).toContain("sm:w-auto");
+    });
+});
+
 describe("ActionBar Download button", () => {
     beforeEach(() => {
         mockCopyToClipboard.mockResolvedValue({ success: true });

@@ -121,4 +121,28 @@ describe("generateGoalTemplate", () => {
             }
         }
     });
+
+    it("does not contain any HTML comments", () => {
+        expect(output).not.toMatch(/<!--[\s\S]*?-->/);
+    });
+
+    it("ends with exactly one trailing newline", () => {
+        expect(output.endsWith("\n")).toBe(true);
+        expect(output.endsWith("\n\n")).toBe(false);
+    });
+
+    it("table separator rows match pipe-dash pattern", () => {
+        const lines = output.split("\n");
+        const separatorRows = lines.filter((line) =>
+            /^\|[\s-|]+\|$/.test(line)
+        );
+        expect(separatorRows.length).toBeGreaterThanOrEqual(2);
+        for (const row of separatorRows) {
+            // Each cell between pipes should contain dashes (with optional spaces)
+            const cells = row.split("|").filter((cell) => cell.trim() !== "");
+            for (const cell of cells) {
+                expect(cell.trim()).toMatch(/^-+$/);
+            }
+        }
+    });
 });

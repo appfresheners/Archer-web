@@ -93,4 +93,13 @@ describe("generateProjectTemplate", () => {
             }
         }
     });
+
+    it("does not contain any HTML comments", () => {
+        expect(output).not.toMatch(/<!--[\s\S]*?-->/);
+    });
+
+    it("ends with exactly one trailing newline", () => {
+        expect(output.endsWith("\n")).toBe(true);
+        expect(output.endsWith("\n\n")).toBe(false);
+    });
 });

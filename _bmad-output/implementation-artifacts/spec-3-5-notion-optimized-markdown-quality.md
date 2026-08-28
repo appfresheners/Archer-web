@@ -2,7 +2,8 @@
 title: "Notion-Optimized Markdown Quality"
 type: "feature"
 created: "2026-08-27"
-status: "draft"
+status: "done"
+baseline_commit: e4159b3fb251c2cdaa2f1e1f42385e91fc6f59ac
 review_loop_iteration: 0
 context: []
 ---
@@ -60,12 +61,12 @@ context: []
 
 **Execution:**
 
-- [ ] `archer/lib/templates/goal-template.ts` — Remove the opening HTML comment line from template output; append `\n` at end of template literal
-- [ ] `archer/lib/templates/project-template.ts` — Remove the opening HTML comment line from template output; append `\n` at end of template literal
-- [ ] `archer/components/ActionBar.tsx` — Add `w-full sm:w-auto` class to both Copy and Download buttons for full-width mobile stacking
-- [ ] `archer/lib/templates/goal-template.test.ts` — Add tests: output does not contain HTML comments, output ends with single `\n`, table separator rows match `| -+ |` pattern
-- [ ] `archer/lib/templates/project-template.test.ts` — Add tests: output does not contain HTML comments, output ends with single `\n`
-- [ ] `archer/components/ActionBar.test.tsx` — Add test: both buttons have `w-full` class applied
+- [x] `archer/lib/templates/goal-template.ts` — Remove the opening HTML comment line from template output; append `\n` at end of template literal
+- [x] `archer/lib/templates/project-template.ts` — Remove the opening HTML comment line from template output; append `\n` at end of template literal
+- [x] `archer/components/ActionBar.tsx` — Add `w-full sm:w-auto` class to both Copy and Download buttons for full-width mobile stacking
+- [x] `archer/lib/templates/goal-template.test.ts` — Add tests: output does not contain HTML comments, output ends with single `\n`, table separator rows match `| -+ |` pattern
+- [x] `archer/lib/templates/project-template.test.ts` — Add tests: output does not contain HTML comments, output ends with single `\n`
+- [x] `archer/components/ActionBar.test.tsx` — Add test: both buttons have `w-full` class applied
 
 **Acceptance Criteria:**
 
@@ -93,3 +94,29 @@ context: []
 - `npm run build` -- expected: exits 0, no TypeScript errors
 - `npm run lint` -- expected: exits 0, no lint errors
 - `npm run test` -- expected: all tests pass including new Notion-format tests
+
+## Suggested Review Order
+
+**Template cleanup (Notion-optimized output)**
+
+- Removed HTML comment preamble, added trailing newline for Notion paste compatibility
+  [`goal-template.ts:13`](../../archer/lib/templates/goal-template.ts#L13)
+
+- Same treatment: comment removed, trailing newline added
+  [`project-template.ts:13`](../../archer/lib/templates/project-template.ts#L13)
+
+**ActionBar responsive (mobile full-width)**
+
+- `w-full sm:w-auto` on both buttons for proper mobile stacking
+  [`ActionBar.tsx:90`](../../archer/components/ActionBar.tsx#L90)
+
+**Tests**
+
+- No-HTML-comment, trailing newline, and table separator assertions
+  [`goal-template.test.ts:124`](../../archer/lib/templates/goal-template.test.ts#L124)
+
+- No-HTML-comment and trailing newline assertions
+  [`project-template.test.ts:96`](../../archer/lib/templates/project-template.test.ts#L96)
+
+- Full-width class assertions on both buttons
+  [`ActionBar.test.tsx:213`](../../archer/components/ActionBar.test.tsx#L213)

@@ -11,9 +11,7 @@ function escapeMarkdown(text: string): string {
  */
 export function generateGoalTemplate(input: string): string {
     const safeInput = escapeMarkdown(input);
-    return `<!-- GTD Goal Mode template scaffold — replace placeholders with your own content -->
-
-# My 3-Month Goal
+    return `# My 3-Month Goal
 
 **${safeInput}**
 
@@ -101,5 +99,6 @@ export function generateGoalTemplate(input: string): string {
 - [ ] Navigate to [specific location]
 - [ ] Click [specific button or link]
 - [ ] Complete [specific tiny task]
-- [ ] Save [specific deliverable]`;
+- [ ] Save [specific deliverable]
+`;
 }

@@ -11,9 +11,7 @@ function escapeMarkdown(text: string): string {
  */
 export function generateProjectTemplate(input: string): string {
     const safeInput = escapeMarkdown(input);
-    return `<!-- GTD Project Mode template scaffold — replace placeholders with your own content -->
-
-# ${safeInput}
+    return `# ${safeInput}
 
 ## Purpose
 
@@ -34,5 +32,6 @@ export function generateProjectTemplate(input: string): string {
 - [ ] Search "[specific search term]"
 - [ ] Read [specific small section or result]
 - [ ] Write down [specific small deliverable]
-- [ ] Complete [specific tiny verification step]`;
+- [ ] Complete [specific tiny verification step]
+`;
 }
