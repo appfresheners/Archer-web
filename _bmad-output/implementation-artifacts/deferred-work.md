@@ -36,3 +36,28 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-5-notion-optimized-markdown-quality.md`
   summary: escapeMarkdown does not handle literal newlines or carriage returns in user input which could break table structure
   evidence: Pre-existing behavior from Epic 2; input field is single-line so risk is minimal but the function itself has no newline handling
+
+- source_spec: none
+  summary: Extract escapeMarkdown into shared utility (duplicated in goal-template.ts and project-template.ts)
+  evidence: Blind-hunter review identified code duplication; both template files define identical escapeMarkdown functions
+  status: done
+
+- source_spec: none
+  summary: Add input length validation to /api/generate route to prevent prompt injection and cost inflation
+  evidence: Blind-hunter review; no maxLength check on user input before concatenating into LLM prompt
+  status: done
+
+- source_spec: none
+  summary: Add AbortController timeout to outbound fetch calls in /api/generate route
+  evidence: Blind-hunter review; if a provider hangs the serverless function will exhaust its execution budget
+  status: done
+
+- source_spec: none
+  summary: Move Gemini API key from URL query parameter to x-goog-api-key header
+  evidence: Blind-hunter review; key in URL leaks to access logs and intermediate proxies
+  status: done
+
+- source_spec: none
+  summary: Verify default Gemini model name (gemini-3.6-flash) is a valid model identifier
+  evidence: Blind-hunter review; does not match known published Gemini model names — changed to gemini-2.0-flash
+  status: done

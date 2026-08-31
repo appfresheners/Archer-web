@@ -33,63 +33,52 @@ describe("generateGoalTemplate", () => {
     it("contains 'Capabilities they have' section with pipe table", () => {
         expect(output).toMatch(/### Capabilities they have/);
         expect(output).toContain("| What they can do");
-        expect(output).toContain("| Rating (1–10) |");
+        expect(output).toContain("| Target rating (1–10) |");
     });
 
     it("contains 'Resources they have' section with pipe table", () => {
         expect(output).toMatch(/### Resources they have/);
         expect(output).toContain("| What they have access to");
-        expect(output).toContain("| Rating (1–10) |");
+        expect(output).toContain("| Target rating (1–10) |");
     });
 
-    it("contains at least 3 project sections", () => {
-        const projectHeadings = output.match(/^### \[/gm);
-        expect(projectHeadings).not.toBeNull();
-        expect(projectHeadings!.length).toBeGreaterThanOrEqual(3);
+    it("contains 'My Current Profile' section with gap tables", () => {
+        expect(output).toMatch(/## My Current Profile/);
+        expect(output).toMatch(/### My Capabilities/);
+        expect(output).toMatch(/### My Resources/);
+        expect(output).toContain("| Gap |");
     });
 
-    it("each project section contains Purpose, Successful Outcome, and Next Actions", () => {
-        const purposeCount = (output.match(/^#### Purpose$/gm) || []).length;
-        const outcomeCount = (output.match(/^#### Successful Outcome$/gm) || []).length;
-        const actionsCount = (output.match(/^#### Next Actions$/gm) || []).length;
-
-        expect(purposeCount).toBeGreaterThanOrEqual(3);
-        expect(outcomeCount).toBeGreaterThanOrEqual(3);
-        expect(actionsCount).toBeGreaterThanOrEqual(3);
+    it("contains 'What helps and blocks me' section", () => {
+        expect(output).toMatch(/## What helps and blocks me\?/);
+        expect(output).toMatch(/### Drivers/);
+        expect(output).toMatch(/### Barriers/);
+        expect(output).toContain("If–then plan");
     });
 
-    it("next actions start with physical verbs", () => {
-        const physicalVerbs = [
-            "Open",
-            "Search",
-            "Read",
-            "Watch",
-            "Write",
-            "Type",
-            "Click",
-            "Save",
-            "Navigate",
-            "Create",
-            "Complete",
-            "Tap",
-        ];
-        const actionLines = output
-            .split("\n")
-            .filter((line) => line.match(/^- \[ \] /))
-            .filter((line) => {
-                const afterCheckbox = line.replace(/^- \[ \] /, "");
-                return !afterCheckbox.startsWith("[Define") && !afterCheckbox.startsWith("[");
-            });
+    it("contains 'Focus on 2–3 biggest gaps' section with priorities", () => {
+        expect(output).toMatch(/## Focus on 2–3 biggest gaps/);
+        expect(output).toMatch(/### Priority 1/);
+        expect(output).toMatch(/### Priority 2/);
+        expect(output).toContain("**Project idea:**");
+        expect(output).toContain("**First next action:**");
+    });
 
-        expect(actionLines.length).toBeGreaterThan(0);
+    it("contains 'Link Real Projects' section", () => {
+        expect(output).toMatch(/## Link Real Projects/);
+        expect(output).toContain("🏗️ Projects");
+    });
 
-        for (const line of actionLines) {
-            const actionText = line.replace(/^- \[ \] /, "");
-            const startsWithPhysicalVerb = physicalVerbs.some((verb) =>
-                actionText.startsWith(verb),
-            );
-            expect(startsWithPhysicalVerb).toBe(true);
-        }
+    it("contains 'Monthly Goal Check' section", () => {
+        expect(output).toMatch(/## Monthly Goal Check/);
+        expect(output).toContain("Is this goal still relevant?");
+    });
+
+    it("contains gap-closing blockers as checkboxes", () => {
+        expect(output).toContain("**Clarity**");
+        expect(output).toContain("**Consistency**");
+        expect(output).toContain("**Access**");
+        expect(output).toContain("**Feedback**");
     });
 
     it("is synchronous (no async)", () => {

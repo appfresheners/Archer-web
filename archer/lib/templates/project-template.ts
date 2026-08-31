@@ -1,9 +1,4 @@
-/**
- * Escapes characters that could break markdown structure when user input is interpolated.
- */
-function escapeMarkdown(text: string): string {
-    return text.replace(/[\\`*_{}[\]()#+\-.!|~>]/g, "\\$&");
-}
+import { escapeMarkdown } from "@/lib/utils/escape-markdown";
 
 /**
  * Generates a GTD Project Mode markdown template with the user's project inserted.
