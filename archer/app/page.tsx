@@ -4,6 +4,7 @@ import ActionBar from "@/components/ActionBar";
 import InputSection from "@/components/InputSection";
 import ModeToggle from "@/components/ModeToggle";
 import OutputPanel from "@/components/OutputPanel";
+import { saveEntry } from "@/lib/vault/storage";
 import { useEffect, useRef, useState } from "react";
 
 export default function Home() {
@@ -12,6 +13,7 @@ export default function Home() {
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [saveNotice, setSaveNotice] = useState("");
   const outputRef = useRef<HTMLDivElement>(null);
 
   const handleModeChange = (newMode: "goal" | "project") => {
@@ -19,11 +21,13 @@ export default function Home() {
     setInputText("");
     setOutput("");
     setError("");
+    setSaveNotice("");
   };
 
   const handleSubmit = async () => {
     setLoading(true);
     setError("");
+    setSaveNotice("");
     setOutput("");
 
     try {
@@ -41,6 +45,23 @@ export default function Home() {
       }
 
       setOutput(data.markdown);
+
+      // Persist the breakdown to the local vault. A save failure must never
+      // clear the visible output — it only raises a dismissible notice.
+      const saved = saveEntry({
+        inputText,
+        mode,
+        generationOptions: null,
+        outputMarkdown: data.markdown,
+      });
+
+      if (!saved.success) {
+        setSaveNotice(
+          saved.reason === "quota"
+            ? "Couldn't save to your local vault — storage is full. Your breakdown is still shown above."
+            : "Couldn't save to your local vault. Your breakdown is still shown above."
+        );
+      }
     } catch {
       setError("Network error. Please check your connection and try again.");
     } finally {
@@ -112,6 +133,23 @@ export default function Home() {
       {output && (
         <section className="w-full border-t border-[var(--color-border)] bg-[var(--color-surface)]">
           <div className="mx-auto max-w-[1200px] px-6 md:px-12 lg:px-16 py-12">
+            {saveNotice && (
+              <div
+                role="status"
+                className="mb-6 flex items-start justify-between gap-4 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-sm text-text-secondary"
+              >
+                <span>{saveNotice}</span>
+                <button
+                  type="button"
+                  onClick={() => setSaveNotice("")}
+                  className="shrink-0 font-medium text-text-primary underline"
+                  aria-label="Dismiss save notice"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
             <OutputPanel ref={outputRef} markdown={output} />
 
             <div className="mt-6">

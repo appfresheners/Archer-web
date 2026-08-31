@@ -1,5 +1,6 @@
 import * as clipboardUtil from "@/lib/utils/clipboard";
 import * as downloadUtil from "@/lib/utils/download";
+import * as vaultStorage from "@/lib/vault/storage";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,8 +14,29 @@ vi.mock("@/lib/utils/download", () => ({
     downloadMarkdown: vi.fn(),
 }));
 
+vi.mock("@/lib/vault/storage", () => ({
+    saveEntry: vi.fn(),
+}));
+
 const mockCopyToClipboard = clipboardUtil.copyToClipboard as ReturnType<typeof vi.fn>;
 const mockDownloadMarkdown = downloadUtil.downloadMarkdown as ReturnType<typeof vi.fn>;
+const mockSaveEntry = vaultStorage.saveEntry as ReturnType<typeof vi.fn>;
+
+// Default the vault to a successful save so existing suites are unaffected.
+// vi.restoreAllMocks() clears the implementation, so re-apply before each test.
+beforeEach(() => {
+    mockSaveEntry.mockReturnValue({
+        success: true,
+        data: {
+            id: "test-id",
+            inputText: "",
+            mode: "goal",
+            generationOptions: null,
+            outputMarkdown: "",
+            createdAt: 0,
+        },
+    });
+});
 
 const MOCK_GOAL_RESPONSE = `# My 3-Month Goal
 
@@ -622,5 +644,133 @@ describe("Download button integration with Home page", () => {
         await user.click(projectTab);
 
         expect(screen.queryByRole("button", { name: /download \.md/i })).not.toBeInTheDocument();
+    });
+});
+
+describe("Vault persistence integration with Home page", () => {
+    beforeEach(() => {
+        mockFetchSuccess(MOCK_GOAL_RESPONSE);
+        // Clear call history accumulated by earlier describe blocks (which also
+        // render <Home /> and trigger saveEntry). vi.restoreAllMocks() does not
+        // reset a module-factory vi.fn()'s call count, so clear it explicitly.
+        mockSaveEntry.mockClear();
+        mockSaveEntry.mockReturnValue({
+            success: true,
+            data: {
+                id: "test-id",
+                inputText: "",
+                mode: "goal",
+                generationOptions: null,
+                outputMarkdown: "",
+                createdAt: 0,
+            },
+        });
+    });
+
+    afterEach(() => {
+        mockSaveEntry.mockReset();
+        vi.restoreAllMocks();
+    });
+
+    it("persists a vault entry on successful generation", async () => {
+        const user = userEvent.setup();
+        render(<Home />);
+
+        const input = screen.getByRole("textbox");
+        await user.type(input, "Learn guitar");
+
+        const submitButton = screen.getByRole("button", { name: /generate/i });
+        await user.click(submitButton);
+
+        await waitFor(() => {
+            expect(screen.getByRole("region", { name: "Generated GTD template" })).toBeInTheDocument();
+        });
+
+        expect(mockSaveEntry).toHaveBeenCalledTimes(1);
+        expect(mockSaveEntry).toHaveBeenCalledWith(
+            expect.objectContaining({
+                inputText: "Learn guitar",
+                mode: "goal",
+                generationOptions: null,
+                outputMarkdown: MOCK_GOAL_RESPONSE,
+            })
+        );
+    });
+
+    it("does not call saveEntry when generation fails", async () => {
+        mockFetchError("OpenAI API key not configured.");
+        const user = userEvent.setup();
+        render(<Home />);
+
+        const input = screen.getByRole("textbox");
+        await user.type(input, "Learn guitar");
+
+        const submitButton = screen.getByRole("button", { name: /generate/i });
+        await user.click(submitButton);
+
+        await waitFor(() => {
+            expect(screen.getByRole("alert")).toBeInTheDocument();
+        });
+
+        expect(mockSaveEntry).not.toHaveBeenCalled();
+    });
+
+    it("shows a save-failure notice while keeping output visible", async () => {
+        mockSaveEntry.mockReturnValue({ success: false, reason: "unknown" });
+        const user = userEvent.setup();
+        render(<Home />);
+
+        const input = screen.getByRole("textbox");
+        await user.type(input, "Learn guitar");
+
+        const submitButton = screen.getByRole("button", { name: /generate/i });
+        await user.click(submitButton);
+
+        await waitFor(() => {
+            expect(screen.getByText(/couldn't save to your local vault/i)).toBeInTheDocument();
+        });
+
+        // Output remains rendered despite the save failure.
+        expect(screen.getByRole("region", { name: "Generated GTD template" })).toBeInTheDocument();
+    });
+
+    it("shows a quota-specific message when the vault is full", async () => {
+        mockSaveEntry.mockReturnValue({ success: false, reason: "quota" });
+        const user = userEvent.setup();
+        render(<Home />);
+
+        const input = screen.getByRole("textbox");
+        await user.type(input, "Learn guitar");
+
+        const submitButton = screen.getByRole("button", { name: /generate/i });
+        await user.click(submitButton);
+
+        await waitFor(() => {
+            expect(screen.getByText(/storage is full/i)).toBeInTheDocument();
+        });
+
+        expect(screen.getByRole("region", { name: "Generated GTD template" })).toBeInTheDocument();
+    });
+
+    it("dismisses the save-failure notice when Dismiss is clicked", async () => {
+        mockSaveEntry.mockReturnValue({ success: false, reason: "unknown" });
+        const user = userEvent.setup();
+        render(<Home />);
+
+        const input = screen.getByRole("textbox");
+        await user.type(input, "Learn guitar");
+
+        const submitButton = screen.getByRole("button", { name: /generate/i });
+        await user.click(submitButton);
+
+        await waitFor(() => {
+            expect(screen.getByText(/couldn't save to your local vault/i)).toBeInTheDocument();
+        });
+
+        await user.click(screen.getByRole("button", { name: /dismiss save notice/i }));
+
+        expect(screen.queryByText(/couldn't save to your local vault/i)).not.toBeInTheDocument();
+        // Output still visible after dismissing.
+        expect(screen.getByRole("region", { name: "Generated GTD template" })).toBeInTheDocument();
     });
 });

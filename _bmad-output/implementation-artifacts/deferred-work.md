@@ -61,3 +61,23 @@
   summary: Verify default Gemini model name (gemini-3.6-flash) is a valid model identifier
   evidence: Blind-hunter review; does not match known published Gemini model names — changed to gemini-2.0-flash
   status: done
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-1-local-vault-storage-layer.md`
+  summary: Validate individual vault entry shape (not just the container's entries array) in isVaultSchema/readVault
+  evidence: Review found isVaultSchema only checks entries is an array; malformed entries (e.g. [null], [{}]) pass and are cast to VaultEntry unsafely, flowing to listEntries/readEntry consumers (relevant once 4.3 renders them)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-1-local-vault-storage-layer.md`
+  summary: Gate on schemaVersion and add a migration path before treating stored data as current version
+  evidence: isVaultSchema ignores schemaVersion; a future/foreign version is silently read and mutated as v1. Deliberately deferred in 4.1 but needed before the schema evolves (4.2 encryption changes the stored shape)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-1-local-vault-storage-layer.md`
+  summary: Multi-tab / concurrent write safety for the vault (read-modify-write can clobber across tabs)
+  evidence: saveEntry/deleteEntry do readVault -> mutate -> writeVault with no storage-event listener or locking; two tabs saving concurrently lose entries (last write wins)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-1-local-vault-storage-layer.md`
+  summary: Add a size/entry-count bound or pruning strategy to prevent unbounded vault growth toward QuotaExceededError
+  evidence: Every saveEntry appends with no cap or eviction; quota failure is only reported, never prevented. Also no length guard on inputText/outputMarkdown before persisting
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-1-local-vault-storage-layer.md`
+  summary: Preserve/quarantine corrupt-but-parseable vault data instead of silently overwriting it on the next save
+  evidence: When stored JSON parses but fails isVaultSchema, readVault returns empty; a subsequent save overwrites the recoverable raw bytes with an empty container, with no backup or user warning
