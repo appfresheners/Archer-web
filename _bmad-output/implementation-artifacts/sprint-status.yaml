@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 08-20-2026 12:00
-last_updated: 2026-08-27
+last_updated: 08-31-2026 12:00
 
 project: GTDGoalandProjectCreator
 project_key: NOKEY
@@ -50,9 +50,25 @@ development_status:
   epic-2-retrospective: optional
 
   epic-3: in-progress
-  3-1-copy-markdown-to-clipboard: review
-  3-2-download-as-markdown-file: review
-  3-3-try-an-example: backlog
-  3-4-start-over: backlog
-  3-5-notion-optimized-markdown-quality: review
+  3-1-copy-markdown-to-clipboard: done
+  3-2-download-as-markdown-file: done
+  # 3-3-try-an-example: backlog
+  # 3-4-start-over: backlog
+  3-5-notion-optimized-markdown-quality: done
   epic-3-retrospective: optional
+
+  epic-4: backlog
+  4-1-local-vault-storage-layer: backlog
+  4-2-vault-encryption-at-rest: backlog
+  4-3-saved-breakdowns-list-restore: backlog
+  4-4-vault-export-import: backlog
+  4-5-portable-passwordless-identity-link-qr: backlog
+  epic-4-retrospective: optional
+
+  epic-5: backlog
+  5-1-generation-options-data-contract-request-plumbing: backlog
+  5-2-depth-control-quick-exhaustive: backlog
+  5-3-gtd-strictness-toggle: backlog
+  5-4-why-this-matters-motivational-framing: backlog
+  5-5-options-surfaced-in-ui-without-breaking-zero-friction-flow: backlog
+  epic-5-retrospective: optional

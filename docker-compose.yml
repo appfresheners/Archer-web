@@ -1,0 +1,44 @@
+# Docker Compose deployment for the archer app.
+#
+# Traefik is NOT defined here — it runs separately (managed locally by you).
+# This compose file only runs the archer app and attaches it to your existing
+# external Traefik network so Traefik can route to it via the labels below.
+#
+# Setup:
+#   1. cp .env.example .env            # set DOMAIN
+#   2. cp archer/.env.example archer/.env   # set AI provider key
+#   3. docker compose up -d --build
+#
+# See DEPLOYMENT.md for full instructions.
+
+services:
+  archer:
+    build:
+      context: ./archer
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # App runtime configuration (AI_PROVIDER, *_API_KEY, *_MODEL).
+    # Copy archer/.env.example to archer/.env and fill in your keys.
+    env_file:
+      - ./archer/.env
+    expose:
+      - "3000"
+    networks:
+      - web
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+      # HTTPS router — assumes your Traefik has a "websecure" entrypoint and a
+      # cert resolver named "le". Adjust to match your Traefik configuration.
+      - "traefik.http.routers.archer.rule=Host(`${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.archer.entrypoints=websecure"
+      - "traefik.http.routers.archer.tls=true"
+      - "traefik.http.routers.archer.tls.certresolver=le"
+      # Upstream port inside the container
+      - "traefik.http.services.archer.loadbalancer.server.port=3000"
+
+networks:
+  # Your existing Traefik network, created and owned by your Traefik stack.
+  # Change the name to match your setup if it isn't "web".
+  web:
+    external: true

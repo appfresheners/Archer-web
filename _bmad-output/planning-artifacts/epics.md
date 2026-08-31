@@ -11,6 +11,13 @@ inputDocuments:
   - "_bmad-output/planning-artifacts/architecture/architecture-GTDGoalandProjectCreator-2026-08-20/ARCHITECTURE-SPINE.md"
   - "_bmad-output/planning-artifacts/ux-designs/ux-GTDGoalandProjectCreator-2026-08-20/DESIGN.md"
   - "_bmad-output/planning-artifacts/ux-designs/ux-GTDGoalandProjectCreator-2026-08-20/EXPERIENCE.md"
+extensionInputDocuments:
+  - "_bmad-output/brainstorming/brainstorm-archer-features-2026-08-31/.memlog.md"
+  - "archer/app/api/generate/route.ts"
+  - "archer/app/page.tsx"
+epicsAddedPostMvp:
+  - "Epic 4: Local-First Goal Persistence & Portability"
+  - "Epic 5: Output Control & Motivational Framing"
 ---
 
 # Archer - Epic Breakdown
@@ -105,6 +112,61 @@ UX-DR12: Implement "Try an example" control — ghost/text-link style, pre-fills
 | FR19 | Epic 3 | Start over (clear + reset focus)     |
 | FR20 | Epic 3 | Notion-optimized markdown format     |
 
+### Post-MVP Functional Requirements (Epics 4–5)
+
+Derived from the 2026-08-31 feature brainstorm (`_bmad-output/brainstorming/brainstorm-archer-features-2026-08-31/.memlog.md`) and the current implemented codebase (AI-backed `/api/generate`, `useState`-only client, no persistence layer). These extend, and do not replace, FR1–FR20.
+
+**Epic 4 — Local-First Goal Persistence & Portability**
+
+FR21: The app SHALL persist each generated breakdown (input text, mode, generation options, output markdown, timestamp) to an in-browser local vault, with no server-side storage.
+FR22: The vault SHALL be encrypted at rest in the browser using a passphrase-derived key, so that raw goal content is not stored in plaintext.
+FR23: The user SHALL be able to view a list of their saved breakdowns (most recent first) and re-open any entry to restore its full output.
+FR24: The user SHALL be able to delete individual saved breakdowns and clear the entire vault.
+FR25: The user SHALL be able to export the entire vault as a single downloadable file that they own.
+FR26: The user SHALL be able to import a previously exported vault file, merging or restoring its entries.
+FR27: The app SHALL support a passwordless "portable identity" — a saved link and/or QR code that encodes the key material needed to unlock the vault, enabling access from another device without any account or server.
+FR28: WHEN a portable-identity link or QR code is used to open the app, THE app SHALL reconstruct access to the vault without requiring a password prompt.
+FR29: The app SHALL clearly warn the user that portable-identity links/QR codes grant vault access and SHOULD be stored securely.
+
+**Epic 5 — Output Control & Motivational Framing**
+
+FR30: The app SHALL provide a depth control allowing the user to choose how detailed the generated breakdown is, ranging from a quick short-form breakdown to an exhaustive full breakdown.
+FR31: The selected depth SHALL be passed to the generation request and SHALL measurably change the amount of generated content (e.g., number of next actions / sections).
+FR32: The app SHALL provide a "GTD strictness" toggle that, when enabled, enforces GTD-purity constraints on the output — next actions begin with physical verbs and project/outcome titles describe finished results rather than activities.
+FR33: WHEN GTD strictness is enabled, THE generation request SHALL instruct the model to reject or rewrite non-conforming actions and titles.
+FR34: The app SHALL provide a "Why this matters" motivational framing layer rendered at the top of each generated output, connecting the goal/project to its deeper purpose and payoff.
+FR35: The user SHALL be able to toggle the "Why this matters" framing on or off, and the setting SHALL be reflected in the generated output.
+FR36: Generation options (depth, strictness, framing) SHALL have sensible defaults so a user who ignores them still gets a valid breakdown, preserving the zero-friction one-input-one-button flow.
+FR37: Generation options SHALL be persisted with each saved breakdown (see FR21) so re-opening an entry preserves the options used to create it.
+
+### Post-MVP NFRs
+
+NFR8: All persistence, encryption, export/import, and portable-identity features SHALL operate entirely client-side with no new server-side data storage, preserving Archer's no-account, no-tracking commitment.
+NFR9: Vault encryption SHALL use a standard, well-reviewed browser primitive (Web Crypto API) rather than a custom cryptographic scheme.
+NFR10: Generation-option controls SHALL meet the same WCAG 2.1 AA bar as existing controls (keyboard nav, ARIA, 44×44px targets, contrast, prefers-reduced-motion).
+
+### FR Coverage Map (Epics 4–5)
+
+| FR   | Epic   | Description                                     |
+| ---- | ------ | ----------------------------------------------- |
+| FR21 | Epic 4 | Persist breakdowns to local vault               |
+| FR22 | Epic 4 | Encrypt vault at rest (passphrase-derived key)  |
+| FR23 | Epic 4 | List and re-open saved breakdowns               |
+| FR24 | Epic 4 | Delete entries / clear vault                    |
+| FR25 | Epic 4 | Export vault as a single owned file             |
+| FR26 | Epic 4 | Import previously exported vault                |
+| FR27 | Epic 4 | Portable identity via saved link / QR           |
+| FR28 | Epic 4 | Passwordless unlock from portable identity      |
+| FR29 | Epic 4 | Security warning for portable-identity sharing  |
+| FR30 | Epic 5 | Depth control (quick ↔ exhaustive)              |
+| FR31 | Epic 5 | Depth passed to generation, changes output size |
+| FR32 | Epic 5 | GTD strictness toggle                           |
+| FR33 | Epic 5 | Strictness enforced in generation request       |
+| FR34 | Epic 5 | "Why this matters" framing atop output          |
+| FR35 | Epic 5 | Toggle framing on/off                           |
+| FR36 | Epic 5 | Sensible option defaults preserve zero-friction |
+| FR37 | Epic 5 | Options persisted with saved breakdown          |
+
 ## Epic List
 
 ### Epic 1: Project Foundation & Core UI Shell
@@ -129,6 +191,18 @@ Users can copy their GTD breakdown as Notion-optimized markdown or download it a
 **NFRs covered:** NFR6
 **ARs covered:** AR4
 **UX-DRs covered:** UX-DR7, UX-DR12
+
+### Epic 4: Local-First Goal Persistence & Portability
+
+Users can keep every breakdown they generate, encrypted in their own browser, revisit past goals, and carry their vault to another device — all with no account, no server, and no tracking.
+**FRs covered:** FR21, FR22, FR23, FR24, FR25, FR26, FR27, FR28, FR29
+**NFRs covered:** NFR8, NFR9, NFR10
+
+### Epic 5: Output Control & Motivational Framing
+
+Users can shape the generated breakdown — how deep it goes, how strictly it follows GTD, and whether it opens with a motivational "why this matters" — without losing the zero-friction default flow.
+**FRs covered:** FR30, FR31, FR32, FR33, FR34, FR35, FR36, FR37
+**NFRs covered:** NFR10
 
 ## Epic 1: Project Foundation & Core UI Shell
 
@@ -459,3 +533,265 @@ So that every element renders correctly when I paste or import.
 **When** rendered on mobile (< 640px)
 **Then** buttons stack vertically with full width
 **And** "Copy Markdown" appears first (primary), "Download .md" second (secondary outline)
+
+## Epic 4: Local-First Goal Persistence & Portability
+
+Users can keep every breakdown they generate, encrypted in their own browser, revisit past goals, and carry their vault to another device — all with no account, no server, and no tracking.
+
+**Context:** Archer currently holds no state between sessions — `page.tsx` uses `useState` only, and a refresh loses everything. This epic introduces the first persistence layer, deliberately local-first and encrypted, to honor the no-account / no-tracking commitment (NFR8) while unlocking a memory the product has never had. Encryption uses the browser-native Web Crypto API (NFR9); no third-party crypto libraries and no server storage.
+
+### Story 4.1: Local Vault Storage Layer
+
+As a user,
+I want the breakdowns I generate to be saved in my browser,
+So that I don't lose my work when I close the tab or refresh.
+
+**Acceptance Criteria:**
+
+**Given** I have generated a breakdown
+**When** generation completes successfully
+**Then** an entry is written to a local vault containing the input text, mode, generation options, output markdown, and a creation timestamp
+**And** the write happens entirely client-side with no network request to any Archer-owned server (NFR8)
+
+**Given** the vault storage module in `lib/vault/`
+**When** inspected
+**Then** it exposes pure, testable functions for create / read / list / delete
+**And** persistence uses browser storage (localStorage or IndexedDB) with a versioned schema
+**And** the module is isolated from React components (consistent with AR4/AR6 layering)
+
+**Given** the browser storage is unavailable or full
+**When** a save is attempted
+**Then** the failure is handled gracefully with a user-visible message
+**And** the current generated output remains usable (save failure never destroys the on-screen result)
+
+### Story 4.2: Vault Encryption at Rest
+
+As a privacy-conscious user,
+I want my saved goals encrypted in the browser,
+So that my personal ambitions aren't sitting in plaintext on the device.
+
+**Acceptance Criteria:**
+
+**Given** the vault stores an entry
+**When** the stored data is inspected in browser dev tools
+**Then** the goal/project content and output markdown are encrypted (not human-readable plaintext) (FR22)
+
+**Given** encryption is required
+**When** a key is derived
+**Then** it is derived from a user passphrase using the Web Crypto API (e.g., PBKDF2/AES-GCM) with a per-vault random salt (NFR9)
+**And** no custom or hand-rolled cryptographic scheme is used
+
+**Given** an incorrect passphrase
+**When** the user attempts to unlock the vault
+**Then** decryption fails cleanly with a clear "couldn't unlock" message and no partial/garbage data is shown
+
+**Given** encryption/decryption logic in `lib/vault/`
+**When** inspected
+**Then** encrypt and decrypt are covered by unit tests including a round-trip property (decrypt(encrypt(x)) === x) and a wrong-key failure case
+
+### Story 4.3: Saved Breakdowns List & Restore
+
+As a returning user,
+I want to see my past breakdowns and re-open any of them,
+So that I can pick up a goal I started earlier.
+
+**Acceptance Criteria:**
+
+**Given** I have one or more saved breakdowns
+**When** I open the saved-breakdowns view
+**Then** entries are listed most-recent-first showing at least the input text, mode, and timestamp (FR23)
+
+**Given** I select a saved entry
+**When** it opens
+**Then** the full output markdown is restored to the output panel exactly as originally generated
+**And** the generation options used to create it are restored (FR37)
+
+**Given** a saved entry
+**When** I choose to delete it
+**Then** that single entry is removed from the vault (FR24)
+**And** the list updates without a full page reload
+
+**Given** I choose to clear the entire vault
+**When** I confirm the destructive action
+**Then** all entries are removed after an explicit confirmation step
+**And** the confirmation clearly states the action cannot be undone
+
+**Given** the saved-breakdowns UI
+**When** measured for accessibility
+**Then** it meets WCAG 2.1 AA (keyboard nav, ARIA, 44×44px targets, contrast) (NFR10)
+
+### Story 4.4: Vault Export & Import
+
+As a user who owns their data,
+I want to export my vault to a file and import it back,
+So that I control my own goal history and can back it up or move it.
+
+**Acceptance Criteria:**
+
+**Given** I have a populated vault
+**When** I click "Export vault"
+**Then** the browser downloads a single file containing the full (encrypted) vault (FR25)
+**And** the download uses the existing client-side download utility pattern (no server round-trip)
+
+**Given** a previously exported vault file
+**When** I import it
+**Then** its entries are restored into the local vault (FR26)
+**And** the user is told whether entries were merged with or replaced the current vault
+**And** an invalid or corrupt file is rejected with a clear error and no partial import
+
+**Given** export/import logic
+**When** inspected
+**Then** it is covered by tests including an export→import round-trip that preserves all entries
+
+### Story 4.5: Portable Passwordless Identity (Link + QR)
+
+As a user with more than one device,
+I want a saved link or QR code that unlocks my vault elsewhere,
+So that I can access my goals on another device without creating an account.
+
+**Acceptance Criteria:**
+
+**Given** I have an encrypted vault
+**When** I generate a portable identity
+**Then** the app produces a saveable link and a QR code that encode the key material needed to unlock the vault (FR27)
+**And** no account, password prompt, or server-side record is created (FR28, NFR8)
+
+**Given** a portable-identity link or QR code
+**When** I open Archer with it on another device (with the vault file present/imported)
+**Then** the vault is unlocked without a manual passphrase prompt (FR28)
+
+**Given** I am about to generate or copy a portable identity
+**When** the control is shown
+**Then** a clear security warning states that anyone with the link/QR can unlock the vault and it should be stored securely (FR29)
+
+**Given** the portable-identity encoding
+**When** inspected
+**Then** key material is carried in a way that is not sent to any Archer-owned server (e.g., URL fragment / locally rendered QR), and this is verified by test or documented threat note
+
+---
+
+## Epic 5: Output Control & Motivational Framing
+
+Users can shape the generated breakdown — how deep it goes, how strictly it follows GTD, and whether it opens with a motivational "why this matters" — without losing the zero-friction default flow.
+
+**Context:** Generation today is a POST to `/api/generate` with `{ input, mode }`, selecting one of two hardcoded system prompts (`GOAL_SYSTEM_PROMPT`, `PROJECT_SYSTEM_PROMPT`). This epic threads three new options through that request and adapts the prompt accordingly. The guiding constraint (FR36): defaults must keep the one-input-one-button experience intact — the controls are progressive, never mandatory. These options also feed the Epic 4 vault (FR37), so the two epics share the generation-options data shape.
+
+### Story 5.1: Generation Options Data Contract & Request Plumbing
+
+As a developer,
+I want a single well-defined options object flowing from the UI through the API to prompt selection,
+So that depth, strictness, and framing are handled consistently and can be persisted with saved breakdowns.
+
+**Acceptance Criteria:**
+
+**Given** the generate request
+**When** the client submits
+**Then** the request body carries an `options` object alongside `input` and `mode`, with fields for depth, strictness, and framing (FR30, FR32, FR34)
+**And** the `/api/generate` route validates the options and falls back to defaults for any missing/invalid field (FR36)
+
+**Given** no options are supplied (legacy/simple flow)
+**When** generation runs
+**Then** the app behaves exactly as today with sensible defaults, preserving the zero-friction path (FR36)
+
+**Given** the options shape
+**When** defined
+**Then** it is a shared TypeScript type reused by the client, the API route, and the Epic 4 vault entry (FR37)
+
+### Story 5.2: Depth Control (Quick ↔ Exhaustive)
+
+As a user,
+I want to choose how detailed my breakdown is,
+So that I can get a quick starter or a comprehensive plan depending on my needs.
+
+**Acceptance Criteria:**
+
+**Given** the input area
+**When** I view the controls
+**Then** a depth control lets me choose along a range from quick (short-form) to exhaustive (full breakdown) (FR30)
+**And** the default depth reproduces the current output length so existing behavior is unchanged (FR36)
+
+**Given** I select a "quick" depth and generate
+**When** the output returns
+**Then** it contains measurably less content (e.g., fewer next actions / condensed sections) than the exhaustive depth for the same input (FR31)
+
+**Given** I select "exhaustive" depth and generate
+**When** the output returns
+**Then** it contains the full detailed breakdown
+
+**Given** the depth control
+**When** measured for accessibility
+**Then** it meets WCAG 2.1 AA (keyboard operable, labeled, 44×44px target, prefers-reduced-motion respected) (NFR10)
+
+### Story 5.3: GTD Strictness Toggle
+
+As a GTD practitioner,
+I want a strictness toggle that enforces GTD purity,
+So that every action is a physical verb and every project title describes a finished outcome.
+
+**Acceptance Criteria:**
+
+**Given** the controls
+**When** I view them
+**Then** a "GTD strictness" toggle is available and is off by default (preserving current behavior) (FR32, FR36)
+
+**Given** strictness is enabled
+**When** I generate
+**Then** the generation request instructs the model to enforce GTD purity — actions begin with physical verbs, project/outcome titles describe finished results not activities, and non-conforming items are rewritten or rejected (FR33)
+
+**Given** strictness is enabled and output returns
+**When** the next actions are inspected
+**Then** each next action begins with a physical verb
+**And** project/outcome titles are outcome-based (a finished result, not an activity)
+
+**Given** the strictness toggle
+**When** measured for accessibility
+**Then** it meets WCAG 2.1 AA (NFR10)
+
+### Story 5.4: "Why This Matters" Motivational Framing
+
+As a user who needs a push to start,
+I want a short "why this matters" framing at the top of my breakdown,
+So that I'm reconnected to the purpose behind the goal before I see the tasks.
+
+**Acceptance Criteria:**
+
+**Given** the controls
+**When** I view them
+**Then** a "Why this matters" toggle is available with a sensible default (FR34, FR35)
+
+**Given** the framing is enabled
+**When** I generate
+**Then** the output opens with a concise motivational framing section that connects the goal/project to its deeper purpose and payoff (FR34)
+**And** the framing renders at the top of the output panel above the existing structure
+
+**Given** the framing is disabled
+**When** I generate
+**Then** no framing section appears and the output matches the non-framed structure (FR35)
+
+**Given** the framing section
+**When** the markdown is copied/downloaded
+**Then** it is included in the exported markdown and remains Notion-optimized (consistent with FR20)
+
+### Story 5.5: Options Surfaced in UI Without Breaking Zero-Friction Flow
+
+As a first-time user,
+I want the new controls to stay out of my way until I want them,
+So that Archer still feels like one input and one button.
+
+**Acceptance Criteria:**
+
+**Given** a first-time visitor on page load
+**When** they view the input area
+**Then** the primary path is still a single input plus Generate, with the options presented as secondary/progressive controls that don't dominate the layout (FR36)
+
+**Given** a user changes any option
+**When** they generate
+**Then** the chosen options are applied and (when the vault exists) persisted with the saved entry (FR37)
+
+**Given** the option controls across mobile / tablet / desktop
+**When** viewed
+**Then** they remain usable and accessible at all breakpoints (NFR10, consistent with NFR3)
+
+**Given** the full control set
+**When** navigated by keyboard
+**Then** tab order is logical and every control has a visible focus indicator and accessible label (NFR10)
