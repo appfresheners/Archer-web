@@ -1,6 +1,7 @@
 import * as clipboardUtil from "@/lib/utils/clipboard";
 import * as downloadUtil from "@/lib/utils/download";
-import * as vaultStorage from "@/lib/vault/storage";
+import type { VaultEntry, VaultResult } from "@/lib/vault/types";
+import * as vaultSession from "@/lib/vault/useVaultSession";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -14,18 +15,45 @@ vi.mock("@/lib/utils/download", () => ({
     downloadMarkdown: vi.fn(),
 }));
 
-vi.mock("@/lib/vault/storage", () => ({
-    saveEntry: vi.fn(),
+vi.mock("@/lib/vault/useVaultSession", () => ({
+    useVaultSession: vi.fn(),
 }));
 
 const mockCopyToClipboard = clipboardUtil.copyToClipboard as ReturnType<typeof vi.fn>;
 const mockDownloadMarkdown = downloadUtil.downloadMarkdown as ReturnType<typeof vi.fn>;
-const mockSaveEntry = vaultStorage.saveEntry as ReturnType<typeof vi.fn>;
+const mockUseVaultSession = vaultSession.useVaultSession as ReturnType<typeof vi.fn>;
 
-// Default the vault to a successful save so existing suites are unaffected.
-// vi.restoreAllMocks() clears the implementation, so re-apply before each test.
+// Shared handles reset per test so assertions target the current render.
+const mockSave = vi.fn<
+    (input: unknown) => Promise<VaultResult<VaultEntry>>
+>();
+const mockUnlock = vi.fn<(passphrase: string) => Promise<VaultResult<VaultEntry[]>>>();
+const mockRemove = vi.fn<(id: string) => Promise<VaultResult<void>>>();
+const mockClear = vi.fn<() => Promise<VaultResult<void>>>();
+const mockList = vi.fn<() => Promise<VaultResult<VaultEntry[]>>>();
+const mockLock = vi.fn();
+
+// Build a session stub. `unlocked` and `entries` can be overridden per test.
+function makeSession(
+    overrides: Partial<{ unlocked: boolean; entries: VaultEntry[] }> = {}
+) {
+    return {
+        unlocked: overrides.unlocked ?? true,
+        entries: overrides.entries ?? [],
+        unlock: mockUnlock,
+        list: mockList,
+        save: mockSave,
+        remove: mockRemove,
+        clear: mockClear,
+        lock: mockLock,
+    };
+}
+
+// Default the vault to an unlocked session with a successful save so the
+// existing generation suites persist without extra ceremony.
+// vi.restoreAllMocks() clears implementations, so re-apply before each test.
 beforeEach(() => {
-    mockSaveEntry.mockReturnValue({
+    mockSave.mockResolvedValue({
         success: true,
         data: {
             id: "test-id",
@@ -36,6 +64,11 @@ beforeEach(() => {
             createdAt: 0,
         },
     });
+    mockUnlock.mockResolvedValue({ success: true, data: [] });
+    mockRemove.mockResolvedValue({ success: true, data: undefined });
+    mockClear.mockResolvedValue({ success: true, data: undefined });
+    mockList.mockResolvedValue({ success: true, data: [] });
+    mockUseVaultSession.mockReturnValue(makeSession());
 });
 
 const MOCK_GOAL_RESPONSE = `# My 3-Month Goal
@@ -651,10 +684,10 @@ describe("Vault persistence integration with Home page", () => {
     beforeEach(() => {
         mockFetchSuccess(MOCK_GOAL_RESPONSE);
         // Clear call history accumulated by earlier describe blocks (which also
-        // render <Home /> and trigger saveEntry). vi.restoreAllMocks() does not
+        // render <Home /> and trigger save). vi.restoreAllMocks() does not
         // reset a module-factory vi.fn()'s call count, so clear it explicitly.
-        mockSaveEntry.mockClear();
-        mockSaveEntry.mockReturnValue({
+        mockSave.mockClear();
+        mockSave.mockResolvedValue({
             success: true,
             data: {
                 id: "test-id",
@@ -668,11 +701,10 @@ describe("Vault persistence integration with Home page", () => {
     });
 
     afterEach(() => {
-        mockSaveEntry.mockReset();
         vi.restoreAllMocks();
     });
 
-    it("persists a vault entry on successful generation", async () => {
+    it("persists an encrypted vault entry on successful generation (unlocked)", async () => {
         const user = userEvent.setup();
         render(<Home />);
 
@@ -686,8 +718,8 @@ describe("Vault persistence integration with Home page", () => {
             expect(screen.getByRole("region", { name: "Generated GTD template" })).toBeInTheDocument();
         });
 
-        expect(mockSaveEntry).toHaveBeenCalledTimes(1);
-        expect(mockSaveEntry).toHaveBeenCalledWith(
+        expect(mockSave).toHaveBeenCalledTimes(1);
+        expect(mockSave).toHaveBeenCalledWith(
             expect.objectContaining({
                 inputText: "Learn guitar",
                 mode: "goal",
@@ -697,7 +729,7 @@ describe("Vault persistence integration with Home page", () => {
         );
     });
 
-    it("does not call saveEntry when generation fails", async () => {
+    it("does not call save when generation fails", async () => {
         mockFetchError("OpenAI API key not configured.");
         const user = userEvent.setup();
         render(<Home />);
@@ -712,11 +744,31 @@ describe("Vault persistence integration with Home page", () => {
             expect(screen.getByRole("alert")).toBeInTheDocument();
         });
 
-        expect(mockSaveEntry).not.toHaveBeenCalled();
+        expect(mockSave).not.toHaveBeenCalled();
+    });
+
+    it("does not save but keeps output when the session is locked", async () => {
+        mockUseVaultSession.mockReturnValue(makeSession({ unlocked: false }));
+        const user = userEvent.setup();
+        render(<Home />);
+
+        const input = screen.getByRole("textbox");
+        await user.type(input, "Learn guitar");
+
+        const submitButton = screen.getByRole("button", { name: /generate/i });
+        await user.click(submitButton);
+
+        await waitFor(() => {
+            expect(screen.getByText(/unlock your vault/i)).toBeInTheDocument();
+        });
+
+        expect(mockSave).not.toHaveBeenCalled();
+        // Output is still visible despite not saving.
+        expect(screen.getByRole("region", { name: "Generated GTD template" })).toBeInTheDocument();
     });
 
     it("shows a save-failure notice while keeping output visible", async () => {
-        mockSaveEntry.mockReturnValue({ success: false, reason: "unknown" });
+        mockSave.mockResolvedValue({ success: false, reason: "unknown" });
         const user = userEvent.setup();
         render(<Home />);
 
@@ -735,7 +787,7 @@ describe("Vault persistence integration with Home page", () => {
     });
 
     it("shows a quota-specific message when the vault is full", async () => {
-        mockSaveEntry.mockReturnValue({ success: false, reason: "quota" });
+        mockSave.mockResolvedValue({ success: false, reason: "quota" });
         const user = userEvent.setup();
         render(<Home />);
 
@@ -753,7 +805,7 @@ describe("Vault persistence integration with Home page", () => {
     });
 
     it("dismisses the save-failure notice when Dismiss is clicked", async () => {
-        mockSaveEntry.mockReturnValue({ success: false, reason: "unknown" });
+        mockSave.mockResolvedValue({ success: false, reason: "unknown" });
         const user = userEvent.setup();
         render(<Home />);
 
@@ -772,5 +824,101 @@ describe("Vault persistence integration with Home page", () => {
         expect(screen.queryByText(/couldn't save to your local vault/i)).not.toBeInTheDocument();
         // Output still visible after dismissing.
         expect(screen.getByRole("region", { name: "Generated GTD template" })).toBeInTheDocument();
+    });
+});
+
+describe("Saved-breakdowns view and restore integration", () => {
+    beforeEach(() => {
+        mockFetchSuccess(MOCK_GOAL_RESPONSE);
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it("opens the saved-breakdowns view from the header button", async () => {
+        const user = userEvent.setup();
+        render(<Home />);
+
+        await user.click(screen.getByRole("button", { name: /saved breakdowns/i }));
+
+        expect(screen.getByRole("region", { name: "Saved breakdowns" })).toBeInTheDocument();
+    });
+
+    it("restores an entry: rehydrates output, mode, input, and options", async () => {
+        const restored: VaultEntry = {
+            id: "restore-1",
+            inputText: "Restored goal",
+            mode: "project",
+            generationOptions: { depth: "deep" },
+            outputMarkdown: "# Restored output\n\nExact markdown",
+            createdAt: 42,
+        };
+        mockUseVaultSession.mockReturnValue(
+            makeSession({ unlocked: true, entries: [restored] })
+        );
+
+        const user = userEvent.setup();
+        render(<Home />);
+
+        await user.click(screen.getByRole("button", { name: /saved breakdowns/i }));
+        await user.click(screen.getByRole("button", { name: "Restore" }));
+
+        // Output panel shows the saved markdown exactly.
+        await waitFor(() => {
+            expect(
+                screen.getByRole("region", { name: "Generated GTD template" })
+            ).toBeInTheDocument();
+        });
+        expect(screen.getByText(/Restored output/)).toBeInTheDocument();
+
+        // Mode switched to the saved mode.
+        expect(screen.getByRole("tab", { name: "Project" })).toHaveAttribute(
+            "aria-selected",
+            "true"
+        );
+        // Input rehydrated.
+        expect(screen.getByRole("textbox")).toHaveValue("Restored goal");
+
+        // Generation options are restored to an observable surface exactly as
+        // saved (FR37 / AC2 "options match"). The output section mirrors them
+        // onto data-generation-options; a non-null payload must survive the
+        // restore round-trip with fidelity.
+        const outputRegion = screen.getByRole("region", {
+            name: "Generated GTD template",
+        });
+        const outputSection = outputRegion.closest(
+            "section[data-generation-options]"
+        );
+        expect(outputSection).not.toBeNull();
+        expect(outputSection).toHaveAttribute(
+            "data-generation-options",
+            JSON.stringify({ depth: "deep" })
+        );
+    });
+
+    it("restore does not go through the mode-change reset (output kept)", async () => {
+        const restored: VaultEntry = {
+            id: "restore-2",
+            inputText: "Keep me",
+            mode: "goal",
+            generationOptions: null,
+            outputMarkdown: "# Kept output",
+            createdAt: 7,
+        };
+        mockUseVaultSession.mockReturnValue(
+            makeSession({ unlocked: true, entries: [restored] })
+        );
+
+        const user = userEvent.setup();
+        render(<Home />);
+
+        await user.click(screen.getByRole("button", { name: /saved breakdowns/i }));
+        await user.click(screen.getByRole("button", { name: "Restore" }));
+
+        await waitFor(() => {
+            expect(screen.getByText(/Kept output/)).toBeInTheDocument();
+        });
+        expect(screen.getByRole("textbox")).toHaveValue("Keep me");
     });
 });

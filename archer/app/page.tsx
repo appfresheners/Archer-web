@@ -4,22 +4,43 @@ import ActionBar from "@/components/ActionBar";
 import InputSection from "@/components/InputSection";
 import ModeToggle from "@/components/ModeToggle";
 import OutputPanel from "@/components/OutputPanel";
-import { saveEntry } from "@/lib/vault/storage";
+import SavedBreakdowns from "@/components/SavedBreakdowns";
+import type { VaultEntry, VaultFailureReason } from "@/lib/vault/types";
+import { useVaultSession } from "@/lib/vault/useVaultSession";
 import { useEffect, useRef, useState } from "react";
+
+/** Map a typed vault failure to a plain user-facing message. */
+function unlockMessage(reason: VaultFailureReason): string {
+  switch (reason) {
+    case "decrypt":
+      return "Couldn't unlock — check your passphrase and try again.";
+    case "unavailable":
+      return "Your browser doesn't support local storage or encryption, so saved breakdowns aren't available here.";
+    default:
+      return "Something went wrong opening your vault. Please try again.";
+  }
+}
 
 export default function Home() {
   const [mode, setMode] = useState<"goal" | "project">("goal");
   const [inputText, setInputText] = useState("");
   const [output, setOutput] = useState("");
+  const [generationOptions, setGenerationOptions] = useState<
+    Record<string, unknown> | null
+  >(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [saveNotice, setSaveNotice] = useState("");
+  const [showSaved, setShowSaved] = useState(false);
   const outputRef = useRef<HTMLDivElement>(null);
+
+  const session = useVaultSession();
 
   const handleModeChange = (newMode: "goal" | "project") => {
     setMode(newMode);
     setInputText("");
     setOutput("");
+    setGenerationOptions(null);
     setError("");
     setSaveNotice("");
   };
@@ -45,12 +66,26 @@ export default function Home() {
       }
 
       setOutput(data.markdown);
+      // Epic 5 owns concrete generation options; today a fresh generation has
+      // none, so reset to null. Restore rehydrates any saved options directly.
+      setGenerationOptions(null);
 
-      // Persist the breakdown to the local vault. A save failure must never
-      // clear the visible output — it only raises a dismissible notice.
-      const saved = saveEntry({
+      // Persist the breakdown to the encrypted local vault, gated on an
+      // unlocked passphrase session. A save failure — including there being no
+      // unlocked session — must never clear the visible output; it only raises
+      // a dismissible notice.
+      if (!session.unlocked) {
+        setSaveNotice(
+          "Unlock your vault from “Saved breakdowns” to save this. Your breakdown is still shown above."
+        );
+        return;
+      }
+
+      const saved = await session.save({
         inputText,
         mode,
+        // Fresh generation carries no options yet (Epic 5); persist null so the
+        // round-trip field is present without inventing a shape.
         generationOptions: null,
         outputMarkdown: data.markdown,
       });
@@ -69,6 +104,33 @@ export default function Home() {
     }
   };
 
+  // Restore rehydrates output/mode/input/options directly — deliberately NOT
+  // through handleModeChange, which clears input/output.
+  const handleRestore = (entry: VaultEntry) => {
+    setMode(entry.mode);
+    setInputText(entry.inputText);
+    setGenerationOptions(entry.generationOptions);
+    setError("");
+    setSaveNotice("");
+    setOutput(entry.outputMarkdown); // triggers the focus/scroll effect
+    setShowSaved(false);
+  };
+
+  const handleUnlock = async (passphrase: string): Promise<string | null> => {
+    const result = await session.unlock(passphrase);
+    return result.success ? null : unlockMessage(result.reason);
+  };
+
+  const handleDelete = async (id: string): Promise<string | null> => {
+    const result = await session.remove(id);
+    return result.success ? null : unlockMessage(result.reason);
+  };
+
+  const handleClear = async (): Promise<string | null> => {
+    const result = await session.clear();
+    return result.success ? null : unlockMessage(result.reason);
+  };
+
   useEffect(() => {
     if (output && outputRef.current) {
       outputRef.current.focus();
@@ -84,16 +146,43 @@ export default function Home() {
     }
   }, [output]);
 
+  if (showSaved) {
+    return (
+      <main className="min-h-screen">
+        <SavedBreakdowns
+          unlocked={session.unlocked}
+          entries={session.entries}
+          onUnlock={handleUnlock}
+          onRestore={handleRestore}
+          onDelete={handleDelete}
+          onClear={handleClear}
+          onClose={() => setShowSaved(false)}
+        />
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen">
       {/* Input section — centered and narrow */}
       <header className="mx-auto max-w-[640px] px-[var(--spacing-page-x)] lg:px-[var(--spacing-page-x-lg)] py-[var(--spacing-section-y)]">
-        <h1 className="text-[length:var(--font-size-hero)] font-bold text-text-primary">
-          Archer
-        </h1>
-        <p className="mt-2 text-text-secondary">
-          Type a goal. Get the next actions.
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-[length:var(--font-size-hero)] font-bold text-text-primary">
+              Archer
+            </h1>
+            <p className="mt-2 text-text-secondary">
+              Type a goal. Get the next actions.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowSaved(true)}
+            className="min-h-[44px] min-w-[44px] shrink-0 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-transparent px-4 py-2 font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface)] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)]"
+          >
+            Saved breakdowns
+          </button>
+        </div>
 
         <div className="mt-[var(--spacing-section-y)] flex justify-center">
           <ModeToggle mode={mode} onModeChange={handleModeChange} />
@@ -131,7 +220,12 @@ export default function Home() {
 
       {/* Output section — full width */}
       {output && (
-        <section className="w-full border-t border-[var(--color-border)] bg-[var(--color-surface)]">
+        <section
+          className="w-full border-t border-[var(--color-border)] bg-[var(--color-surface)]"
+          data-generation-options={
+            generationOptions ? JSON.stringify(generationOptions) : undefined
+          }
+        >
           <div className="mx-auto max-w-[1200px] px-6 md:px-12 lg:px-16 py-12">
             {saveNotice && (
               <div

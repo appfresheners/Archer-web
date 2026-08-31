@@ -60,7 +60,7 @@ development_status:
   epic-4: in-progress
   4-1-local-vault-storage-layer: done
   4-2-vault-encryption-at-rest: done
-  4-3-saved-breakdowns-list-restore: backlog
+  4-3-saved-breakdowns-list-restore: done
   4-4-vault-export-import: backlog
   4-5-portable-passwordless-identity-link-qr: backlog
   epic-4-retrospective: optional

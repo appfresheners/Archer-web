@@ -14,21 +14,26 @@ describe("Page keyboard navigation and accessibility", () => {
     afterEach(() => {
         vi.restoreAllMocks();
     });
-    it("tab order follows expected sequence: ModeToggle → Input → Generate button", async () => {
+    it("tab order follows expected sequence: Saved breakdowns → ModeToggle → Input → Generate button", async () => {
         const user = userEvent.setup();
         render(<Home />);
 
-        // First tab lands on active ModeToggle tab (Goal)
+        // First tab lands on the Saved breakdowns entry-point button.
+        await user.tab();
+        const savedButton = screen.getByRole("button", { name: /saved breakdowns/i });
+        expect(savedButton).toHaveFocus();
+
+        // Next tab lands on active ModeToggle tab (Goal)
         await user.tab();
         const goalTab = screen.getByRole("tab", { name: "Goal" });
         expect(goalTab).toHaveFocus();
 
-        // Second tab moves to input field (skips inactive tab per WAI-ARIA tablist)
+        // Then the input field (skips inactive tab per WAI-ARIA tablist)
         await user.tab();
         const input = screen.getByRole("textbox");
         expect(input).toHaveFocus();
 
-        // Third tab moves to Generate button
+        // Then the Generate button
         await user.tab();
         const button = screen.getByRole("button", { name: "Generate" });
         expect(button).toHaveFocus();
@@ -38,7 +43,8 @@ describe("Page keyboard navigation and accessibility", () => {
         const user = userEvent.setup();
         render(<Home />);
 
-        // Tab to the active tab (Goal)
+        // Tab past the Saved breakdowns button to the active tab (Goal)
+        await user.tab();
         await user.tab();
         const goalTab = screen.getByRole("tab", { name: "Goal" });
         expect(goalTab).toHaveFocus();
@@ -54,9 +60,10 @@ describe("Page keyboard navigation and accessibility", () => {
         render(<Home />);
 
         // Tab through all interactive elements
+        await user.tab(); // Saved breakdowns button
         await user.tab(); // ModeToggle
         await user.tab(); // Input
-        await user.tab(); // Button
+        await user.tab(); // Generate button
         await user.tab(); // Should move past the page (body or document)
 
         // Confirm no element within main is still focused (no trap)
