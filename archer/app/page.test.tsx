@@ -38,6 +38,7 @@ const mockImportVault =
             VaultResult<{ outcome: "merged" | "replaced"; count: number }>
         >
     >();
+const mockIdentityLink = vi.fn<() => string | null>();
 const mockLock = vi.fn();
 
 // Build a session stub. `unlocked` and `entries` can be overridden per test.
@@ -54,6 +55,7 @@ function makeSession(
         clear: mockClear,
         exportVault: mockExportVault,
         importVault: mockImportVault,
+        identityLink: mockIdentityLink,
         lock: mockLock,
     };
 }
@@ -85,7 +87,12 @@ beforeEach(() => {
         success: true,
         data: { outcome: "replaced", count: 0 },
     });
+    mockIdentityLink.mockReturnValue("https://archer.example/#key=secret");
     mockUseVaultSession.mockReturnValue(makeSession());
+    // Default to a clean hash so auto-unlock stays inert unless a test opts in.
+    if (typeof window !== "undefined") {
+        window.location.hash = "";
+    }
 });
 
 const MOCK_GOAL_RESPONSE = `# My 3-Month Goal
@@ -1066,5 +1073,115 @@ describe("Saved-breakdowns view and restore integration", () => {
             expect(screen.getByText(/Kept output/)).toBeInTheDocument();
         });
         expect(screen.getByRole("textbox")).toHaveValue("Keep me");
+    });
+});
+
+describe("Portable-identity auto-unlock on load", () => {
+    beforeEach(() => {
+        mockFetchSuccess(MOCK_GOAL_RESPONSE);
+        // Earlier suites render <Home /> and can leave calls on these shared
+        // module-factory mocks; vi.restoreAllMocks() does not reset call
+        // history, so clear it explicitly to assert on this suite's calls.
+        mockUnlock.mockClear();
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+        if (typeof window !== "undefined") {
+            window.location.hash = "";
+            window.history.replaceState(null, "", window.location.pathname);
+        }
+    });
+
+    it("auto-unlocks from a valid #key fragment with no passphrase typed, then scrubs the hash", async () => {
+        // Session starts locked; the fragment should drive an unlock call.
+        mockUseVaultSession.mockReturnValue(makeSession({ unlocked: false }));
+        mockUnlock.mockResolvedValue({ success: true, data: [] });
+
+        const replaceSpy = vi.spyOn(window.history, "replaceState");
+        window.location.hash = "#key=correct%20horse";
+
+        render(<Home />);
+
+        // Unlock was attempted with the decoded passphrase — no form input used.
+        await waitFor(() => {
+            expect(mockUnlock).toHaveBeenCalledWith("correct horse");
+        });
+        // The saved view opens for the arriving user.
+        await waitFor(() => {
+            expect(
+                screen.getByRole("region", { name: "Saved breakdowns" })
+            ).toBeInTheDocument();
+        });
+        // The key is scrubbed from the visible URL/history.
+        expect(replaceSpy).toHaveBeenCalled();
+        expect(window.location.hash).toBe("");
+    });
+
+    it("scrubs the key fragment before the unlock resolves (no lingering key in the URL)", async () => {
+        mockUseVaultSession.mockReturnValue(makeSession({ unlocked: false }));
+        // A never-resolving unlock lets us observe the URL state while the
+        // (slow) derivation is still in flight — the key must already be gone.
+        mockUnlock.mockReturnValue(new Promise(() => { }));
+
+        window.location.hash = "#key=slow-unlock";
+        render(<Home />);
+
+        await waitFor(() => {
+            expect(mockUnlock).toHaveBeenCalledWith("slow-unlock");
+        });
+        // Even though unlock has not resolved, the fragment is already scrubbed.
+        expect(window.location.hash).toBe("");
+    });
+
+    it("makes no /api/generate network call during auto-unlock (NFR8)", async () => {
+        const fetchSpy = vi.fn();
+        vi.stubGlobal("fetch", fetchSpy);
+        mockUseVaultSession.mockReturnValue(makeSession({ unlocked: false }));
+        mockUnlock.mockResolvedValue({ success: true, data: [] });
+
+        window.location.hash = "#key=no-network";
+        render(<Home />);
+
+        await waitFor(() => {
+            expect(mockUnlock).toHaveBeenCalledWith("no-network");
+        });
+        expect(fetchSpy).not.toHaveBeenCalled();
+        vi.unstubAllGlobals();
+    });
+
+    it("behaves as a normal load when there is no identity fragment", async () => {
+        mockUseVaultSession.mockReturnValue(makeSession({ unlocked: false }));
+        window.location.hash = "";
+
+        render(<Home />);
+
+        // No auto-unlock attempt; the main input UI is shown, not the saved view.
+        expect(mockUnlock).not.toHaveBeenCalled();
+        expect(
+            screen.queryByRole("region", { name: "Saved breakdowns" })
+        ).not.toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Archer" })).toBeInTheDocument();
+    });
+
+    it("falls back to the manual unlock form when the key is wrong", async () => {
+        // Wrong key: unlock fails and the session stays locked.
+        mockUseVaultSession.mockReturnValue(makeSession({ unlocked: false }));
+        mockUnlock.mockResolvedValue({ success: false, reason: "decrypt" });
+
+        window.location.hash = "#key=wrong-key";
+
+        render(<Home />);
+
+        await waitFor(() => {
+            expect(mockUnlock).toHaveBeenCalledWith("wrong-key");
+        });
+        // The saved view is shown but, since the session is locked, it renders
+        // the manual passphrase form — no crash, no partial data.
+        await waitFor(() => {
+            expect(screen.getByLabelText("Passphrase")).toBeInTheDocument();
+        });
+        // The key is still scrubbed from the URL.
+        expect(window.location.hash).toBe("");
     });
 });

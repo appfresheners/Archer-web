@@ -15,6 +15,7 @@ import {
     ENCRYPTED_VAULT_KEY,
     saveEntryEncrypted,
 } from "./encrypted-storage";
+import { parseIdentityFromHash } from "./portable-identity";
 import { useVaultSession } from "./useVaultSession";
 
 const PASSPHRASE = "correct horse battery staple";
@@ -325,6 +326,61 @@ describe("useVaultSession", () => {
         expect(outcome).toEqual({ success: false, reason: "unknown" });
         // Session list unchanged.
         expect(result.current.entries.map((e) => e.inputText)).toEqual(["keep"]);
+    });
+
+    it("identityLink returns null while locked and a link once unlocked", async () => {
+        const { result } = renderHook(() => useVaultSession());
+
+        // Locked: no passphrase to encode.
+        expect(result.current.identityLink()).toBeNull();
+
+        await act(async () => {
+            await result.current.unlock(PASSPHRASE);
+        });
+
+        const link = result.current.identityLink();
+        expect(link).not.toBeNull();
+        expect(link).toContain("#key=");
+    });
+
+    it("identityLink round-trips: its fragment decodes back to a passphrase that unlocks", async () => {
+        // Seed a populated vault so unlock proves the recovered passphrase works.
+        await saveEntryEncrypted(PASSPHRASE, entryInput({ inputText: "portable" }));
+
+        const { result } = renderHook(() => useVaultSession());
+        await act(async () => {
+            await result.current.unlock(PASSPHRASE);
+        });
+
+        const link = result.current.identityLink() as string;
+        const parsed = parseIdentityFromHash(link.slice(link.indexOf("#")));
+        expect(parsed.success).toBe(true);
+        if (!parsed.success) throw new Error("expected a valid identity");
+        expect(parsed.data.passphrase).toBe(PASSPHRASE);
+
+        // Feeding the decoded passphrase into a fresh session unlocks the vault.
+        const { result: second } = renderHook(() => useVaultSession());
+        let outcome;
+        await act(async () => {
+            outcome = await second.current.unlock(parsed.data.passphrase);
+        });
+        expect(outcome).toMatchObject({ success: true });
+        expect(second.current.entries.map((e) => e.inputText)).toEqual([
+            "portable",
+        ]);
+    });
+
+    it("locking clears the passphrase so identityLink returns null again", async () => {
+        const { result } = renderHook(() => useVaultSession());
+        await act(async () => {
+            await result.current.unlock(PASSPHRASE);
+        });
+        expect(result.current.identityLink()).not.toBeNull();
+
+        act(() => {
+            result.current.lock();
+        });
+        expect(result.current.identityLink()).toBeNull();
     });
 
     it("returns 'unavailable' when saving with storage absent", async () => {

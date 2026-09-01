@@ -5,6 +5,7 @@ import InputSection from "@/components/InputSection";
 import ModeToggle from "@/components/ModeToggle";
 import OutputPanel from "@/components/OutputPanel";
 import SavedBreakdowns from "@/components/SavedBreakdowns";
+import { parseIdentityFromHash } from "@/lib/vault/portable-identity";
 import type { VaultEntry, VaultFailureReason } from "@/lib/vault/types";
 import { useVaultSession } from "@/lib/vault/useVaultSession";
 import { useEffect, useRef, useState } from "react";
@@ -33,6 +34,8 @@ export default function Home() {
   const [saveNotice, setSaveNotice] = useState("");
   const [showSaved, setShowSaved] = useState(false);
   const outputRef = useRef<HTMLDivElement>(null);
+  // Ensures the load-time portable-identity auto-unlock runs at most once.
+  const autoUnlockAttempted = useRef(false);
 
   const session = useVaultSession();
 
@@ -190,6 +193,70 @@ export default function Home() {
     };
   };
 
+  // Portable-identity auto-unlock (Story 4.5, FR28). On load, if the URL
+  // fragment carries a `#key=…` identity, feed the decoded passphrase into the
+  // existing session.unlock (the passphrase IS the key material — no schema or
+  // crypto change), open the saved view, and immediately scrub the fragment
+  // from the address bar/history so the key doesn't linger. Guarded for
+  // SSR/prerender (static export) via typeof-window checks. A wrong key
+  // decrypts nothing and simply falls back to the manual unlock form.
+  useEffect(() => {
+    if (autoUnlockAttempted.current) {
+      return;
+    }
+    autoUnlockAttempted.current = true;
+
+    if (typeof window === "undefined" || typeof window.location === "undefined") {
+      return;
+    }
+
+    const parsed = parseIdentityFromHash(window.location.hash);
+    if (!parsed.success) {
+      // No/invalid identity fragment — behave exactly as a normal load.
+      return;
+    }
+
+    // Scrub the key from the visible URL and history immediately, regardless
+    // of whether the subsequent unlock succeeds, so it never lingers.
+    const scrubHash = () => {
+      try {
+        if (
+          typeof window !== "undefined" &&
+          typeof window.history !== "undefined" &&
+          typeof window.history.replaceState === "function"
+        ) {
+          const { pathname, search } = window.location;
+          window.history.replaceState(null, "", `${pathname}${search}`);
+        }
+      } catch {
+        // Non-fatal: the auto-unlock still proceeds even if scrubbing fails.
+      }
+    };
+
+    // Scrub the key from the address bar / history BEFORE the (deliberately
+    // slow, PBKDF2-backed) unlock runs, so the plaintext key does not sit in
+    // the visible URL for the duration of the async derivation. The decoded
+    // passphrase is already captured in `parsed`. Wrap the unlock so an
+    // unexpected throw can never leave the fragment unscrubbed or surface as
+    // an unhandled rejection — a wrong key returns a typed failure and simply
+    // shows the manual unlock form.
+    scrubHash();
+    void (async () => {
+      try {
+        await session.unlock(parsed.data.passphrase);
+      } catch {
+        // Non-fatal: session stays locked; the manual unlock form is shown.
+      } finally {
+        // Open the saved view so the arriving user lands on their vault (on a
+        // wrong key this shows the manual unlock form). Set inside the async
+        // callback so the effect body performs no synchronous state update.
+        setShowSaved(true);
+      }
+    })();
+    // Run once on mount only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (output && outputRef.current) {
       outputRef.current.focus();
@@ -217,6 +284,7 @@ export default function Home() {
           onClear={handleClear}
           onExport={handleExport}
           onImport={handleImport}
+          identityLink={session.identityLink}
           onClose={() => setShowSaved(false)}
         />
       </main>

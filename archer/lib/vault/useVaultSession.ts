@@ -27,6 +27,7 @@ import {
     type NewEntryInput,
     saveEntryEncrypted,
 } from "./encrypted-storage";
+import { encodeIdentity } from "./portable-identity";
 import {
     exportVault as exportVaultCore,
     type ImportResult,
@@ -80,6 +81,15 @@ export interface VaultSession {
      * On success the in-memory `entries` list is refreshed when unlocked.
      */
     importVault: (fileText: string) => Promise<VaultResult<ImportResult>>;
+
+    /**
+     * Build a portable-identity link that encodes the session passphrase in
+     * its URL fragment (`#key=…`), for Story 4.5. Returns the link only when
+     * the session is unlocked (a passphrase exists to encode); returns `null`
+     * while locked. The passphrase stays in memory only — building the link
+     * neither persists it nor makes any network request.
+     */
+    identityLink: () => string | null;
 
     /** Forget the passphrase and lock the session (in-memory only). */
     lock: () => void;
@@ -183,6 +193,13 @@ export function useVaultSession(): VaultSession {
         [passphrase],
     );
 
+    const identityLink = useCallback((): string | null => {
+        if (passphrase === null) {
+            return null;
+        }
+        return encodeIdentity(passphrase);
+    }, [passphrase]);
+
     const lock = useCallback(() => {
         setPassphrase(null);
         setUnlocked(false);
@@ -199,6 +216,7 @@ export function useVaultSession(): VaultSession {
         clear,
         exportVault,
         importVault,
+        identityLink,
         lock,
     };
 }

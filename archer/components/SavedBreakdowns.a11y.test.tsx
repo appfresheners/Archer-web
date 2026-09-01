@@ -33,6 +33,7 @@ function baseProps() {
             ok: true,
             message: "Import complete — replaced your vault.",
         })),
+        identityLink: vi.fn(() => "https://archer.example/#key=secret"),
         onClose: vi.fn(),
     };
 }
@@ -77,6 +78,20 @@ describe("SavedBreakdowns accessibility (axe-core)", () => {
             screen.getByRole("button", { name: /export vault/i }),
         ).toBeInTheDocument();
         expect(screen.getByLabelText("Import vault file")).toBeInTheDocument();
+        const violations = await runAxe(container);
+        expect(violations).toEqual([]);
+    });
+
+    it("has no axe violations for the revealed portable-identity controls and QR", async () => {
+        const user = userEvent.setup();
+        const { container } = render(<SavedBreakdowns {...baseProps()} />);
+
+        await user.click(
+            screen.getByRole("button", { name: /reveal portable identity/i }),
+        );
+        // Wait for the QR (with its text alternative) to render.
+        await screen.findByRole("img", { name: /qr code/i });
+
         const violations = await runAxe(container);
         expect(violations).toEqual([]);
     });
@@ -131,6 +146,28 @@ describe("SavedBreakdowns keyboard operability", () => {
         expect(restore.className).toContain("min-h-[44px]");
         expect(restore.className).toContain("min-w-[44px]");
         expect(restore.className).toContain("focus:ring-2");
+    });
+
+    it("lets a keyboard user reveal and copy the portable identity", async () => {
+        const props = baseProps();
+        const user = userEvent.setup();
+        render(<SavedBreakdowns {...props} />);
+
+        const revealButton = screen.getByRole("button", {
+            name: /reveal portable identity/i,
+        });
+        revealButton.focus();
+        expect(revealButton).toHaveFocus();
+        expect(revealButton.className).toContain("min-h-[44px]");
+        await user.keyboard("{Enter}");
+
+        expect(props.identityLink).toHaveBeenCalled();
+        // The QR carries a meaningful text alternative.
+        const qr = await screen.findByRole("img", { name: /qr code/i });
+        expect(qr).toBeInTheDocument();
+
+        const copyButton = screen.getByRole("button", { name: /copy link/i });
+        expect(copyButton.className).toContain("min-h-[44px]");
     });
 
     it("lets a keyboard user trigger export and import via buttons", async () => {

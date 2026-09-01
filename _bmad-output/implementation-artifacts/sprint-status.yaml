@@ -62,7 +62,7 @@ development_status:
   4-2-vault-encryption-at-rest: done
   4-3-saved-breakdowns-list-restore: done
   4-4-vault-export-import: done
-  4-5-portable-passwordless-identity-link-qr: backlog
+  4-5-portable-passwordless-identity-link-qr: done
   epic-4-retrospective: optional
 
   epic-5: backlog

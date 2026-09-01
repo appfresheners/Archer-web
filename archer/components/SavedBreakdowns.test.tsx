@@ -33,6 +33,9 @@ function baseProps() {
         onImport: vi.fn<
             (fileText: string) => Promise<{ ok: boolean; message: string }>
         >(async () => ({ ok: true, message: "Import complete — replaced your vault." })),
+        identityLink: vi.fn<() => string | null>(
+            () => "https://archer.example/#key=secret",
+        ),
         onClose: vi.fn<() => void>(),
     };
 }
@@ -245,6 +248,96 @@ describe("SavedBreakdowns export/import", () => {
         const importButton = screen.getByRole("button", { name: /import vault/i });
         expect(importButton.className).toContain("min-h-[44px]");
         expect(importButton.className).toContain("focus:ring-2");
+    });
+});
+
+describe("SavedBreakdowns portable identity", () => {
+    it("shows the security warning before any link or QR is revealed", () => {
+        render(<SavedBreakdowns {...baseProps()} entries={[entry()]} />);
+
+        // Warning is present up front (FR29).
+        expect(screen.getByText(/anyone who has this link/i)).toBeInTheDocument();
+        // The link/QR are not shown until the user reveals them.
+        expect(
+            screen.queryByLabelText("Portable identity link"),
+        ).not.toBeInTheDocument();
+        expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    });
+
+    it("does not show the portable-identity section while locked", () => {
+        render(
+            <SavedBreakdowns
+                {...baseProps()}
+                unlocked={false}
+                entries={[entry()]}
+            />,
+        );
+        expect(screen.queryByText(/portable identity/i)).not.toBeInTheDocument();
+    });
+
+    it("reveals the link and renders a QR with an accessible text alternative", async () => {
+        const props = baseProps();
+        const user = userEvent.setup();
+        render(<SavedBreakdowns {...props} entries={[entry()]} />);
+
+        await user.click(
+            screen.getByRole("button", { name: /reveal portable identity/i }),
+        );
+
+        expect(props.identityLink).toHaveBeenCalled();
+        const linkInput = screen.getByLabelText(
+            "Portable identity link",
+        ) as HTMLInputElement;
+        expect(linkInput.value).toBe("https://archer.example/#key=secret");
+
+        // QR renders locally with a meaningful text alternative.
+        await waitFor(() => {
+            const qr = screen.getByRole("img", { name: /qr code/i });
+            expect(qr).toBeInTheDocument();
+            expect(qr.querySelector("svg")).toBeTruthy();
+        });
+    });
+
+    it("copies the link via the clipboard utility", async () => {
+        const props = baseProps();
+        const user = userEvent.setup();
+        const writeText = vi.fn().mockResolvedValue(undefined);
+        Object.defineProperty(navigator, "clipboard", {
+            configurable: true,
+            value: { writeText },
+        });
+
+        render(<SavedBreakdowns {...props} entries={[entry()]} />);
+
+        await user.click(
+            screen.getByRole("button", { name: /reveal portable identity/i }),
+        );
+        await user.click(screen.getByRole("button", { name: /copy link/i }));
+
+        expect(writeText).toHaveBeenCalledWith(
+            "https://archer.example/#key=secret",
+        );
+        await waitFor(() => {
+            expect(screen.getByText(/link copied/i)).toBeInTheDocument();
+        });
+    });
+
+    it("keeps the security warning visible alongside the copy control (FR29)", async () => {
+        const props = baseProps();
+        const user = userEvent.setup();
+
+        render(<SavedBreakdowns {...props} entries={[entry()]} />);
+
+        await user.click(
+            screen.getByRole("button", { name: /reveal portable identity/i }),
+        );
+
+        // The warning must remain visible at the point the user can copy the
+        // key-bearing link — "when the control is shown / about to be copied".
+        expect(screen.getByRole("button", { name: /copy link/i })).toBeInTheDocument();
+        expect(
+            screen.getByText(/anyone who has this link or qr code can unlock/i),
+        ).toBeInTheDocument();
     });
 });
 
