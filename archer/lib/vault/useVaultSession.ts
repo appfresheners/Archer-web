@@ -27,6 +27,11 @@ import {
     type NewEntryInput,
     saveEntryEncrypted,
 } from "./encrypted-storage";
+import {
+    exportVault as exportVaultCore,
+    type ImportResult,
+    importVault as importVaultCore,
+} from "./transfer";
 import type { VaultEntry, VaultResult } from "./types";
 
 /** Sort a copy of the entries most-recent-first by createdAt. */
@@ -62,6 +67,19 @@ export interface VaultSession {
 
     /** Clear the whole encrypted vault and empty the in-memory list. */
     clear: () => Promise<VaultResult<void>>;
+
+    /**
+     * Export the encrypted vault to a downloadable file. Pure delegation to the
+     * transfer core; no session state changes.
+     */
+    exportVault: () => VaultResult<{ filename: string }>;
+
+    /**
+     * Import a previously exported vault file's text. Attempts a merge when the
+     * session is unlocked (its passphrase decrypts both vaults), else replaces.
+     * On success the in-memory `entries` list is refreshed when unlocked.
+     */
+    importVault: (fileText: string) => Promise<VaultResult<ImportResult>>;
 
     /** Forget the passphrase and lock the session (in-memory only). */
     lock: () => void;
@@ -146,11 +164,41 @@ export function useVaultSession(): VaultSession {
         return result;
     }, []);
 
+    const exportVault = useCallback((): VaultResult<{ filename: string }> => {
+        return exportVaultCore();
+    }, []);
+
+    const importVault = useCallback(
+        async (fileText: string): Promise<VaultResult<ImportResult>> => {
+            const result = await importVaultCore(fileText, { passphrase });
+            if (result.success && passphrase !== null) {
+                // Refresh the in-memory list so merged/replaced entries appear.
+                const listed = await listEntriesEncrypted(passphrase);
+                if (listed.success) {
+                    setEntries(sortNewestFirst(listed.data));
+                }
+            }
+            return result;
+        },
+        [passphrase],
+    );
+
     const lock = useCallback(() => {
         setPassphrase(null);
         setUnlocked(false);
         setEntries([]);
     }, []);
 
-    return { unlocked, entries, unlock, list, save, remove, clear, lock };
+    return {
+        unlocked,
+        entries,
+        unlock,
+        list,
+        save,
+        remove,
+        clear,
+        exportVault,
+        importVault,
+        lock,
+    };
 }

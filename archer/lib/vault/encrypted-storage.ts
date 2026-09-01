@@ -372,3 +372,163 @@ export function clearEncryptedVault(): VaultResult<void> {
         return { success: false, reason: classifyWriteError(error) };
     }
 }
+
+/* -------------------------------------------------------------------------- *
+ * Transfer support (Story 4.4)
+ *
+ * Thin helpers so `transfer.ts` can export/import the encrypted envelope and
+ * merge two envelopes without duplicating `getStorage()`, the envelope shape,
+ * or the crypto flow. These read/write the SAME versioned key and reuse the
+ * SAME envelope structure and crypto primitives as the rest of this module —
+ * no new storage path, no schema change.
+ * -------------------------------------------------------------------------- */
+
+/**
+ * Structural guard for the persisted envelope, exported for import validation.
+ * Only a value whose `salt`/`iv`/`ciphertext` are all strings is accepted.
+ */
+export function isEncryptedVaultEnvelope(
+    value: unknown,
+): value is EncryptedVaultEnvelope {
+    return isEnvelope(value);
+}
+
+/**
+ * Read the raw envelope JSON string from storage exactly as stored, or null
+ * when absent/unreadable. Used by export so the file payload is the stored
+ * ciphertext verbatim (never decrypted).
+ */
+export function readRawEnvelopeString(): string | null {
+    const storage = getStorage();
+    if (!storage) {
+        return null;
+    }
+    try {
+        return storage.getItem(ENCRYPTED_VAULT_KEY);
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Overwrite the stored envelope with the given already-valid envelope,
+ * serialized as JSON. Used by import's "replace" path. Returns a typed result;
+ * never throws.
+ */
+export function writeRawEnvelope(
+    envelope: EncryptedVaultEnvelope,
+): VaultResult<void> {
+    const storage = getStorage();
+    if (!storage) {
+        return { success: false, reason: "unavailable" };
+    }
+    try {
+        storage.setItem(ENCRYPTED_VAULT_KEY, JSON.stringify(envelope));
+        return { success: true, data: undefined };
+    } catch (error) {
+        return { success: false, reason: classifyWriteError(error) };
+    }
+}
+
+/**
+ * Decrypt an in-memory envelope (not necessarily the stored one) into its
+ * `VaultSchema` under the given passphrase. A wrong passphrase / tampered
+ * bytes yields `reason: "decrypt"`; malformed base64 also fails cleanly.
+ * Used by merge to test whether the session passphrase opens an envelope.
+ */
+export async function decryptEnvelope(
+    passphrase: string,
+    envelope: EncryptedVaultEnvelope,
+): Promise<VaultResult<VaultSchema>> {
+    let salt: Uint8Array;
+    let iv: Uint8Array;
+    let ciphertext: Uint8Array;
+    try {
+        salt = base64ToBytes(envelope.salt);
+        iv = base64ToBytes(envelope.iv);
+        ciphertext = base64ToBytes(envelope.ciphertext);
+    } catch {
+        return { success: false, reason: "decrypt" };
+    }
+
+    const keyResult = await deriveKey(passphrase, salt);
+    if (!keyResult.success) {
+        return keyResult;
+    }
+
+    const decrypted = await decryptString(ciphertext, keyResult.data, iv);
+    if (!decrypted.success) {
+        return decrypted;
+    }
+
+    try {
+        const parsed = JSON.parse(decrypted.data) as unknown;
+        if (!isVaultSchema(parsed)) {
+            return { success: false, reason: "decrypt" };
+        }
+        return { success: true, data: parsed };
+    } catch {
+        return { success: false, reason: "decrypt" };
+    }
+}
+
+/**
+ * Encrypt a `VaultSchema` into a fresh envelope under the given passphrase,
+ * reusing the currently stored per-vault salt when present (so the passphrase
+ * stays stable) and a fresh IV. Used by merge to re-encrypt the unioned vault
+ * before writing. Returns the envelope; does NOT write it.
+ */
+export async function encryptVaultToEnvelope(
+    passphrase: string,
+    vault: VaultSchema,
+): Promise<VaultResult<EncryptedVaultEnvelope>> {
+    const existing = readEnvelope();
+    let salt: Uint8Array | null = null;
+    if (existing) {
+        try {
+            salt = base64ToBytes(existing.salt);
+        } catch {
+            salt = null;
+        }
+    }
+
+    let iv: Uint8Array;
+    try {
+        if (!salt) {
+            salt = generateSalt();
+        }
+        iv = generateIv();
+    } catch {
+        return { success: false, reason: "unavailable" };
+    }
+
+    const keyResult = await deriveKey(passphrase, salt);
+    if (!keyResult.success) {
+        return keyResult;
+    }
+    const encrypted = await encryptString(
+        JSON.stringify(vault),
+        keyResult.data,
+        iv,
+    );
+    if (!encrypted.success) {
+        return encrypted;
+    }
+
+    const envelope: EncryptedVaultEnvelope = {
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+        salt: bytesToBase64(salt),
+        iv: bytesToBase64(iv),
+        ciphertext: bytesToBase64(encrypted.data),
+    };
+    return { success: true, data: envelope };
+}
+
+/**
+ * Read the current stored envelope (parsed + validated) or null when there is
+ * no well-formed vault. Exposed so transfer can decide merge-vs-replace and
+ * detect an empty vault for export.
+ */
+export function readStoredEnvelope(): EncryptedVaultEnvelope | null {
+    return readEnvelope();
+}

@@ -26,6 +26,13 @@ function baseProps() {
         onRestore: vi.fn<(entry: VaultEntry) => void>(),
         onDelete: vi.fn<(id: string) => Promise<string | null>>(async () => null),
         onClear: vi.fn<() => Promise<string | null>>(async () => null),
+        onExport: vi.fn<() => { ok: boolean; message: string }>(() => ({
+            ok: true,
+            message: "Vault exported to archer-vault.json.",
+        })),
+        onImport: vi.fn<
+            (fileText: string) => Promise<{ ok: boolean; message: string }>
+        >(async () => ({ ok: true, message: "Import complete — replaced your vault." })),
         onClose: vi.fn<() => void>(),
     };
 }
@@ -151,6 +158,93 @@ describe("SavedBreakdowns clear-vault confirmation", () => {
         await user.click(screen.getByRole("button", { name: "Delete everything" }));
 
         expect(props.onClear).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe("SavedBreakdowns export/import", () => {
+    it("calls onExport and shows the outcome message", async () => {
+        const props = baseProps();
+        props.onExport = vi.fn(() => ({
+            ok: true,
+            message: "Vault exported to archer-vault.json.",
+        }));
+        const user = userEvent.setup();
+        render(<SavedBreakdowns {...props} entries={[entry()]} />);
+
+        await user.click(screen.getByRole("button", { name: /export vault/i }));
+
+        expect(props.onExport).toHaveBeenCalledTimes(1);
+        expect(screen.getByRole("status")).toHaveTextContent(/exported/i);
+    });
+
+    it("shows an error message when export fails", async () => {
+        const props = baseProps();
+        props.onExport = vi.fn(() => ({
+            ok: false,
+            message: "Nothing to export yet.",
+        }));
+        const user = userEvent.setup();
+        render(<SavedBreakdowns {...props} entries={[entry()]} />);
+
+        await user.click(screen.getByRole("button", { name: /export vault/i }));
+
+        expect(screen.getByRole("alert")).toHaveTextContent(/nothing to export/i);
+    });
+
+    it("reads a chosen file and shows the merged/replaced outcome", async () => {
+        const props = baseProps();
+        props.onImport = vi.fn(async () => ({
+            ok: true,
+            message: "Import complete — merged into your vault (3 saved breakdowns total).",
+        }));
+        const user = userEvent.setup();
+        render(<SavedBreakdowns {...props} entries={[entry()]} />);
+
+        const file = new File(['{"schemaVersion":1}'], "archer-vault.json", {
+            type: "application/json",
+        });
+        const input = screen.getByLabelText("Import vault file") as HTMLInputElement;
+        await user.upload(input, file);
+
+        await waitFor(() => {
+            expect(props.onImport).toHaveBeenCalledTimes(1);
+        });
+        expect(props.onImport).toHaveBeenCalledWith('{"schemaVersion":1}');
+        await waitFor(() => {
+            expect(screen.getByRole("status")).toHaveTextContent(/merged/i);
+        });
+    });
+
+    it("shows a rejection message when import fails", async () => {
+        const props = baseProps();
+        props.onImport = vi.fn(async () => ({
+            ok: false,
+            message: "Couldn't import that file — it isn't a valid vault export.",
+        }));
+        const user = userEvent.setup();
+        render(<SavedBreakdowns {...props} entries={[entry()]} />);
+
+        const file = new File(["garbage"], "bad.json", {
+            type: "application/json",
+        });
+        const input = screen.getByLabelText("Import vault file") as HTMLInputElement;
+        await user.upload(input, file);
+
+        await waitFor(() => {
+            expect(screen.getByRole("alert")).toHaveTextContent(/couldn't import/i);
+        });
+    });
+
+    it("exposes a labeled, keyboard-operable import control", async () => {
+        const props = baseProps();
+        render(<SavedBreakdowns {...props} entries={[entry()]} />);
+
+        // The file input is labeled for assistive tech.
+        expect(screen.getByLabelText("Import vault file")).toBeInTheDocument();
+        // A real button triggers it (keyboard operable, ≥44px).
+        const importButton = screen.getByRole("button", { name: /import vault/i });
+        expect(importButton.className).toContain("min-h-[44px]");
+        expect(importButton.className).toContain("focus:ring-2");
     });
 });
 

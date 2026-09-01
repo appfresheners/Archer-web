@@ -31,6 +31,13 @@ const mockUnlock = vi.fn<(passphrase: string) => Promise<VaultResult<VaultEntry[
 const mockRemove = vi.fn<(id: string) => Promise<VaultResult<void>>>();
 const mockClear = vi.fn<() => Promise<VaultResult<void>>>();
 const mockList = vi.fn<() => Promise<VaultResult<VaultEntry[]>>>();
+const mockExportVault = vi.fn<() => VaultResult<{ filename: string }>>();
+const mockImportVault =
+    vi.fn<
+        (fileText: string) => Promise<
+            VaultResult<{ outcome: "merged" | "replaced"; count: number }>
+        >
+    >();
 const mockLock = vi.fn();
 
 // Build a session stub. `unlocked` and `entries` can be overridden per test.
@@ -45,6 +52,8 @@ function makeSession(
         save: mockSave,
         remove: mockRemove,
         clear: mockClear,
+        exportVault: mockExportVault,
+        importVault: mockImportVault,
         lock: mockLock,
     };
 }
@@ -68,6 +77,14 @@ beforeEach(() => {
     mockRemove.mockResolvedValue({ success: true, data: undefined });
     mockClear.mockResolvedValue({ success: true, data: undefined });
     mockList.mockResolvedValue({ success: true, data: [] });
+    mockExportVault.mockReturnValue({
+        success: true,
+        data: { filename: "archer-vault.json" },
+    });
+    mockImportVault.mockResolvedValue({
+        success: true,
+        data: { outcome: "replaced", count: 0 },
+    });
     mockUseVaultSession.mockReturnValue(makeSession());
 });
 
@@ -895,6 +912,135 @@ describe("Saved-breakdowns view and restore integration", () => {
             "data-generation-options",
             JSON.stringify({ depth: "deep" })
         );
+    });
+
+    it("importing from the saved view surfaces the outcome message", async () => {
+        mockUseVaultSession.mockReturnValue(
+            makeSession({ unlocked: true, entries: [] })
+        );
+        mockImportVault.mockResolvedValue({
+            success: true,
+            data: { outcome: "merged", count: 2 },
+        });
+
+        const user = userEvent.setup();
+        render(<Home />);
+
+        await user.click(screen.getByRole("button", { name: /saved breakdowns/i }));
+
+        const file = new File(['{"schemaVersion":1}'], "archer-vault.json", {
+            type: "application/json",
+        });
+        const input = screen.getByLabelText("Import vault file") as HTMLInputElement;
+        await user.upload(input, file);
+
+        await waitFor(() => {
+            expect(mockImportVault).toHaveBeenCalledWith('{"schemaVersion":1}');
+        });
+        await waitFor(() => {
+            expect(screen.getByText(/merged/i)).toBeInTheDocument();
+        });
+    });
+
+    it("surfaces the 'replaced' message when import replaces the vault", async () => {
+        mockUseVaultSession.mockReturnValue(
+            makeSession({ unlocked: true, entries: [] })
+        );
+        mockImportVault.mockResolvedValue({
+            success: true,
+            data: { outcome: "replaced", count: 0 },
+        });
+
+        const user = userEvent.setup();
+        render(<Home />);
+
+        await user.click(screen.getByRole("button", { name: /saved breakdowns/i }));
+
+        const file = new File(['{"schemaVersion":1}'], "archer-vault.json", {
+            type: "application/json",
+        });
+        const input = screen.getByLabelText("Import vault file") as HTMLInputElement;
+        await user.upload(input, file);
+
+        await waitFor(() => {
+            expect(screen.getByText(/replaced/i)).toBeInTheDocument();
+        });
+        // The merged wording must NOT appear on the replace path.
+        expect(screen.queryByText(/merged/i)).not.toBeInTheDocument();
+    });
+
+    it("uses singular 'breakdown' wording when a merge yields exactly one entry", async () => {
+        mockUseVaultSession.mockReturnValue(
+            makeSession({ unlocked: true, entries: [] })
+        );
+        mockImportVault.mockResolvedValue({
+            success: true,
+            data: { outcome: "merged", count: 1 },
+        });
+
+        const user = userEvent.setup();
+        render(<Home />);
+
+        await user.click(screen.getByRole("button", { name: /saved breakdowns/i }));
+
+        const file = new File(['{"schemaVersion":1}'], "archer-vault.json", {
+            type: "application/json",
+        });
+        const input = screen.getByLabelText("Import vault file") as HTMLInputElement;
+        await user.upload(input, file);
+
+        await waitFor(() => {
+            expect(
+                screen.getByText(/1 saved breakdown total/i)
+            ).toBeInTheDocument();
+        });
+    });
+
+    it("surfaces a storage-specific message when import fails on a full store", async () => {
+        mockUseVaultSession.mockReturnValue(
+            makeSession({ unlocked: true, entries: [] })
+        );
+        mockImportVault.mockResolvedValue({ success: false, reason: "quota" });
+
+        const user = userEvent.setup();
+        render(<Home />);
+
+        await user.click(screen.getByRole("button", { name: /saved breakdowns/i }));
+
+        const file = new File(['{"schemaVersion":1}'], "archer-vault.json", {
+            type: "application/json",
+        });
+        const input = screen.getByLabelText("Import vault file") as HTMLInputElement;
+        await user.upload(input, file);
+
+        await waitFor(() => {
+            expect(screen.getByText(/storage is full/i)).toBeInTheDocument();
+        });
+        // A storage failure must not be mislabeled as an invalid file.
+        expect(
+            screen.queryByText(/isn't a valid vault export/i)
+        ).not.toBeInTheDocument();
+    });
+
+    it("exporting from the saved view surfaces a success message", async () => {
+        mockUseVaultSession.mockReturnValue(
+            makeSession({ unlocked: true, entries: [] })
+        );
+        mockExportVault.mockReturnValue({
+            success: true,
+            data: { filename: "archer-vault.json" },
+        });
+
+        const user = userEvent.setup();
+        render(<Home />);
+
+        await user.click(screen.getByRole("button", { name: /saved breakdowns/i }));
+        await user.click(screen.getByRole("button", { name: /export vault/i }));
+
+        expect(mockExportVault).toHaveBeenCalledTimes(1);
+        expect(
+            screen.getByText(/vault exported to archer-vault\.json/i)
+        ).toBeInTheDocument();
     });
 
     it("restore does not go through the mode-change reset (output kept)", async () => {

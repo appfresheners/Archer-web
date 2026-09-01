@@ -25,6 +25,14 @@ function baseProps() {
         onRestore: vi.fn(),
         onDelete: vi.fn(async () => null),
         onClear: vi.fn(async () => null),
+        onExport: vi.fn(() => ({
+            ok: true,
+            message: "Vault exported to archer-vault.json.",
+        })),
+        onImport: vi.fn(async () => ({
+            ok: true,
+            message: "Import complete — replaced your vault.",
+        })),
         onClose: vi.fn(),
     };
 }
@@ -58,6 +66,17 @@ describe("SavedBreakdowns accessibility (axe-core)", () => {
         const user = userEvent.setup();
         const { container } = render(<SavedBreakdowns {...baseProps()} />);
         await user.click(screen.getByRole("button", { name: "Clear vault" }));
+        const violations = await runAxe(container);
+        expect(violations).toEqual([]);
+    });
+
+    it("has no axe violations for the export/import controls", async () => {
+        const { container } = render(<SavedBreakdowns {...baseProps()} />);
+        // The controls are always present when unlocked.
+        expect(
+            screen.getByRole("button", { name: /export vault/i }),
+        ).toBeInTheDocument();
+        expect(screen.getByLabelText("Import vault file")).toBeInTheDocument();
         const violations = await runAxe(container);
         expect(violations).toEqual([]);
     });
@@ -112,5 +131,23 @@ describe("SavedBreakdowns keyboard operability", () => {
         expect(restore.className).toContain("min-h-[44px]");
         expect(restore.className).toContain("min-w-[44px]");
         expect(restore.className).toContain("focus:ring-2");
+    });
+
+    it("lets a keyboard user trigger export and import via buttons", async () => {
+        const props = baseProps();
+        const user = userEvent.setup();
+        render(<SavedBreakdowns {...props} />);
+
+        const exportButton = screen.getByRole("button", { name: /export vault/i });
+        exportButton.focus();
+        expect(exportButton).toHaveFocus();
+        await user.keyboard("{Enter}");
+        expect(props.onExport).toHaveBeenCalledTimes(1);
+
+        // Import button is a real, focusable button that proxies the file input.
+        const importButton = screen.getByRole("button", { name: /import vault/i });
+        importButton.focus();
+        expect(importButton).toHaveFocus();
+        expect(importButton.className).toContain("min-h-[44px]");
     });
 });

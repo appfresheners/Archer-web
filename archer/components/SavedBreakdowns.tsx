@@ -23,6 +23,18 @@ interface SavedBreakdownsProps {
     onDelete: (id: string) => Promise<string | null>;
     /** Clear the whole vault. Returns a plain error message or null. */
     onClear: () => Promise<string | null>;
+    /**
+     * Export the vault to a downloadable file. Returns a plain success message
+     * on success, or an error message string prefixed so the caller can tell
+     * them apart. Convention: returns `{ ok: true, message }` on success and
+     * `{ ok: false, message }` on failure.
+     */
+    onExport: () => { ok: boolean; message: string };
+    /**
+     * Import a vault file's text. Returns a plain outcome message on success
+     * (merged/replaced) or an error message on failure.
+     */
+    onImport: (fileText: string) => Promise<{ ok: boolean; message: string }>;
     /** Close the saved-breakdowns view. */
     onClose: () => void;
 }
@@ -49,14 +61,18 @@ export default function SavedBreakdowns({
     onRestore,
     onDelete,
     onClear,
+    onExport,
+    onImport,
     onClose,
 }: SavedBreakdownsProps) {
     const [passphrase, setPassphrase] = useState("");
     const [unlockError, setUnlockError] = useState("");
     const [actionError, setActionError] = useState("");
+    const [transferNotice, setTransferNotice] = useState("");
     const [busy, setBusy] = useState(false);
     const [showClearConfirm, setShowClearConfirm] = useState(false);
     const clearConfirmRef = useRef<HTMLButtonElement>(null);
+    const importInputRef = useRef<HTMLInputElement>(null);
 
     // Move focus into the confirm dialog when it opens (a11y).
     useEffect(() => {
@@ -98,6 +114,48 @@ export default function SavedBreakdowns({
             setActionError(message);
         }
     }, [onClear]);
+
+    const handleExport = useCallback(() => {
+        setActionError("");
+        setTransferNotice("");
+        const result = onExport();
+        if (result.ok) {
+            setTransferNotice(result.message);
+        } else {
+            setActionError(result.message);
+        }
+    }, [onExport]);
+
+    const handleImportFile = useCallback(
+        async (event: React.ChangeEvent<HTMLInputElement>) => {
+            setActionError("");
+            setTransferNotice("");
+            const file = event.target.files?.[0];
+            // Reset the input so selecting the same file again re-triggers.
+            event.target.value = "";
+            if (!file) {
+                return;
+            }
+
+            let text: string;
+            try {
+                text = await file.text();
+            } catch {
+                setActionError(
+                    "Couldn't read that file. Please choose a valid vault export.",
+                );
+                return;
+            }
+
+            const result = await onImport(text);
+            if (result.ok) {
+                setTransferNotice(result.message);
+            } else {
+                setActionError(result.message);
+            }
+        },
+        [onImport],
+    );
 
     return (
         <section
@@ -167,6 +225,15 @@ export default function SavedBreakdowns({
                         </p>
                     )}
 
+                    {transferNotice && (
+                        <p
+                            role="status"
+                            className="mb-4 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-sm text-[var(--color-text-primary)]"
+                        >
+                            {transferNotice}
+                        </p>
+                    )}
+
                     {entries.length === 0 ? (
                         <p role="status" className="text-sm text-[var(--color-text-secondary)]">
                             No saved breakdowns yet. Generate one and it will appear
@@ -224,6 +291,46 @@ export default function SavedBreakdowns({
                             </div>
                         </>
                     )}
+
+                    <div className="mt-[var(--spacing-section-y)] border-t border-[var(--color-border)] pt-[var(--spacing-section-y)]">
+                        <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
+                            Back up &amp; transfer
+                        </h3>
+                        <p
+                            id="vault-transfer-help"
+                            className="mt-1 text-sm text-[var(--color-text-secondary)]"
+                        >
+                            Export your encrypted vault to a file, or import a
+                            previously exported file. Nothing leaves this device.
+                        </p>
+                        <div className="mt-4 flex flex-wrap items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={handleExport}
+                                aria-describedby="vault-transfer-help"
+                                className={secondaryButton}
+                            >
+                                Export vault
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => importInputRef.current?.click()}
+                                aria-describedby="vault-transfer-help"
+                                className={secondaryButton}
+                            >
+                                Import vault
+                            </button>
+                            <input
+                                ref={importInputRef}
+                                id="vault-import-file"
+                                type="file"
+                                accept="application/json,.json"
+                                onChange={handleImportFile}
+                                aria-label="Import vault file"
+                                className="sr-only"
+                            />
+                        </div>
+                    </div>
                 </div>
             )}
 

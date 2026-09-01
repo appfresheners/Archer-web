@@ -131,6 +131,65 @@ export default function Home() {
     return result.success ? null : unlockMessage(result.reason);
   };
 
+  const handleExport = (): { ok: boolean; message: string } => {
+    const result = session.exportVault();
+    if (result.success) {
+      return {
+        ok: true,
+        message: `Vault exported to ${result.data.filename}.`,
+      };
+    }
+    if (result.reason === "unavailable") {
+      return {
+        ok: false,
+        message:
+          "Nothing to export yet — save a breakdown first, or your browser blocked the download.",
+      };
+    }
+    return {
+      ok: false,
+      message: "Couldn't export your vault. Please try again.",
+    };
+  };
+
+  const handleImport = async (
+    fileText: string
+  ): Promise<{ ok: boolean; message: string }> => {
+    const result = await session.importVault(fileText);
+    if (result.success) {
+      const { outcome, count } = result.data;
+      return {
+        ok: true,
+        message:
+          outcome === "merged"
+            ? `Import complete — merged into your vault (${count} saved breakdown${count === 1 ? "" : "s"} total).`
+            : `Import complete — replaced your vault with the imported file.`,
+      };
+    }
+    // Distinguish storage-layer failures from an invalid file so the user
+    // isn't told a valid backup is corrupt when the real cause is a full or
+    // unavailable store. In all cases the existing vault is left unchanged.
+    if (result.reason === "quota") {
+      return {
+        ok: false,
+        message:
+          "Couldn't import — local storage is full. Your existing vault is unchanged.",
+      };
+    }
+    if (result.reason === "unavailable") {
+      return {
+        ok: false,
+        message:
+          "Couldn't import — this browser doesn't support local storage or encryption. Your existing vault is unchanged.",
+      };
+    }
+    return {
+      ok: false,
+      message:
+        "Couldn't import that file — it isn't a valid vault export. Your existing vault is unchanged.",
+    };
+  };
+
   useEffect(() => {
     if (output && outputRef.current) {
       outputRef.current.focus();
@@ -156,6 +215,8 @@ export default function Home() {
           onRestore={handleRestore}
           onDelete={handleDelete}
           onClear={handleClear}
+          onExport={handleExport}
+          onImport={handleImport}
           onClose={() => setShowSaved(false)}
         />
       </main>

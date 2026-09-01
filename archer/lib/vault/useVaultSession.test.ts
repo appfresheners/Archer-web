@@ -9,7 +9,7 @@
  */
 
 import { act, renderHook } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { NewEntryInput } from "./encrypted-storage";
 import {
     ENCRYPTED_VAULT_KEY,
@@ -205,6 +205,126 @@ describe("useVaultSession", () => {
                 Object.defineProperty(globalThis, "localStorage", original);
             }
         }
+    });
+
+    it("exportVault delegates to the transfer core and returns its result", async () => {
+        await saveEntryEncrypted(PASSPHRASE, entryInput());
+
+        // Stub the download flow so exportVault can succeed in jsdom.
+        const createObjectURL = vi
+            .fn()
+            .mockReturnValue("blob:http://localhost/fake");
+        Object.defineProperty(URL, "createObjectURL", {
+            value: createObjectURL,
+            writable: true,
+            configurable: true,
+        });
+        Object.defineProperty(URL, "revokeObjectURL", {
+            value: vi.fn(),
+            writable: true,
+            configurable: true,
+        });
+        const appendSpy = vi
+            .spyOn(document.body, "appendChild")
+            .mockImplementation((node: Node) => {
+                if (node instanceof HTMLAnchorElement) {
+                    node.click = vi.fn();
+                }
+                return node;
+            });
+        const removeSpy = vi
+            .spyOn(document.body, "removeChild")
+            .mockImplementation((node: Node) => node);
+
+        try {
+            const { result } = renderHook(() => useVaultSession());
+            let outcome;
+            act(() => {
+                outcome = result.current.exportVault();
+            });
+            expect(outcome).toEqual({
+                success: true,
+                data: { filename: "archer-vault.json" },
+            });
+        } finally {
+            appendSpy.mockRestore();
+            removeSpy.mockRestore();
+        }
+    });
+
+    it("importVault (replace) refreshes the session list after unlock", async () => {
+        // Build an imported file, then wipe and seed a different current vault.
+        await saveEntryEncrypted(PASSPHRASE, entryInput({ inputText: "IMPORTED" }));
+        const importedFile = localStorage.getItem(ENCRYPTED_VAULT_KEY) as string;
+        localStorage.clear();
+        await saveEntryEncrypted("other pass", entryInput({ inputText: "CURRENT" }));
+
+        const { result } = renderHook(() => useVaultSession());
+        // Unlock under the OTHER passphrase (current vault). Import uses this
+        // in-memory passphrase; since it can't decrypt the imported file it
+        // replaces, then re-lists — but under "other pass" the replaced vault
+        // won't decrypt, so entries become empty. Instead unlock after import.
+        let outcome;
+        await act(async () => {
+            outcome = await result.current.importVault(importedFile);
+        });
+        expect(outcome).toMatchObject({
+            success: true,
+            data: { outcome: "replaced" },
+        });
+
+        // Now unlock with the imported passphrase to see the entries.
+        await act(async () => {
+            await result.current.unlock(PASSPHRASE);
+        });
+        expect(result.current.entries.map((e) => e.inputText)).toEqual([
+            "IMPORTED",
+        ]);
+    });
+
+    it("importVault (merge) unions entries and refreshes the session list", async () => {
+        await saveEntryEncrypted(PASSPHRASE, entryInput({ inputText: "imported-1" }));
+        const importedFile = localStorage.getItem(ENCRYPTED_VAULT_KEY) as string;
+        localStorage.clear();
+        await saveEntryEncrypted(PASSPHRASE, entryInput({ inputText: "current-1" }));
+
+        const { result } = renderHook(() => useVaultSession());
+        await act(async () => {
+            await result.current.unlock(PASSPHRASE);
+        });
+
+        let outcome;
+        await act(async () => {
+            outcome = await result.current.importVault(importedFile);
+        });
+
+        expect(outcome).toMatchObject({
+            success: true,
+            data: { outcome: "merged" },
+        });
+        expect(result.current.entries.map((e) => e.inputText).sort()).toEqual([
+            "current-1",
+            "imported-1",
+        ]);
+    });
+
+    it("importVault rejects an invalid file and leaves entries unchanged", async () => {
+        await saveEntryEncrypted(PASSPHRASE, entryInput({ inputText: "keep" }));
+
+        const { result } = renderHook(() => useVaultSession());
+        await act(async () => {
+            await result.current.unlock(PASSPHRASE);
+        });
+        expect(result.current.entries).toHaveLength(1);
+
+        let outcome;
+        await act(async () => {
+            outcome = await result.current.importVault("not json {");
+        });
+
+        expect(outcome).toEqual({ success: false, reason: "unknown" });
+        // Session list unchanged.
+        expect(result.current.entries.map((e) => e.inputText)).toEqual(["keep"]);
     });
 
     it("returns 'unavailable' when saving with storage absent", async () => {
