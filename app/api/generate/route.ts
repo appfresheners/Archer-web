@@ -126,16 +126,48 @@ Choose the highest gaps from My Current Profile.
 
 ---
 
-## Link Real Projects
+## Projects
 
-Actual projects live in the **Projects database**.
+Generate between 5 and 6 projects that collectively move the user from their current state to achieving this goal. Each project must be outcome-based (the name describes a finished result, not an activity).
 
-Use the **🏗️ Projects** relation to link supporting projects to this goal.
+Output this section as an HTML accordion using <details>/<summary> tags. Each project follows this EXACT structure inside its <details> block:
 
-Do not duplicate: Project tasks, Full next action lists, Project status, Weekly plans.
+<details>
+<summary>[Outcome-based project name — describes the finished result]</summary>
 
-Example linked projects:
-- [3 example project names derived from the priority gaps above]
+### Purpose
+
+[3–4 sentences on why this specific project matters for the goal — what completing it enables or changes]
+
+### Successful Outcome
+
+[2–3 sentences describing exactly what "done" looks like in observable, real-world terms. Someone watching should be able to confirm it's complete.]
+
+### Next Actions
+
+- [ ] [Action 1 — starts with a physical verb, references a specific tool/app/site, takes 2–5 min]
+- [ ] [Action 2]
+- [ ] [Action 3]
+- [ ] [Action 4]
+- [ ] [Action 5]
+- [ ] [Action 6]
+- [ ] [Action 7]
+- [ ] [Action 8]
+- [ ] [Action 9]
+- [ ] [Action 10]
+- [ ] [Action 11]
+- [ ] [Action 12]
+
+</details>
+
+Rules for projects:
+- Generate exactly 5 or 6 projects (choose based on the complexity of the goal)
+- Project names must describe a finished result (e.g. "Guitar chord library mastered to 120 BPM" not "Learn guitar chords")
+- Next actions must start with physical verbs: Open, Navigate, Click, Search, Read, Write, Create, Save, Complete, Download, Install, Watch, Record, Schedule
+- Next actions must reference specific, real tools/apps/websites/locations
+- Next actions must be tiny (2–5 minutes each) — so small they feel almost impossible NOT to do
+- Next actions must follow a logical sequence from start to finish
+- Do NOT use placeholder text — fill in every field with content specific to the user's actual goal
 
 ---
 
@@ -304,7 +336,7 @@ async function generateWithGemini(
         );
     }
 
-    const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+    const model = process.env.GEMINI_MODEL;
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
     const controller = new AbortController();

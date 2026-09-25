@@ -142,3 +142,65 @@ body {
 .output-prose em {
   font-style: italic;
 }
+
+/* Accordion styles for <details>/<summary> in goal template projects section */
+.output-prose details {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin-bottom: 0.5rem;
+  background: var(--color-background);
+  overflow: hidden;
+}
+
+.output-prose details[open] {
+  border-color: var(--color-primary);
+}
+
+.output-prose summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0.875rem 1rem;
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  user-select: none;
+  background: var(--color-surface);
+  transition: background 150ms ease;
+}
+
+.output-prose summary::-webkit-details-marker {
+  display: none;
+}
+
+.output-prose summary::before {
+  content: "▶";
+  font-size: 0.625rem;
+  color: var(--color-text-muted);
+  transition: transform 150ms ease;
+  flex-shrink: 0;
+}
+
+.output-prose details[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.output-prose summary:hover {
+  background: #f0f4ff;
+}
+
+.output-prose details[open] > summary {
+  border-bottom: 1px solid var(--color-border);
+  background: #eef3ff;
+  color: var(--color-primary);
+}
+
+.output-prose details > *:not(summary) {
+  padding: 0 1.25rem;
+}
+
+.output-prose details > *:last-child {
+  padding-bottom: 1rem;
+}

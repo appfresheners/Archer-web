@@ -64,9 +64,13 @@ describe("generateGoalTemplate", () => {
         expect(output).toContain("**First next action:**");
     });
 
-    it("contains 'Link Real Projects' section", () => {
-        expect(output).toMatch(/## Link Real Projects/);
-        expect(output).toContain("🏗️ Projects");
+    it("contains 'Projects' accordion section", () => {
+        expect(output).toMatch(/## Projects/);
+        expect(output).toContain("<details>");
+        expect(output).toContain("<summary>");
+        expect(output).toContain("### Purpose");
+        expect(output).toContain("### Successful Outcome");
+        expect(output).toContain("### Next Actions");
     });
 
     it("contains 'Monthly Goal Check' section", () => {
