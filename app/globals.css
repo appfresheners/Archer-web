@@ -1,41 +1,98 @@
 @import "tailwindcss";
 
 @theme {
-  /* Colors */
-  --color-primary: #2563eb;
-  --color-primary-hover: #1d4ed8;
-  --color-secondary: #10b981;
-  --color-secondary-hover: #059669;
+  /* ------------------------------------------------------------------ */
+  /* Colors — canonical DESIGN.md palette                                */
+  /* ------------------------------------------------------------------ */
+
+  /* Primary — trust, action, commitment */
+  --color-primary: #2563eb; /* blue-600 */
+  --color-primary-hover: #1d4ed8; /* blue-700 */
+  --color-primary-subtle: #eff6ff; /* blue-50 — pill backgrounds, step indicators */
+
+  /* Success / completion states */
+  --color-success: #10b981; /* emerald-500 */
+  --color-success-hover: #059669; /* emerald-600 */
+  --color-success-subtle: #ecfdf5; /* emerald-50 — done/copied badges */
+
+  /* Warning — stuck projects, overdue items */
+  --color-warning: #f59e0b; /* amber-500 */
+  --color-warning-subtle: #fffbeb; /* amber-50 */
+
+  /* Destructive — delete, clear vault, archive */
+  --color-destructive: #ef4444; /* red-500 */
+  --color-destructive-hover: #dc2626; /* red-600 */
+  --color-destructive-subtle: #fef2f2; /* red-50 */
+
+  /* Legacy error token — still consumed by MVP1 components (InputSection,
+     SavedBreakdowns, page). Preserved until the Epic 2 cleanup pass. */
+  --color-error: #b91c1c; /* red-700 */
+
+  /* Neutral surfaces */
   --color-background: #ffffff;
-  --color-surface: #f9fafb;
-  --color-border: #e5e7eb;
-  --color-text-primary: #111827;
-  --color-text-secondary: #6b7280;
-  --color-text-muted: #9ca3af;
-  --color-success: #10b981;
-  --color-error: #b91c1c;
-  --color-focus-ring: #2563eb40;
+  --color-surface: #f9fafb; /* gray-50 — sidebar, cards, panels */
+  --color-surface-raised: #ffffff; /* modals, drawers over surface */
+  --color-border: #e5e7eb; /* gray-200 */
+  --color-border-strong: #d1d5db; /* gray-300 — active input frames */
 
-  /* Typography Scale (major-third 1.25) */
-  --font-size-hero: 2.441rem;
-  --font-size-section: 1.953rem;
-  --font-size-subheading: 1.563rem;
-  --font-size-body: 1rem;
-  --font-size-caption: 0.8rem;
+  /* Text hierarchy */
+  --color-text-primary: #111827; /* gray-900 */
+  --color-text-secondary: #6b7280; /* gray-500 */
+  --color-text-muted: #9ca3af; /* gray-400 */
+  --color-text-inverse: #ffffff;
 
-  /* Font */
+  /* Focus */
+  --color-focus-ring: #2563eb40; /* primary @ 25% opacity */
+
+  /* Wizard step states */
+  --color-step-complete: #10b981; /* emerald-500 */
+  --color-step-active: #2563eb; /* primary */
+  --color-step-upcoming: #e5e7eb; /* gray-200 */
+
+  /* Status badges (goal/project statuses) */
+  --color-status-active: #2563eb;
+  --color-status-paused: #f59e0b;
+  --color-status-someday: #9ca3af;
+  --color-status-completed: #10b981;
+  --color-status-archived: #6b7280;
+  --color-status-not-now: #ef4444;
+
+  /* ------------------------------------------------------------------ */
+  /* Typography — Inter body, JetBrains Mono output, major-third ×1.25   */
+  /* ------------------------------------------------------------------ */
   --font-sans: var(--font-inter), "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono:
+    var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, SFMono-Regular,
+    monospace;
 
-  /* Spacing */
-  --spacing-page-x: 1rem;
-  --spacing-page-x-lg: 4rem;
-  --spacing-section-y: 4rem;
+  /* Type scale (major third ×1.25) */
+  --font-size-hero: 2.441rem; /* page title / hero */
+  --font-size-section: 1.953rem; /* section heading (h2) */
+  --font-size-subheading: 1.563rem; /* subsection (h3) */
+  --font-size-card: 1.25rem; /* card heading */
+  --font-size-body: 1rem; /* body */
+  --font-size-small: 0.875rem; /* small / label, mono output */
+  --font-size-caption: 0.75rem; /* caption / badge */
 
-  /* Border Radius */
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-full: 9999px;
+  /* ------------------------------------------------------------------ */
+  /* Border radius — xs 4px → full pill                                  */
+  /* ------------------------------------------------------------------ */
+  --radius-xs: 0.25rem; /* 4px — badges, chips */
+  --radius-sm: 0.375rem; /* 6px — inputs, small buttons */
+  --radius-md: 0.5rem; /* 8px — cards, panels */
+  --radius-lg: 0.75rem; /* 12px — drawers, modals */
+  --radius-xl: 1rem; /* 16px — wizard container */
+  --radius-full: 9999px; /* pills, toggles, step indicators */
+
+  /* ------------------------------------------------------------------ */
+  /* Spacing / layout                                                    */
+  /* ------------------------------------------------------------------ */
+  --spacing-page-x: 1rem; /* 16px — mobile horizontal padding */
+  --spacing-page-x-lg: 1.5rem; /* 24px — desktop horizontal padding */
+  --spacing-section-y: 2rem; /* 32px — vertical rhythm between sections */
+  --spacing-card-p: 1.5rem; /* 24px — card internal padding */
+  --spacing-sidebar-w: 240px; /* fixed sidebar width */
+  --spacing-content-max: 720px; /* max prose/form width */
 }
 
 @keyframes fade-in {
@@ -54,6 +111,7 @@
 body {
   min-height: 100vh;
   min-height: 100dvh;
+  font-family: var(--font-sans);
   background: var(--color-background);
   color: var(--color-text-primary);
   -webkit-font-smoothing: antialiased;

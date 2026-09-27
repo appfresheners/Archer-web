@@ -81,3 +81,15 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-1-local-vault-storage-layer.md`
   summary: Preserve/quarantine corrupt-but-parseable vault data instead of silently overwriting it on the next save
   evidence: When stored JSON parses but fails isVaultSchema, readVault returns empty; a subsequent save overwrites the recoverable raw bytes with an empty container, with no backup or user warning
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-1-standalone-nextjs-runtime-design-token-foundation.md`
+  summary: Add `--font-weight-*` tokens (heading 700, subheading 600, body 400, caption 500) to the `@theme` block
+  evidence: Review (blind-hunter) noted DESIGN.md specifies per-role font weights but Story 1.1's accepted scope only required the type-size scale; weight tokens would let later components consume weights from the token system instead of hardcoding
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-1-standalone-nextjs-runtime-design-token-foundation.md`
+  summary: Add line-height / `--leading-*` tokens (hero 1.2, section 1.3, body 1.6, mono 1.7) to complete the DESIGN.md type scale
+  evidence: Review (blind-hunter) noted DESIGN.md defines a line-height per type role but Story 1.1's accepted scope only required the size scale; line-heights are currently hardcoded in `.output-prose`
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-1-standalone-nextjs-runtime-design-token-foundation.md`
+  summary: Add `@media (prefers-reduced-motion: reduce)` handling to disable the `animate-fade-in` utility
+  evidence: Review (blind-hunter) — the preserved MVP1 `@utility animate-fade-in` runs a 300ms animation unconditionally; NFR4 accessibility floor calls for respecting reduced-motion. Pre-existing (not introduced by this story); best fixed alongside the Epic 2 output-panel work
