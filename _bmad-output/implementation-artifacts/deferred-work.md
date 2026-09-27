@@ -161,3 +161,19 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-6-authenticated-app-shell-with-responsive-navigation.md`
   summary: Handle safe-area insets (env(safe-area-inset-bottom)) for the fixed bottom nav and floating capture button on notched devices, and guard role=textbox in the C-shortcut editable check
   evidence: Review (edge-case + blind) — fixed bottom elements can sit under the iOS home indicator at some zoom levels; the C-shortcut editable guard covers input/textarea/select/contenteditable but not ARIA role=textbox widgets. Minor hardening
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-7-ai-provider-configuration-layer.md`
+  summary: Verify the documented default model names in .env.example against each provider's current catalog (esp. GEMINI_MODEL=gemini-3.1-flash-lite)
+  evidence: Review (blind-hunter) flagged gemini-3.1-flash-lite as possibly not a real model. The value comes from the planning artifacts (epics FR33/FR34); code has no fallback so the operator sets GEMINI_MODEL regardless. Operator/planning verification, not a code fix
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-7-ai-provider-configuration-layer.md`
+  summary: Add retry/backoff for transient provider failures (429 with Retry-After, 5xx) in lib/ai/generate
+  evidence: Review (blind + edge-case) — a single fetch turns every transient blip into a user-facing failure. Out of this story's ACs (timeout is the only resilience requirement); worth adding when generation UX matters (Epic 2)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-7-ai-provider-configuration-layer.md`
+  summary: Improve provider-error diagnostics (read .text() when the error body is non-JSON) and accept an external AbortSignal so a client disconnect can cancel the upstream fetch
+  evidence: Review (blind + edge-case) — assertOk swallows non-JSON error bodies into {}, losing detail; generate() owns its own AbortController only. Refinements beyond this story's scope; the empty-output guard already surfaces the common blocked-response failure
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-7-ai-provider-configuration-layer.md`
+  summary: Gate diagnostic logging (getProviderConfig console.info on every call; console.error of provider error bodies) behind a log level, and scrub error bodies before logging
+  evidence: Review (blind-hunter) — no key is logged, but per-call info logs are noisy in prod and provider error bodies could echo prompt metadata. Minor observability hardening

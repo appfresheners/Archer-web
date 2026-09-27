@@ -52,7 +52,7 @@ development_status:
   1-4-sign-up-sign-in-with-email-and-password: review
   1-5-password-reset: review
   1-6-authenticated-app-shell-with-responsive-navigation: review
-  1-7-ai-provider-configuration-layer: backlog
+  1-7-ai-provider-configuration-layer: review
   epic-1-retrospective: optional
 
   epic-2: backlog
