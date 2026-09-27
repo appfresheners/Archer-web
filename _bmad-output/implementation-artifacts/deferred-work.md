@@ -137,3 +137,15 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-4-sign-up-sign-in-with-email-and-password.md`
   summary: Replace English substring matching in friendlyError with Supabase error code/status-based mapping
   evidence: Review (edge-case + verification-gap) — message-string matching is brittle to locale/wording changes; it falls back to the raw message safely, so this is a robustness refinement
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-5-password-reset.md`
+  summary: Add a confirm-password field (and client-side minlength) to ResetPasswordForm so a mistyped new password can't lock the user out
+  evidence: Review (blind + edge-case) — a single new-password field means a typo becomes the new password with no second-entry check. Real UX-safety improvement; not in the story ACs
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-5-password-reset.md`
+  summary: Surface the callback's `/sign-in?error=` message on the sign-in page (read via useSearchParams, wrapped in Suspense)
+  evidence: Review (edge-case + blind) — the callback sets a descriptive error param on failure but SignInForm does not render it, so the reason is dropped. Deferred because useSearchParams needs a Suspense boundary in the sign-in page (touches Story 1.4 surface); the message is preserved in the URL meanwhile
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-5-password-reset.md`
+  summary: Handle Supabase `error`/`error_description` params (expired/denied recovery link) in the callback distinctly from a missing code, and add client-side email-format validation to ForgotPasswordForm
+  evidence: Review (edge-case) — an expired link arrives with error params and no code, currently falling into the generic no-code branch (still safe, just less specific); email-format pre-validation avoids a user believing an email was sent for a malformed address
