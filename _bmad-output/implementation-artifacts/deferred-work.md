@@ -186,3 +186,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-1-single-generation-endpoint-with-auth-provider-path-pattern-a.md`
   summary: `docs/MASTER GOAL → GTD PROJECT SYSTEM PROMPT.md` still says it is the live prompt for `GOAL_SYSTEM_PROMPT` in `app/api/generate/route.ts`; that inline prompt was removed in 2.1 and the Goal prompt returns in Epic 3
   evidence: Review (verification-gap other-finding) — stale doc reference to a removed symbol. Not caused by this story's code behavior; refresh when the Goal prompt is reintroduced in Epic 3 (Pattern C).
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-2-project-mode-input-with-depth-control-validation.md`
+  summary: DepthControl does not handle Home/End keys (WAI-ARIA radiogroup pattern recommends Home→first, End→last option)
+  evidence: Review (edge-case + blind-hunter) — arrow keys work and the AC only requires keyboard-operability; Home/End is a completeness nicety for a 2-option group. Mirrors the same deferral made for ModeToggle in Epic 1.
