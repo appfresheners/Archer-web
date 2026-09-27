@@ -149,3 +149,15 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-5-password-reset.md`
   summary: Handle Supabase `error`/`error_description` params (expired/denied recovery link) in the callback distinctly from a missing code, and add client-side email-format validation to ForgotPasswordForm
   evidence: Review (edge-case) — an expired link arrives with error params and no code, currently falling into the generic no-code branch (still safe, just less specific); email-format pre-validation avoids a user believing an email was sent for a malformed address
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-6-authenticated-app-shell-with-responsive-navigation.md`
+  summary: Make Settings reachable on mobile (<768px) — e.g. a mobile top bar with wordmark + menu, or a Settings entry/overflow in the bottom nav
+  evidence: Review (edge-case + blind, consensus) — Settings lives only in the Sidebar footer which is hidden <768px; the bottom nav has the 4 primary destinations per the AC/DESIGN, so mobile users can only reach /app/settings by direct URL. DESIGN.md mentions a mobile top bar (wordmark + hamburger) not built in this story — implement it in a follow-up
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-6-authenticated-app-shell-with-responsive-navigation.md`
+  summary: Add a skip-to-content link and route-change focus/announcement for the authenticated shell
+  evidence: Review (blind-hunter) — with persistent nav landmarks, keyboard users have no bypass to <main>, and App Router does not reset focus on navigation. WCAG 2.4.1 bypass-blocks improvement beyond this story's stated a11y floor
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-6-authenticated-app-shell-with-responsive-navigation.md`
+  summary: Handle safe-area insets (env(safe-area-inset-bottom)) for the fixed bottom nav and floating capture button on notched devices, and guard role=textbox in the C-shortcut editable check
+  evidence: Review (edge-case + blind) — fixed bottom elements can sit under the iOS home indicator at some zoom levels; the C-shortcut editable guard covers input/textarea/select/contenteditable but not ARIA role=textbox widgets. Minor hardening
