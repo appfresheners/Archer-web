@@ -121,6 +121,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-3-supabase-client-wiring-auth-middleware-guard.md`
   summary: Migrate root middleware.ts to the Next.js 16 `proxy` file convention (middleware→proxy codemod) — currently a deprecation warning
   evidence: Review (blind + verification-gap) — Next 16.3.3 warns the `middleware` convention is deprecated in favor of `proxy`; it still runs correctly as Proxy(Middleware). The frozen spec named `middleware.ts`, so renaming would deviate from approved scope — deferred as a dated tech-debt decision (2026-09-27) to migrate when convenient
+  status: done # 2026-09-27 — renamed middleware.ts→proxy.ts and export middleware()→proxy(); deprecation warning gone, build shows "ƒ Proxy (Middleware)", 466 tests pass
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-3-supabase-client-wiring-auth-middleware-guard.md`
   summary: Add an `import 'server-only'` guard around the service-role key path so it can never be imported into a client bundle

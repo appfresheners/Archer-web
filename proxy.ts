@@ -1,5 +1,6 @@
 /**
- * Root middleware — the app's auth boundary.
+ * Root proxy — the app's auth boundary (Next.js 16 `proxy` convention, which
+ * replaced the deprecated `middleware` file convention).
  *
  * On every matched request it refreshes the Supabase session via
  * `updateSession` (the single session-refresh path), then enforces the guard:
@@ -33,7 +34,7 @@ function redirectTo(
   return redirect;
 }
 
-export async function middleware(request: NextRequest): Promise<NextResponse> {
+export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { response, user } = await updateSession(request);
   const { pathname } = request.nextUrl;
 
