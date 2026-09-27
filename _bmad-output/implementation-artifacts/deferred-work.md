@@ -178,3 +178,11 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-7-ai-provider-configuration-layer.md`
   summary: Gate diagnostic logging (getProviderConfig console.info on every call; console.error of provider error bodies) behind a log level, and scrub error bodies before logging
   evidence: Review (blind-hunter) — no key is logged, but per-call info logs are noisy in prod and provider error bodies could echo prompt metadata. Minor observability hardening
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-1-single-generation-endpoint-with-auth-provider-path-pattern-a.md`
+  summary: The MVP1 root page `app/page.tsx` still POSTs `{ mode: 'goal' }` to /api/generate, which now returns 400 (goal mode moves to Epic 3); the default Home flow errors until this superseded surface is removed
+  evidence: Review (verification-gap + blind-hunter) — `app/page.tsx:handleSubmit` defaults mode to 'goal' and its test mocks fetch so no test catches the mismatch. Root cause is the superseded static-export root page, which Story 2.6 removes (dead copy/download + MVP1 output path). Tracked here so 2.6 closes it.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-1-single-generation-endpoint-with-auth-provider-path-pattern-a.md`
+  summary: `docs/MASTER GOAL → GTD PROJECT SYSTEM PROMPT.md` still says it is the live prompt for `GOAL_SYSTEM_PROMPT` in `app/api/generate/route.ts`; that inline prompt was removed in 2.1 and the Goal prompt returns in Epic 3
+  evidence: Review (verification-gap other-finding) — stale doc reference to a removed symbol. Not caused by this story's code behavior; refresh when the Goal prompt is reintroduced in Epic 3 (Pattern C).
