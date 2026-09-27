@@ -30,28 +30,29 @@ describe("generateGoalTemplate", () => {
         expect(output).toContain("- [ ]");
     });
 
-    it("contains 'Capabilities they have' section with pipe table", () => {
-        expect(output).toMatch(/### Capabilities they have/);
-        expect(output).toContain("| What they can do");
-        expect(output).toContain("| Target rating (1–10) |");
+    it("contains 'Skills, attributes, and habits' section with pipe table", () => {
+        expect(output).toMatch(/### Skills, attributes, and habits they have/);
+        expect(output).toContain("| Skill / attribute / habit");
+        expect(output).toContain("| Required level (1–10) |");
     });
 
     it("contains 'Resources they have' section with pipe table", () => {
         expect(output).toMatch(/### Resources they have/);
         expect(output).toContain("| What they have access to");
-        expect(output).toContain("| Target rating (1–10) |");
+        expect(output).toContain("| Required level (1–10) |");
     });
 
     it("contains 'My Current Profile' section with gap tables", () => {
         expect(output).toMatch(/## My Current Profile/);
-        expect(output).toMatch(/### My Capabilities/);
+        expect(output).toMatch(/### My Skills, Attributes, and Habits/);
         expect(output).toMatch(/### My Resources/);
-        expect(output).toContain("| Gap |");
+        expect(output).toContain("| Gap");
     });
 
     it("contains 'What helps and blocks me' section", () => {
         expect(output).toMatch(/## What helps and blocks me\?/);
         expect(output).toMatch(/### Drivers/);
+        expect(output).toMatch(/### Resources \(External assets\)/);
         expect(output).toMatch(/### Barriers/);
         expect(output).toContain("If–then plan");
     });
@@ -60,8 +61,8 @@ describe("generateGoalTemplate", () => {
         expect(output).toMatch(/## Focus on 2–3 biggest gaps/);
         expect(output).toMatch(/### Priority 1/);
         expect(output).toMatch(/### Priority 2/);
-        expect(output).toContain("**Project idea:**");
-        expect(output).toContain("**First next action:**");
+        expect(output).toContain("**Linked project:**");
+        expect(output).toContain("required level is highest");
     });
 
     it("contains 'Projects' accordion section", () => {

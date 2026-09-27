@@ -1,26 +1,38 @@
-# Reverse Goal setting template
+# Reverse Goal Setting Template
 
 Status: Active
 
-### **Step 1: My 3-Month Goal**
+---
+
+### **Step 1: My Goal**
 
 By [date], I will have:
 
-- 
+-
 
 Example: By 30 September, I will have a working health routine tested for 14 days and added to my daily checklist.
 
+**Why this goal?**
+
+What feeling, situation, or position do I think achieving this will create?
+
+-
+
+Example: I want to feel in control of my energy and not rely on willpower to get through the day.
+
+**If I discover this goal won't deliver that, I give myself permission to pivot to a better path.**
+
 **I'll know I succeeded when:**
 
-- [ ]  
-- [ ]  
-- [ ]  
+- [ ]
+- [ ]
+- [ ]
 
 Example:
 
-- [ ]  I completed a 14-day test
-- [ ]  I chose the final version of the routine
-- [ ]  I added it to my daily checklist
+- [ ] I completed a 14-day test
+- [ ] I chose the final version of the routine
+- [ ] I added it to my daily checklist
 
 ---
 
@@ -28,92 +40,106 @@ Example:
 
 What does someone who achieves this easily have?
 
-Score each item by how important it is for success.
+Rate each item by the **level they need to reach** to succeed at this goal — not how important it is in the abstract.
 
-10 = essential  
+10 = near-expert level required
+5 = solid working competence required
+1 = a basic level is enough
 
-5 = useful  
+**Skills, attributes, and habits they have:**
 
-1 = barely relevant
-
-**Capabilities they have:**
-
-| What they can do | Target rating (1–10) |
-| --- | --- |
-|  |  |
-|  |  |
-|  |  |
-|  |  |
-
-Example: Plan and follow a structured routine consistently — 10
+| Skill / attribute / habit             | Required level (1–10) | What this looks like for this goal                            |
+| ------------------------------------- | --------------------- | ------------------------------------------------------------- |
+| Time management                       |                       | e.g. Blocks focused time consistently, rarely misses sessions |
+| Focus and concentration               |                       | e.g. Sustains deep work for 60+ min without distraction       |
+| Learning ability                      |                       | e.g. Extracts and applies new concepts quickly                |
+| Procrastination resistance            |                       | e.g. Starts tasks without needing to feel motivated           |
+| Stress management / resilience        |                       | e.g. Stays functional under pressure, recovers quickly        |
+| [Domain-specific skill for this goal] |                       |                                                               |
+| [Domain-specific skill for this goal] |                       |                                                               |
 
 **Resources they have:**
 
-| What they have access to | Target rating (1–10) |
-| --- | --- |
-|  |  |
-|  |  |
-|  |  |
-
-Example: Simple plan, tool, course, person, place, or permission needed — 8
+| What they have access to      | Required level (1–10) |
+| ----------------------------- | --------------------- |
+| Time available to invest      |                       |
+| Money / budget available      |                       |
+| Network (people who can help) |                       |
+| Tools, courses, environments  |                       |
 
 ---
 
 ### **Step 3: My Current Profile**
 
-Use the same items from Step 2.
+Use the exact same items from Step 2. Rate yourself honestly today.
 
-Score where I am today.
+Gap = Required level − My rating
 
-Gap = Target rating - My rating
+**My Skills, Attributes, and Habits:**
 
-**My Capabilities:**
-
-| What I can do | My rating | Gap |
-| --- | --- | --- |
-|  |  |  |
-|  |  |  |
-|  |  |  |
-
-Example: Plan and follow a structured routine consistently — 4 — Gap 6
+| Skill / attribute / habit      | My rating | Gap |
+| ------------------------------ | --------- | --- |
+| Time management                |           |     |
+| Focus and concentration        |           |     |
+| Learning ability               |           |     |
+| Procrastination resistance     |           |     |
+| Stress management / resilience |           |     |
+| [Domain-specific skill]        |           |     |
+| [Domain-specific skill]        |           |     |
 
 **My Resources:**
 
-| What I have | My rating | Gap |
-| --- | --- | --- |
-|  |  |  |
-|  |  |  |
-|  |  |  |
-
-Example: Simple plan, tool, course, person, place, or permission needed — 2 — Gap 6
+| What I have                   | My rating | Gap |
+| ----------------------------- | --------- | --- |
+| Time available to invest      |           |     |
+| Money / budget available      |           |     |
+| Network (people who can help) |           |     |
+| Tools, courses, environments  |           |     |
 
 ---
 
 ### **Step 4: What helps and blocks me?**
 
-## Drivers (Things that help me)
+#### Drivers (Internal strengths)
 
-- 
+Things already inside you that help — existing skills, habits, motivation, past experience.
+
+-
+-
 
 Example:
 
 - I already use Notion daily
-- I care about this goal
-- I have access to useful learning resources
+- I have relevant experience from a previous role
 
-## **Barriers (Things that block me)**
+#### Resources (External assets)
 
-- 
+Things outside you that you can deploy — time, money, people, tools, courses, access to environments.
+
+-
+-
+
+Example:
+
+- I have 1 hour free every morning before work
+- I have access to a mentor in this area
+
+#### Barriers (Things that block me)
+
+What prevents you from developing the skills and closing the gaps? Think holistically — barriers don't have to be directly about the goal. Anything that stops you from doing the work counts.
+
+-
+-
 
 Example:
 
 - I forget when the day gets busy
-- I make the routine too complicated
-- I do not have a clear plan to follow
+- I don't have a clear system to track progress
+- My evenings are taken up by family commitments
 
 **If–then plan for the main barrier:**
 
-If ***_, then I will*** _.
+If **_\_\_, then I will_** \_\_.
 
 Example: If I feel too tired to do the full routine, then I will do the 2-minute minimum version.
 
@@ -121,55 +147,32 @@ Example: If I feel too tired to do the full routine, then I will do the 2-minute
 
 ### **Step 5: Focus on 2–3 biggest gaps**
 
-Choose the highest gaps from Step 3.
+Look at your Skills, Attributes, and Habits table above. Prioritise items where the **required level is highest** AND the **gap is widest** — these are the most important things to develop and the furthest from where you are now. Pick 2–3 only. Do not work on anything else until these improve.
+
+Each priority links to a real project below. The full next action list lives in the project — not here.
+
+---
 
 #### **Priority 1**
 
 **Gap selected:**
 
-- 
+- [Attribute where required level is highest AND gap is widest]
 
-Example: Simple, structured nutrition plan
+**Current:** [my rating]
 
-**Current:**
-
-- 
-
-Example: 3
-
-**Target in 3 months:**
-
-- 
-
-Example: 9
+**Target in 3 months:** [target rating]
 
 **What is stopping this gap from closing?**
 
-- [ ]  **Clarity** — I do not know exactly what to do
-- [ ]  **Consistency** — I know what to do, but I do not repeat it
-- [ ]  **Access** — I need a tool, resource, person, place, or permission
-- [ ]  **Feedback** — I need tracking, review, or correction
+- [ ] **Clarity** — I do not know exactly what to do
+- [ ] **Consistency** — I know what to do, but I do not repeat it
+- [ ] **Access** — I need a tool, resource, person, place, or permission
+- [ ] **Feedback** — I need tracking, review, or correction
 
-Example: Clarity + Consistency + Access
+**Linked project:**
 
-**Project idea:**
-
-What project in the Projects database would close this gap?
-
-- 
-
-Example: Nutrition routine designed, tested for 14 days, and added to daily checklist
-
-> Real project details live in the Projects database. Link the project using the 🏗️ Projects relation.
-> 
-
-**First next action idea:**
-
-Only write one starter action, not the whole task list.
-
-- 
-
-Example: Write down 3 default meals and one fallback meal.
+→ [Name of the project below that closes this gap]
 
 ---
 
@@ -177,64 +180,33 @@ Example: Write down 3 default meals and one fallback meal.
 
 **Gap selected:**
 
-- 
+- [Second attribute where required level is high AND gap is wide]
 
-Example: Track progress and adjust routines based on results
+**Current:** [my rating]
 
-**Current:**
-
-- 
-
-Example: 1
-
-**Target in 3 months:**
-
-- 
-
-Example: 8
+**Target in 3 months:** [target rating]
 
 **What is stopping this gap from closing?**
 
-- [ ]  **Clarity** — I do not know exactly what to do
-- [ ]  **Consistency** — I know what to do, but I do not repeat it
-- [ ]  **Access** — I need a tool, resource, person, place, or permission
-- [ ]  **Feedback** — I need tracking, review, or correction
+- [ ] **Clarity** — I do not know exactly what to do
+- [ ] **Consistency** — I know what to do, but I do not repeat it
+- [ ] **Access** — I need a tool, resource, person, place, or permission
+- [ ] **Feedback** — I need tracking, review, or correction
 
-Example: Feedback
+**Linked project:**
 
-**Project idea:**
-
-What project in the Projects database would close this gap?
-
-- 
-
-Example: Fitness progress tracker created and reviewed weekly
-
-> Real project details live in the Projects database. Link the project using the 🏗️ Projects relation.
-> 
-
-**First next action idea:**
-
-Only write one starter action, not the whole task list.
-
-- 
-
-Example: Research 3 simple tracking methods and choose one.
+→ [Name of the project below that closes this gap]
 
 ---
 
-### **Step 6: Link Real Projects**
+### **Step 6: Projects**
 
-Actual projects live in the **Projects database**.
+Each project is the trackable unit of work that closes a priority gap. Name projects as finished outcomes, not activities.
 
-Use the **🏗️ Projects** relation to link supporting projects to this goal.
+BAD: "Learn time management"
+GOOD: "Time blocking system running consistently for 30 days"
 
-Do not duplicate:
-
-- Project tasks
-- Full next action lists
-- Project status
-- Weekly plans
+> Link to your Projects database if using a task manager. Do not duplicate next action lists here.
 
 Example linked projects:
 
@@ -244,11 +216,22 @@ Example linked projects:
 
 ---
 
+### **Review Schedule**
+
+| What to review                               | How often        |
+| -------------------------------------------- | ---------------- |
+| My 2–3 focus points (am I doing the work?)   | Every 1–2 days   |
+| Force field (barriers / drivers / resources) | Every 1–2 weeks  |
+| Gap ratings (is the gap closing?)            | Every 2–4 weeks  |
+| Goal alignment (still serving the why?)      | Every 1–2 months |
+
+---
+
 ### **Monthly Goal Check**
 
 Use this monthly, not weekly.
 
-1. Is this goal still relevant?
+1. Is this goal still relevant to my why?
 2. Should it be Active, Paused, Not now, Someday, Completed, or Archived?
 3. Which linked projects are currently active?
 4. Is there a missing project needed to close one of the biggest gaps?

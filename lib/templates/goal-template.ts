@@ -27,69 +27,87 @@ By [date], I will have:
 
 What does someone who achieves this easily have?
 
-Score each item by how important it is for success.
+Rate each item by the level you need to reach to succeed at this goal.
 
-10 = essential, 5 = useful, 1 = barely relevant
+10 = near-expert level required, 5 = solid working competence required, 1 = a basic level is enough
 
-### Capabilities they have
+### Skills, attributes, and habits they have
 
-| What they can do | Target rating (1–10) |
-| --- | --- |
-| [Practical ability related to your goal] |  |
-| [Repeatable execution skill] |  |
-| [Independent problem-solving in this domain] |  |
-| [Consistent habit or routine] |  |
+| Skill / attribute / habit | Required level (1–10) | What this looks like for this goal |
+| --- | --- | --- |
+| Time management |  | [e.g. Blocks focused time consistently, rarely misses sessions] |
+| Focus and concentration |  | [e.g. Sustains deep work for 60+ min without distraction] |
+| Learning ability |  | [e.g. Extracts and applies new concepts quickly] |
+| Procrastination resistance |  | [e.g. Starts tasks without needing to feel motivated] |
+| Stress management / resilience |  | [e.g. Stays functional under pressure, recovers quickly] |
+| [Domain-specific skill for this goal] |  | [What it looks like] |
+| [Domain-specific skill for this goal] |  | [What it looks like] |
 
 ### Resources they have
 
-| What they have access to | Target rating (1–10) |
+| What they have access to | Required level (1–10) |
 | --- | --- |
-| [Tool, software, or equipment] |  |
-| [Knowledge source or learning material] |  |
-| [Mentor, community, or support system] |  |
+| Time available to invest |  |
+| Money / budget available |  |
+| Network (people who can help) |  |
+| Tools, courses, environments |  |
 
 ---
 
 ## My Current Profile
 
-Use the same items from Target Profile.
+Use the same items from Target Profile. Rate yourself honestly today.
 
-Score where I am today.
+Gap = Required level − My rating
 
-Gap = Target rating - My rating
+### My Skills, Attributes, and Habits
 
-### My Capabilities
-
-| What I can do | My rating | Gap |
+| Skill / attribute / habit | My rating | Gap (required − mine) |
 | --- | --- | --- |
-| [Same capability from Target Profile] |  |  |
-| [Same capability from Target Profile] |  |  |
-| [Same capability from Target Profile] |  |  |
-| [Same capability from Target Profile] |  |  |
+| Time management |  |  |
+| Focus and concentration |  |  |
+| Learning ability |  |  |
+| Procrastination resistance |  |  |
+| Stress management / resilience |  |  |
+| [Domain-specific skill] |  |  |
+| [Domain-specific skill] |  |  |
 
 ### My Resources
 
 | What I have | My rating | Gap |
 | --- | --- | --- |
-| [Same resource from Target Profile] |  |  |
-| [Same resource from Target Profile] |  |  |
-| [Same resource from Target Profile] |  |  |
+| Time available to invest |  |  |
+| Money / budget available |  |  |
+| Network (people who can help) |  |  |
+| Tools, courses, environments |  |  |
 
 ---
 
 ## What helps and blocks me?
 
-### Drivers (Things that help me)
+### Drivers (Internal strengths)
 
-- [Something already in place that supports this goal]
-- [An existing habit, tool, or motivation]
-- [Access to useful learning resources]
+Things already inside you that help — existing skills, habits, motivation, past experience.
+
+- [An existing skill or habit that supports this goal]
+- [A personal strength or past experience that's relevant]
+- [Something you're already doing that gives you an advantage]
+
+### Resources (External assets)
+
+Things outside you that you can deploy — time, money, people, tools, courses, access.
+
+- [Time available to invest]
+- [Budget, tools, or technology you have access to]
+- [People in your network who can help]
 
 ### Barriers (Things that block me)
 
+What prevents you from developing the skills and closing the gaps? Think holistically — barriers don't have to be directly about the goal. Anything that stops you from doing the work counts.
+
 - [What gets in the way when the day gets busy]
-- [A pattern that has stopped me before]
-- [A missing resource or unclear plan]
+- [A pattern that has stopped you before]
+- [A life factor that limits your available time or energy]
 
 **If–then plan for the main barrier:**
 
@@ -99,13 +117,15 @@ If *[main barrier situation]*, then I will *[specific alternative action]*.
 
 ## Focus on 2–3 biggest gaps
 
-Choose the highest gaps from My Current Profile.
+Look at your Skills, Attributes, and Habits table above. Prioritise items where the **required level is highest** AND the **gap is widest** — these are the most important things to develop and the furthest from where you are. Pick 2–3 only. Do not work on anything else until these improve.
+
+Each priority links to a real project in the Projects section below. That project is where the full next action list lives — not here.
 
 ### Priority 1
 
 **Gap selected:**
 
-- [Highest gap item from My Current Profile]
+- [Attribute where required level is highest AND gap is widest]
 
 **Current:** [my rating]
 
@@ -118,13 +138,11 @@ Choose the highest gaps from My Current Profile.
 - [ ] **Access** — I need a tool, resource, person, place, or permission
 - [ ] **Feedback** — I need tracking, review, or correction
 
-**Project idea:**
+**Linked project:**
 
-- [What project would close this gap? Describe the finished result.]
+→ [Name of the project in the Projects section below that closes this gap]
 
-**First next action:**
-
-- [ ] [One specific, physical, tiny starter action]
+*(Add the full project with next actions in the Projects section. Link the name here so this priority stays trackable.)*
 
 ---
 
@@ -132,7 +150,7 @@ Choose the highest gaps from My Current Profile.
 
 **Gap selected:**
 
-- [Second highest gap item from My Current Profile]
+- [Second highest gap item — required level highest AND gap widest]
 
 **Current:** [my rating]
 
@@ -145,13 +163,11 @@ Choose the highest gaps from My Current Profile.
 - [ ] **Access** — I need a tool, resource, person, place, or permission
 - [ ] **Feedback** — I need tracking, review, or correction
 
-**Project idea:**
+**Linked project:**
 
-- [What project would close this gap? Describe the finished result.]
+→ [Name of the project in the Projects section below that closes this gap]
 
-**First next action:**
-
-- [ ] [One specific, physical, tiny starter action]
+*(Add the full project with next actions in the Projects section. Link the name here so this priority stays trackable.)*
 
 ---
 
