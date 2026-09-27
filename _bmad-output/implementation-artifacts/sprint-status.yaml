@@ -49,7 +49,7 @@ development_status:
   1-1-standalone-nextjs-runtime-design-token-foundation: review
   1-2-supabase-schema-rls-database-triggers: review
   1-3-supabase-client-wiring-auth-middleware-guard: review
-  1-4-sign-up-sign-in-with-email-and-password: backlog
+  1-4-sign-up-sign-in-with-email-and-password: review
   1-5-password-reset: backlog
   1-6-authenticated-app-shell-with-responsive-navigation: backlog
   1-7-ai-provider-configuration-layer: backlog

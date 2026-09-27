@@ -125,3 +125,15 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-3-supabase-client-wiring-auth-middleware-guard.md`
   summary: Add an `import 'server-only'` guard around the service-role key path so it can never be imported into a client bundle
   evidence: Review (blind-hunter) — getServiceRoleKey lives in lib/supabase/env.ts alongside browser-safe getters used by client.ts, so a whole-module server-only guard would break the browser client. Split the service-role accessor into a server-only module in a later hardening pass
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-4-sign-up-sign-in-with-email-and-password.md`
+  summary: Move focus to the error region (or first invalid field) when an auth error renders, for keyboard/screen-reader users
+  evidence: Review (blind-hunter) — the error is `role="alert"` so it is announced, but focus is not moved; a focus-management pass would improve the a11y floor. Not required by the story ACs
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-4-sign-up-sign-in-with-email-and-password.md`
+  summary: Add client-side email-format and password-minlength pre-validation before calling Supabase for immediate feedback
+  evidence: Review (blind + edge-case) — currently only emptiness is checked client-side (server still validates); pre-validation avoids a round-trip and gives faster feedback. UX refinement, not an AC
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-4-sign-up-sign-in-with-email-and-password.md`
+  summary: Replace English substring matching in friendlyError with Supabase error code/status-based mapping
+  evidence: Review (edge-case + verification-gap) — message-string matching is brittle to locale/wording changes; it falls back to the raw message safely, so this is a robustness refinement
