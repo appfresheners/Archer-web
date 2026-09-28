@@ -128,3 +128,21 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-1-wizard-shell-stepper-navigation.md`
   summary: Consider an aria-live region announcing wizard step changes for screen-reader users, in addition to moving focus to the step heading
   evidence: Review (blind-hunter) — focus moves to the new step's first interactive element / heading on advance (per AC), which is the required behavior; a supplementary polite live-region announcement ("Step 2 of 4: Gap Rating") would further aid AT users. A11y enhancement beyond this story's AC; revisit when step content lands (3.3–3.6).
+
+## Deferred from: code review of 3-3 (2026-09-28)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-3-wizard-step-1-goal-skill-framework.md`
+  summary: Add UX feedback when the framework is below 3 items and when the advance gate is unmet — an inline hint ("Keep at least 3 skills to continue") near the framework list
+  evidence: Review (blind + edge-case) — removing items below 3 silently disables Next with no explanation. AC only requires the gate to enforce ≥3; the "why" hint is a discoverability nicety. Revisit alongside Step 2/wizard polish.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-3-wizard-step-1-goal-skill-framework.md`
+  summary: Guard the "Add item" field against duplicate skill names and enforce the 12-item ceiling (MAX_FRAMEWORK_ITEMS) on client-side adds; give framework items stable ids for React keys instead of name-index
+  evidence: Review (edge-case + blind) — a user can add a duplicate-named skill or exceed 12 items client-side (the endpoint caps its own output but not user adds); name-index keys collide on duplicates. Benign today (extra rows, no crash); harden when Step 2 consumes the list.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-3-wizard-step-1-goal-skill-framework.md`
+  summary: Announce framework readiness to screen readers (polite live region "Framework ready. Rate yourself.") and/or move focus to the framework heading when it renders after Continue
+  evidence: Review (blind-hunter) + EXPERIENCE.md ("Framework ready. Rate yourself.") — the framework list appends without an AT announcement or focus move; the loading/error states already use aria-live. A11y enhancement beyond this story's AC.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-3-wizard-step-1-goal-skill-framework.md`
+  summary: Give the "Add a skill" input a shorter, name-appropriate maxLength (it currently reuses the 500-char goal cap) and disable Add while a framework re-fetch is in flight
+  evidence: Review (blind + edge-case) — a single skill name doesn't need 500 chars; adding during an in-flight re-fetch could race an overwrite. Low impact (list only shows post-fetch); tidy in a later pass.

@@ -1,15 +1,49 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import GoalWizard, { applyGoalText, type WizardState } from "./GoalWizard";
 
 // --- Helpers ---------------------------------------------------------------
+
+const THREE_ITEM_FRAMEWORK = [
+  { name: "Skill A", required_level: 7, description: "First." },
+  { name: "Skill B", required_level: 6, description: "Second." },
+  { name: "Skill C", required_level: 8, description: "Third." },
+];
+
+/**
+ * Stub `fetch` so the Pattern B "Continue" call resolves with a valid
+ * (≥3-item) framework. Advancing from Step 1 now requires the framework to
+ * have returned, so navigation tests must fetch it first.
+ */
+function mockFrameworkFetch(framework = THREE_ITEM_FRAMEWORK) {
+  const fetchMock = vi.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => ({ framework }),
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+/** Type a goal, click Continue, and wait for the framework list to render. */
+async function typeGoalAndFetch(goal: string) {
+  fireEvent.change(goalInput(), { target: { value: goal } });
+  fireEvent.click(continueButton());
+  await screen.findByRole("heading", { name: "Your skill framework" });
+}
 
 function goalInput() {
   return screen.getByLabelText("Describe your goal") as HTMLInputElement;
 }
 
+function continueButton() {
+  return screen.getByRole("button", { name: "Continue" });
+}
+
 function nextButton() {
-  return screen.getByRole("button", { name: "Next" });
+  // Step 1's advance label is "Next: Rate yourself →"; later steps use "Next".
+  // Match either via a prefix regex.
+  return screen.getByRole("button", { name: /^Next/ });
 }
 
 function backButton() {
@@ -26,11 +60,21 @@ function activeStepLabel() {
 }
 
 describe("GoalWizard", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(console, "error").mockImplementation(() => { });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
   describe("Initial load", () => {
     it("renders on Step 1 with only Step 1 reachable (Next gated, Back disabled)", () => {
       render(<GoalWizard />);
       expect(activeStepLabel()).toMatch(/Step 1 of 4/);
-      // Step 1 gate = non-empty goal → Next disabled at load.
+      // Step 1 gate = non-empty goal AND ≥3-item framework → Next disabled at load.
       expect(nextButton()).toBeDisabled();
       // Back is disabled on the first step.
       expect(backButton()).toBeDisabled();
@@ -38,27 +82,52 @@ describe("GoalWizard", () => {
   });
 
   describe("Advance gating", () => {
-    it("enables Next once the goal text is non-empty and advances to Step 2", () => {
+    it("keeps Next disabled with goal text but no framework yet", () => {
+      mockFrameworkFetch();
       render(<GoalWizard />);
       fireEvent.change(goalInput(), { target: { value: "Learn to swim" } });
+      // Goal text alone no longer satisfies the gate — the framework must
+      // return first.
+      expect(nextButton()).toBeDisabled();
+    });
+
+    it("advances to Step 2 once the framework has returned with ≥3 items", async () => {
+      mockFrameworkFetch();
+      render(<GoalWizard />);
+      await typeGoalAndFetch("Learn to swim");
       expect(nextButton()).not.toBeDisabled();
 
       fireEvent.click(nextButton());
       expect(activeStepLabel()).toMatch(/Step 2 of 4: Gap Rating/);
     });
 
-    it("blocks Next while the gate fails (whitespace-only goal)", () => {
+    it("labels the Step 1 advance button 'Next: Rate yourself →' (epics AC)", async () => {
+      mockFrameworkFetch();
       render(<GoalWizard />);
-      fireEvent.change(goalInput(), { target: { value: "   " } });
+      await typeGoalAndFetch("Learn to swim");
+      expect(
+        screen.getByRole("button", { name: "Next: Rate yourself →" }),
+      ).toBeInTheDocument();
+    });
+
+    it("blocks Next once the framework drops below 3 items (via removal)", async () => {
+      // A <3 framework is only reachable by removing items (the endpoint
+      // guarantees >=3). Start at 3, remove one, assert advance stays gated.
+      mockFrameworkFetch();
+      render(<GoalWizard />);
+      await typeGoalAndFetch("Learn to swim");
+      expect(nextButton()).not.toBeDisabled();
+
+      fireEvent.click(screen.getByRole("button", { name: "Remove Skill C" }));
       expect(nextButton()).toBeDisabled();
       fireEvent.click(nextButton());
-      // Still on Step 1 — the gate never passed.
       expect(activeStepLabel()).toMatch(/Step 1 of 4/);
     });
 
-    it("marks a step complete in the stepper after advancing past it", () => {
+    it("marks a step complete in the stepper after advancing past it", async () => {
+      mockFrameworkFetch();
       render(<GoalWizard />);
-      fireEvent.change(goalInput(), { target: { value: "Learn to swim" } });
+      await typeGoalAndFetch("Learn to swim");
       fireEvent.click(nextButton());
       expect(
         screen.getByLabelText(/Step 1 of 4: Goal & Skill Framework, completed/),
@@ -67,9 +136,10 @@ describe("GoalWizard", () => {
   });
 
   describe("Back navigation preserves inputs", () => {
-    it("returns to Step 1 with the goal text intact", () => {
+    it("returns to Step 1 with the goal text intact", async () => {
+      mockFrameworkFetch();
       render(<GoalWizard />);
-      fireEvent.change(goalInput(), { target: { value: "Run a marathon" } });
+      await typeGoalAndFetch("Run a marathon");
       fireEvent.click(nextButton());
       expect(activeStepLabel()).toMatch(/Step 2 of 4/);
 
@@ -83,39 +153,46 @@ describe("GoalWizard", () => {
     it("offers no interactive control to jump to a later step directly", () => {
       render(<GoalWizard />);
       // The stepper renders no buttons/links — only the gated Next moves
-      // forward. The only actionable buttons are Back and Next.
-      const buttons = screen.getAllByRole("button");
-      const labels = buttons.map((b) => b.textContent);
-      expect(labels).toEqual(["Back", "Next"]);
+      // forward. Step 1's own "Continue" fetches the framework; navigation is
+      // still limited to Back/Next.
+      const labels = screen.getAllByRole("button").map((b) => b.textContent);
+      expect(labels).toEqual(["Continue", "Back", "Next: Rate yourself →"]);
       // And Next is gated on Step 1's rule, so an ungated jump is impossible.
       expect(nextButton()).toBeDisabled();
     });
   });
 
   describe("Framework invalidation on goal change", () => {
-    it("resets completion when the goal text changes after advancing", () => {
+    it("resets completion and invalidates the framework when the goal changes after advancing", async () => {
+      mockFrameworkFetch();
       render(<GoalWizard />);
-      fireEvent.change(goalInput(), { target: { value: "Learn guitar" } });
+      await typeGoalAndFetch("Learn guitar");
       fireEvent.click(nextButton());
       // On Step 2, Step 1 is now marked complete in the stepper.
       expect(
         screen.getByLabelText(/Step 1 of 4: Goal & Skill Framework, completed/),
       ).toBeInTheDocument();
 
-      // Return to Step 1 and edit the goal → dependent completion is reset, so
-      // stepping forward again is re-gated (no stale completion carries over).
+      // Return to Step 1 and edit the goal → the framework is invalidated
+      // (cleared) and dependent completion is reset, so advancing is re-gated:
+      // the goal must be re-Continued to fetch a fresh framework.
       fireEvent.click(backButton());
       fireEvent.change(goalInput(), { target: { value: "Learn piano" } });
+      expect(
+        screen.queryByRole("heading", { name: "Your skill framework" }),
+      ).not.toBeInTheDocument();
+      expect(nextButton()).toBeDisabled();
+      // Re-Continue fetches a fresh framework and advancing works again.
+      fireEvent.click(continueButton());
+      await screen.findByRole("heading", { name: "Your skill framework" });
       fireEvent.click(nextButton());
-      // We can still advance (goal is non-empty), but had the framework been
-      // set it would have been invalidated; completion was recomputed, not
-      // preserved from before the edit.
       expect(activeStepLabel()).toMatch(/Step 2 of 4/);
     });
 
-    it("collapses back to Step 1's gate when goal is cleared after advancing", () => {
+    it("collapses back to Step 1's gate when goal is cleared after advancing", async () => {
+      mockFrameworkFetch();
       render(<GoalWizard />);
-      fireEvent.change(goalInput(), { target: { value: "Learn guitar" } });
+      await typeGoalAndFetch("Learn guitar");
       fireEvent.click(nextButton());
       fireEvent.click(backButton());
 
@@ -140,7 +217,7 @@ describe("GoalWizard", () => {
     const withFramework: WizardState = {
       goalText: "Learn guitar",
       framework: [
-        { name: "Chords", requiredLevel: 7, description: "…", userRating: 4 },
+        { name: "Chords", required_level: 7, description: "…", user_rating: 4 },
       ],
       ratings: { Chords: 4 },
       drivers: ["I love music"],
@@ -177,9 +254,10 @@ describe("GoalWizard", () => {
   });
 
   describe("Focus management", () => {
-    it("moves focus to the new step's first interactive element on advance", () => {
+    it("moves focus to the new step's first interactive element on advance", async () => {
+      mockFrameworkFetch();
       render(<GoalWizard />);
-      fireEvent.change(goalInput(), { target: { value: "Learn to code" } });
+      await typeGoalAndFetch("Learn to code");
       fireEvent.click(nextButton());
       // Step 2 is a placeholder with no interactive element → focus falls back
       // to its heading (tabIndex=-1).
@@ -187,9 +265,10 @@ describe("GoalWizard", () => {
       expect(heading).toHaveFocus();
     });
 
-    it("moves focus back to Step 1's input (first interactive) on Back", () => {
+    it("moves focus back to Step 1's input (first interactive) on Back", async () => {
+      mockFrameworkFetch();
       render(<GoalWizard />);
-      fireEvent.change(goalInput(), { target: { value: "Learn to code" } });
+      await typeGoalAndFetch("Learn to code");
       fireEvent.click(nextButton());
       fireEvent.click(backButton());
       // Step 1's first focusable is the goal text input.

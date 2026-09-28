@@ -27,19 +27,24 @@
  * auto-save, no recovery. Abandoning the wizard discards everything.
  */
 
+import WizardStep1 from "@/components/goals/WizardStep1";
 import WizardStepper from "@/components/goals/WizardStepper";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 /**
- * Skill-framework item shape. Story 3.2/3.3 own the real fetch + type; this
- * story only needs a placeholder so the invalidation seam is typed.
+ * Skill-framework item shape, aligned to the persisted canonical schema
+ * (`SkillFrameworkItem` in lib/supabase/schema.ts) so no rename is needed
+ * downstream (Story 3.4 / Pattern C). The AI (Pattern B, Story 3.2) supplies
+ * only the Target Profile — `name`, `required_level`, `description`. The user's
+ * self-assessment `user_rating` is collected in Step 2 (Story 3.4), so it is
+ * optional here and Step 1 never sets it.
  */
 export interface SkillFrameworkItem {
   name: string;
-  requiredLevel: number;
+  required_level: number;
   description: string;
-  userRating?: number;
+  user_rating?: number;
 }
 
 /**
@@ -60,6 +65,13 @@ export interface StepContext {
   state: WizardState;
   /** Update Step 1 goal text; clears the framework when the text changes. */
   setGoalText: (text: string) => void;
+  /**
+   * Generic state patcher for a step to write its own slice (e.g. Step 1 sets
+   * `framework` after a successful Pattern B fetch). Goal text must still go
+   * through `setGoalText` so the framework-invalidation contract stays
+   * authoritative — do not route `goalText` through `patchState`.
+   */
+  patchState: (partial: Partial<WizardState>) => void;
   /** First-interactive ref target for focus-on-advance. */
   headingRef: React.RefObject<HTMLHeadingElement | null>;
 }
@@ -69,6 +81,12 @@ export interface WizardStep {
   label: string;
   /** Gate to advance FROM this step. */
   isComplete: (s: WizardState) => boolean;
+  /**
+   * Label for the shell's advance button while on this step (e.g. Step 1's
+   * "Next: Rate yourself →" per the epics AC). Falls back to "Next". Kept in
+   * the shell so steps declare their own copy without forking navigation.
+   */
+  nextLabel?: string;
   render: (ctx: StepContext) => ReactNode;
 }
 
@@ -113,34 +131,13 @@ const STEPS: WizardStep[] = [
   {
     id: "goal",
     label: "Goal & Skill Framework",
-    isComplete: (s) => s.goalText.trim().length > 0,
-    render: ({ state, setGoalText, headingRef }) => (
-      <div className="flex flex-col gap-4">
-        <h2
-          ref={headingRef}
-          tabIndex={-1}
-          className="text-[length:var(--font-size-subheading)] font-bold text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
-        >
-          Goal &amp; Skill Framework
-        </h2>
-        <p className="text-text-secondary">
-          Describe the goal you want to achieve. The skill framework arrives in
-          a later step.
-        </p>
-        <label htmlFor="wizard-goal-text" className="sr-only">
-          Describe your goal
-        </label>
-        <input
-          id="wizard-goal-text"
-          type="text"
-          value={state.goalText}
-          onChange={(e) => setGoalText(e.target.value)}
-          placeholder="e.g., Become a confident public speaker"
-          maxLength={500}
-          className="min-h-[44px] w-full rounded-[var(--radius-sm)] border border-border bg-background px-4 py-3 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)]"
-        />
-      </div>
-    ),
+    // Advance from Step 1 requires non-empty goal text AND a framework that has
+    // returned with at least 3 items remaining (per epics.md / EXPERIENCE.md).
+    // The framework must be fetched (Pattern B) before Step 2 is reachable.
+    isComplete: (s) =>
+      s.goalText.trim().length > 0 && (s.framework?.length ?? 0) >= 3,
+    nextLabel: "Next: Rate yourself →",
+    render: (ctx) => <WizardStep1 ctx={ctx} />,
   },
   {
     id: "gap",
@@ -235,6 +232,16 @@ export default function GoalWizard() {
     setCompleted((prev) => (prev.length === 0 ? prev : []));
   }, []);
 
+  /**
+   * Generic state patcher a step uses to write its own slice (Step 1 sets
+   * `framework` here after a successful Pattern B fetch). Goal text is NOT
+   * routed through this — it must go through `setGoalText` so the
+   * framework-invalidation contract stays authoritative.
+   */
+  const patchState = useCallback((partial: Partial<WizardState>) => {
+    setState((prev) => ({ ...prev, ...partial }));
+  }, []);
+
   const advance = useCallback(() => {
     // Keep the state updaters pure (no side effects inside them) so React
     // StrictMode's double-invoke can't desync completion/focus. Decide the
@@ -291,7 +298,7 @@ export default function GoalWizard() {
         ref={panelRef}
         className="rounded-[var(--radius-xl)] border border-border bg-surface p-[var(--spacing-card-p)]"
       >
-        {currentStep.render({ state, setGoalText, headingRef })}
+        {currentStep.render({ state, setGoalText, patchState, headingRef })}
       </div>
 
       <div className="flex items-center justify-between gap-4">
@@ -314,7 +321,7 @@ export default function GoalWizard() {
             : "bg-primary text-white hover:bg-primary-hover motion-safe:transition-colors motion-safe:duration-150"
             }`}
         >
-          Next
+          {currentStep.nextLabel ?? "Next"}
         </button>
       </div>
     </div>
