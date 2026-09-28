@@ -118,3 +118,13 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-6-remove-dead-copy-download-code.md`
   summary: Remove now-unused npm dependencies (react-markdown, rehype-raw, remark-gfm, qrcode) from package.json and regenerate the lockfile
   evidence: Review (blind-hunter) — these were consumed only by the deleted MVP1 components (OutputPanel, SavedBreakdowns). The 2.6 spec's "Ask First" deferred dependency removal (harmless to leave; a later epic may reintroduce a renderer). Drop them in a dedicated dependency-cleanup pass with a lockfile regen + full build.
+
+## Deferred from: code review of 3-1 (2026-09-28)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-1-wizard-shell-stepper-navigation.md`
+  summary: Give the Step 1 goal input an explanatory validation message (not just a disabled Next) and a live character counter for the 500-char cap
+  evidence: Review (blind-hunter) — the shell's Step 1 uses a placeholder input that gates advancement via a disabled Next button with no reason surfaced, and caps at maxLength=500 with no counter/aria-describedby. Both belong to Story 3.3 (Wizard Step 1 — Goal & Skill Framework), which replaces this placeholder input with the real one (epics.md 3.3 AC: "inline validation blocks advancing" + "live counter"). Deferred to 3.3 so the real input carries them.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-1-wizard-shell-stepper-navigation.md`
+  summary: Consider an aria-live region announcing wizard step changes for screen-reader users, in addition to moving focus to the step heading
+  evidence: Review (blind-hunter) — focus moves to the new step's first interactive element / heading on advance (per AC), which is the required behavior; a supplementary polite live-region announcement ("Step 2 of 4: Gap Rating") would further aid AT users. A11y enhancement beyond this story's AC; revisit when step content lands (3.3–3.6).
