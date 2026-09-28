@@ -11,11 +11,13 @@
  *   3. Dispatch — select the depth-aware system prompt and route the
  *      recognized mode through `generate()` from `lib/ai`, which owns provider
  *      selection and the 30-second timeout.
- *   4. Save-before-return — on success, parse the breakdown and write ONE
- *      `projects` row owned by the signed-in user (with the chosen
- *      `planning_depth`, `goal_id = null`, the full `breakdown_md`, and the
- *      parsed `name`/`purpose`/`successful_outcome`), then return `{ id }`.
- *      An insert failure maps to 500 and the client never navigates.
+ *   4. Save-before-return — generation returns STRUCTURED JSON (never
+ *      markdown). On success, write ONE `projects` row owned by the signed-in
+ *      user (with the chosen `planning_depth`, `goal_id = null`, the scalar
+ *      `name`/`purpose`/`successful_outcome`, and the Full-GTD extras in
+ *      `planning_detail`) plus one `actions` row per next action, then return
+ *      `{ id }`. An insert failure maps to 500 (with rollback) and the client
+ *      never navigates. No markdown is stored anywhere.
  *
  * Epic 3 adds Patterns B/C (goal framework / goal generate) by adding a branch
  * to the `switch (mode)` below — reusing this same auth check, provider path,
@@ -23,13 +25,12 @@
  * fetch code, or hardcoded model strings.
  */
 
-import { generate } from "@/lib/ai";
-import {
-    PROJECT_FULL_GTD_SYSTEM_PROMPT,
-    PROJECT_MINIMAL_SYSTEM_PROMPT,
-} from "@/lib/ai/prompts";
-import { parseProjectBreakdown } from "@/lib/projects/parse-breakdown";
-import type { PlanningDepth, ProjectInsert } from "@/lib/supabase/schema";
+import { generateProject } from "@/lib/projects/generate-project";
+import type {
+    ActionInsert,
+    PlanningDepth,
+    ProjectInsert,
+} from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -55,12 +56,6 @@ function isKnownDepth(value: unknown): value is PlanningDepth {
         (KNOWN_DEPTHS as readonly string[]).includes(value)
     );
 }
-
-/** Depth → system prompt. Keeps the depth→prompt seam explicit and testable. */
-const PROMPT_BY_DEPTH: Record<PlanningDepth, string> = {
-    minimal: PROJECT_MINIMAL_SYSTEM_PROMPT,
-    full_gtd: PROJECT_FULL_GTD_SYSTEM_PROMPT,
-};
 
 /**
  * Read the authenticated user via the server Supabase client.
@@ -128,66 +123,58 @@ export async function POST(request: NextRequest) {
 
     // 3. Dispatch on the recognized mode. Today only Pattern A (`project`);
     //    Epic 3 slots `goal`/`step` branches in here.
-    let systemPrompt: string;
-    let userMessage: string;
-    let planningDepth: PlanningDepth;
     const trimmedInput = input.trim();
 
-    switch (mode) {
-        case "project": {
-            // Depth is a first-class, required input for a project request: it
-            // selects the prompt and the persisted `planning_depth`. Reject a
-            // missing/invalid depth before the provider call.
-            if (!isKnownDepth(depth)) {
-                return NextResponse.json(
-                    { error: "A valid planning depth is required." },
-                    { status: 400 }
-                );
-            }
-            planningDepth = depth;
-            systemPrompt = PROMPT_BY_DEPTH[depth];
-            userMessage = `My project: ${trimmedInput}`;
-            break;
-        }
-        default: {
-            // Exhaustive today; guards a future mode added to the union without
-            // a dispatch branch.
-            const unreachable: never = mode;
-            return NextResponse.json(
-                { error: `Unsupported generation mode: ${String(unreachable)}` },
-                { status: 400 }
-            );
-        }
+    if (mode !== "project") {
+        // Exhaustive today; guards a future mode added to the union without a
+        // dispatch branch.
+        const unreachable: never = mode;
+        return NextResponse.json(
+            { error: `Unsupported generation mode: ${String(unreachable)}` },
+            { status: 400 }
+        );
     }
 
-    // 4. Delegate the provider call to lib/ai (owns provider selection + 30s
-    //    timeout). Map its errors to actionable statuses.
-    let markdown: string;
+    // Depth is a first-class, required input for a project request: it selects
+    // the prompt and the persisted `planning_depth`. Reject a missing/invalid
+    // depth before the provider call.
+    if (!isKnownDepth(depth)) {
+        return NextResponse.json(
+            { error: "A valid planning depth is required." },
+            { status: 400 }
+        );
+    }
+    const planningDepth: PlanningDepth = depth;
+
+    // 4. Generate a STRUCTURED project (JSON) via lib/projects (which owns the
+    //    prompt selection, the provider call, the 30s timeout, and JSON
+    //    validation). No markdown is produced or stored.
+    let generated;
     try {
-        markdown = await generate(systemPrompt, userMessage);
+        generated = await generateProject(trimmedInput, planningDepth);
     } catch (error) {
         return mapGenerateError(error);
     }
 
-    // 5. Save-before-return: persist the breakdown as ONE project row owned by
-    //    the signed-in user, then return the new row id. The client navigates
+    // 5. Save-before-return: persist the breakdown as structured rows owned by
+    //    the signed-in user — ONE `projects` row plus one `actions` row per
+    //    next action — then return the new project id. The client navigates
     //    only after it has the id, so it never holds an unsaved result.
-    const parsed = parseProjectBreakdown(markdown, trimmedInput);
-    const row: ProjectInsert = {
+    const projectRow: ProjectInsert = {
         user_id: userId,
         goal_id: null, // Project Mode is the permitted null-goal case.
         planning_depth: planningDepth,
-        breakdown_md: markdown,
-        name: parsed.name,
-        purpose: parsed.purpose || null,
-        successful_outcome: parsed.successful_outcome || null,
+        name: generated.name,
+        purpose: generated.purpose,
+        successful_outcome: generated.successful_outcome,
+        planning_detail: generated.detail, // null for minimal depth
     };
 
     try {
         const supabase = await createClient();
         const { data, error } = await supabase
             .from("projects")
-            .insert(row)
+            .insert(projectRow)
             .select("id")
             .single();
 
@@ -202,7 +189,38 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        return NextResponse.json({ id: data.id });
+        const projectId = data.id as string;
+
+        // Persist the 12 next actions as structured, ordered `actions` rows.
+        const actionRows: ActionInsert[] = generated.next_actions.map(
+            (text, index) => ({
+                user_id: userId,
+                project_id: projectId,
+                text,
+                sort_order: index,
+            })
+        );
+
+        const { error: actionsError } = await supabase
+            .from("actions")
+            .insert(actionRows);
+
+        if (actionsError) {
+            // The project saved but its actions did not. Roll back the orphaned
+            // project so the user can cleanly retry rather than landing on a
+            // half-saved breakdown.
+            console.error(
+                "[api/generate] actions insert failed, rolling back project:",
+                actionsError.message
+            );
+            await supabase.from("projects").delete().eq("id", projectId);
+            return NextResponse.json(
+                { error: "Failed to save the generated project. Please try again." },
+                { status: 500 }
+            );
+        }
+
+        return NextResponse.json({ id: projectId });
     } catch (error) {
         const message =
             error instanceof Error ? error.message : "unexpected insert error";

@@ -60,7 +60,9 @@ development_status:
   2-2-project-mode-input-with-depth-control-validation: review
   2-3-project-mode-generation-save-navigation: review
   2-4-loading-timeout-provider-error-handling: review
-  2-5-formatted-output-rendering-notion-optimized-markdown: backlog
+  # 2-5 (formatted-output-rendering / Notion-optimized markdown) REMOVED —
+  # obsolete: generation returns structured JSON persisted as Supabase rows;
+  # the project detail view (2.3) renders from structured data, not markdown.
   2-6-remove-dead-copy-download-code: backlog
   epic-2-retrospective: optional
 

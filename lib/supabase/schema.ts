@@ -55,6 +55,18 @@ export interface SkillFrameworkItem {
 }
 
 // -----------------------------------------------------------------------------
+// Full-GTD Natural Planning extras — JSONB structure stored on
+// projects.planning_detail. NULL for minimal-depth projects.
+// -----------------------------------------------------------------------------
+
+export interface PlanningDetail {
+  principles: string[];
+  vision: string;
+  ideas: string[];
+  organizing: string[];
+}
+
+// -----------------------------------------------------------------------------
 // Database shape
 // -----------------------------------------------------------------------------
 
@@ -72,7 +84,6 @@ export interface Database {
           drivers: string[] | null;
           barriers: string[] | null;
           if_then_plan: string | null;
-          breakdown_md: string | null;
           last_checked_at: string | null;
           created_at: string;
           updated_at: string;
@@ -87,7 +98,6 @@ export interface Database {
           drivers?: string[] | null;
           barriers?: string[] | null;
           if_then_plan?: string | null;
-          breakdown_md?: string | null;
           last_checked_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -102,7 +112,6 @@ export interface Database {
           drivers?: string[] | null;
           barriers?: string[] | null;
           if_then_plan?: string | null;
-          breakdown_md?: string | null;
           last_checked_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -119,7 +128,7 @@ export interface Database {
           successful_outcome: string | null;
           status: ProjectStatus;
           planning_depth: PlanningDepth;
-          breakdown_md: string | null;
+          planning_detail: PlanningDetail | null;
           sort_order: number;
           created_at: string;
           updated_at: string;
@@ -133,7 +142,7 @@ export interface Database {
           successful_outcome?: string | null;
           status?: ProjectStatus;
           planning_depth?: PlanningDepth;
-          breakdown_md?: string | null;
+          planning_detail?: PlanningDetail | null;
           sort_order?: number;
           created_at?: string;
           updated_at?: string;
@@ -147,7 +156,7 @@ export interface Database {
           successful_outcome?: string | null;
           status?: ProjectStatus;
           planning_depth?: PlanningDepth;
-          breakdown_md?: string | null;
+          planning_detail?: PlanningDetail | null;
           sort_order?: number;
           created_at?: string;
           updated_at?: string;

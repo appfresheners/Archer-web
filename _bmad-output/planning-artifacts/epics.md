@@ -169,7 +169,7 @@ FR91: All vault operations (encrypt, decrypt, export, import, QR render) SHALL o
 
 **Markdown Format**
 
-FR92: All AI-generated markdown SHALL be Notion-optimized: `#`/`##`/`###` headings, `- [ ]` checkboxes for criteria/actions, `| pipe |` tables for capability/resource analysis, `<details>/<summary>` accordions for the Projects section, and clean line spacing for block separation.
+FR92: All AI generation SHALL return structured JSON (project name, purpose, successful outcome, the depth-specific Natural Planning fields, and the exactly-12 next actions) that is validated server-side and persisted as structured rows/columns in Supabase. No markdown is generated, parsed, or stored; the app renders every breakdown from the stored structured data.
 
 ### NonFunctional Requirements
 
@@ -240,101 +240,101 @@ UX-DR25: Enforce GTD Template Integrity as a generation-quality gate — outcome
 
 ### FR Coverage Map
 
-| FR    | Epic   | Description                                                 |
-| ----- | ------ | ----------------------------------------------------------- |
-| FR32  | Epic 1 | AI provider selection (env-configured)                      |
-| FR33  | Epic 1 | Gemini default provider                                     |
-| FR34  | Epic 1 | Configurable model per provider, no fallbacks               |
-| FR35  | Epic 1 | API keys via env only                                       |
-| FR40  | Epic 1 | Auth required for all features                              |
-| FR41  | Epic 1 | Restore user data on sign-in                                |
-| FR42  | Epic 1 | Email + password sign-in/up only                            |
-| FR43  | Epic 1 | Password reset via Supabase email flow                      |
-| FR78  | Epic 1 | All data persisted to Supabase                              |
-| FR79  | Epic 1 | Supabase backup mechanism                                   |
-| FR25  | Epic 2 | Project Mode single text input                              |
-| FR26  | Epic 2 | Project Mode 500-char UI / 2000 server cap                  |
-| FR27  | Epic 2 | Project Mode empty-input validation                         |
-| FR28  | Epic 2 | Submit via Enter or button                                  |
-| FR29  | Epic 2 | Project Mode depth-aware breakdown (minimal / full GTD)     |
-| FR29a | Epic 2 | Project depth choice (minimal default / full GTD)           |
-| FR30  | Epic 2 | Project Mode loading + 30s timeout                          |
-| FR31  | Epic 2 | Project Mode auto-saves to Supabase projects row            |
-| FR36  | Epic 2 | Provider error surfaced with actionable message             |
-| FR37  | Epic 2 | Output renders via react-markdown + remark-gfm + rehype-raw |
-| FR38  | Epic 2 | Output panel fade-in                                        |
-| FR39  | Epic 2 | Smooth-scroll to output                                     |
-| FR92  | Epic 2 | Notion-optimized markdown format                            |
-| FR1   | Epic 3 | Four-step wizard stepper                                    |
-| FR2   | Epic 3 | Stepper progress indication                                 |
-| FR3   | Epic 3 | Back navigation preserves inputs                            |
-| FR4   | Epic 3 | Abandon creates no goal                                     |
-| FR5   | Epic 3 | Goal text 500-char UI / 2000 server cap                     |
-| FR6   | Epic 3 | Empty goal text blocked                                     |
-| FR7   | Epic 3 | Step 1 AI skill-framework proposal                          |
-| FR8   | Epic 3 | Framework returned before Step 2, with loading              |
-| FR9   | Epic 3 | Review / remove / add framework items                       |
-| FR10  | Epic 3 | Step 2 per-item rating, live gap                            |
-| FR11  | Epic 3 | AI never pre-fills ratings                                  |
-| FR12  | Epic 3 | User can add items in Step 2                                |
-| FR13  | Epic 3 | Step 3 drivers + barriers                                   |
-| FR14  | Epic 3 | AI never infers drivers/barriers                            |
-| FR15  | Epic 3 | If–then plan                                                |
-| FR16  | Epic 3 | Step 4 summary + edit-back                                  |
-| FR17  | Epic 3 | Step 4 generation with full structured inputs               |
-| FR18  | Epic 3 | Full Reverse-Goal-Setting + GTD breakdown                   |
-| FR19  | Epic 3 | First two projects close priority 1 & 2 gaps, names match   |
-| FR20  | Epic 3 | Content specific to user inputs (no filler)                 |
-| FR21  | Epic 3 | GTD next-action rules (shared with Epic 2)                  |
-| FR22  | Epic 3 | Wizard generation 30s timeout + retry                       |
-| FR23  | Epic 3 | Wizard generation loading state                             |
-| FR24  | Epic 3 | Generation failure keeps Step 4 inputs intact               |
-| FR44  | Epic 4 | Create / view / edit / delete goals                         |
-| FR45  | Epic 4 | Edit goal fields; no auto-regenerate                        |
-| FR46  | Epic 4 | Delete archives linked projects/actions (soft)              |
-| FR47  | Epic 4 | Goal statuses                                               |
-| FR48  | Epic 4 | Paused goal removed from Engage                             |
-| FR49  | Epic 4 | Project fields + status + parent goal                       |
-| FR50  | Epic 4 | Edit any part of a generated project                        |
-| FR51  | Epic 4 | Regenerate a single project                                 |
-| FR52  | Epic 4 | Explicit project completion                                 |
-| FR53  | Epic 4 | Action fields + statuses                                    |
-| FR54  | Epic 4 | One committed action per project                            |
-| FR55  | Epic 4 | Completing committed action prompts next                    |
-| FR56  | Epic 4 | Context tags on actions (in scope v1)                       |
-| FR57  | Epic 4 | Add / edit / delete / reorder actions                       |
-| FR58  | Epic 4 | Stuck definition (Active + zero committed)                  |
-| FR59  | Epic 4 | Stuck surfaced, never hidden                                |
-| FR61  | Epic 5 | Frictionless inbox capture                                  |
-| FR62  | Epic 5 | Inbox clarify/processing flow                               |
-| FR63  | Epic 5 | Weekly review Get Clear to inbox zero; 7-day flag           |
-| FR64  | Epic 5 | Persistent capture from any view                            |
-| FR65  | Epic 5 | Engage shows committed actions only                         |
-| FR66  | Epic 5 | Engage context-tag filtering                                |
-| FR67  | Epic 5 | Complete-in-Engage prompts next committed                   |
-| FR68  | Epic 5 | Engage surfaces stuck projects                              |
-| FR60  | Epic 5 | Get Current blocks past a stuck project                     |
-| FR69  | Epic 5 | Weekly review three-phase order                             |
-| FR70  | Epic 5 | Guided review, data surfaced per phase                      |
-| FR71  | Epic 5 | Review not timed                                            |
-| FR72  | Epic 5 | Review completion gates                                     |
-| FR73  | Epic 5 | Review progress preserved (Supabase)                        |
-| FR74  | Epic 5 | Last-review timestamp visible                               |
-| FR75  | Epic 5 | Monthly goal check (prompted + manual)                      |
-| FR76  | Epic 5 | Monthly check surfaces projects/stuck/missing               |
-| FR77  | Epic 5 | Change goal status from monthly check                       |
-| FR80  | Epic 6 | On-demand data export (JSON/Markdown)                       |
-| FR81  | Epic 6 | Archived data retained + in exports                         |
-| FR82  | Epic 6 | Vault open button                                           |
-| FR83  | Epic 6 | Vault passphrase unlock                                     |
-| FR84  | Epic 6 | Auto-save to vault when unlocked                            |
-| FR85  | Epic 6 | Vault entry contents                                        |
-| FR86  | Epic 6 | Restore / delete / clear vault                              |
-| FR87  | Epic 6 | Vault export / import JSON                                  |
-| FR88  | Epic 6 | Portable identity link + QR                                 |
-| FR89  | Epic 6 | Portable identity scrubbed from address bar                 |
-| FR90  | Epic 6 | Security warning before reveal                              |
-| FR91  | Epic 6 | All vault ops client-side only                              |
+| FR    | Epic   | Description                                                                                   |
+| ----- | ------ | --------------------------------------------------------------------------------------------- |
+| FR32  | Epic 1 | AI provider selection (env-configured)                                                        |
+| FR33  | Epic 1 | Gemini default provider                                                                       |
+| FR34  | Epic 1 | Configurable model per provider, no fallbacks                                                 |
+| FR35  | Epic 1 | API keys via env only                                                                         |
+| FR40  | Epic 1 | Auth required for all features                                                                |
+| FR41  | Epic 1 | Restore user data on sign-in                                                                  |
+| FR42  | Epic 1 | Email + password sign-in/up only                                                              |
+| FR43  | Epic 1 | Password reset via Supabase email flow                                                        |
+| FR78  | Epic 1 | All data persisted to Supabase                                                                |
+| FR79  | Epic 1 | Supabase backup mechanism                                                                     |
+| FR25  | Epic 2 | Project Mode single text input                                                                |
+| FR26  | Epic 2 | Project Mode 500-char UI / 2000 server cap                                                    |
+| FR27  | Epic 2 | Project Mode empty-input validation                                                           |
+| FR28  | Epic 2 | Submit via Enter or button                                                                    |
+| FR29  | Epic 2 | Project Mode depth-aware breakdown (minimal / full GTD)                                       |
+| FR29a | Epic 2 | Project depth choice (minimal default / full GTD)                                             |
+| FR30  | Epic 2 | Project Mode loading + 30s timeout                                                            |
+| FR31  | Epic 2 | Project Mode auto-saves to Supabase projects row                                              |
+| FR36  | Epic 2 | Provider error surfaced with actionable message                                               |
+| FR37  | Epic 2 | Structured project detail view renders from stored rows                                       |
+| FR38  | —      | Superseded — output-panel fade-in (same-page reveal removed; flow navigates to a detail page) |
+| FR39  | —      | Superseded — smooth-scroll to output (same-page reveal removed)                               |
+| FR92  | Epic 2 | Structured JSON generation persisted to Supabase (no markdown)                                |
+| FR1   | Epic 3 | Four-step wizard stepper                                                                      |
+| FR2   | Epic 3 | Stepper progress indication                                                                   |
+| FR3   | Epic 3 | Back navigation preserves inputs                                                              |
+| FR4   | Epic 3 | Abandon creates no goal                                                                       |
+| FR5   | Epic 3 | Goal text 500-char UI / 2000 server cap                                                       |
+| FR6   | Epic 3 | Empty goal text blocked                                                                       |
+| FR7   | Epic 3 | Step 1 AI skill-framework proposal                                                            |
+| FR8   | Epic 3 | Framework returned before Step 2, with loading                                                |
+| FR9   | Epic 3 | Review / remove / add framework items                                                         |
+| FR10  | Epic 3 | Step 2 per-item rating, live gap                                                              |
+| FR11  | Epic 3 | AI never pre-fills ratings                                                                    |
+| FR12  | Epic 3 | User can add items in Step 2                                                                  |
+| FR13  | Epic 3 | Step 3 drivers + barriers                                                                     |
+| FR14  | Epic 3 | AI never infers drivers/barriers                                                              |
+| FR15  | Epic 3 | If–then plan                                                                                  |
+| FR16  | Epic 3 | Step 4 summary + edit-back                                                                    |
+| FR17  | Epic 3 | Step 4 generation with full structured inputs                                                 |
+| FR18  | Epic 3 | Full Reverse-Goal-Setting + GTD breakdown                                                     |
+| FR19  | Epic 3 | First two projects close priority 1 & 2 gaps, names match                                     |
+| FR20  | Epic 3 | Content specific to user inputs (no filler)                                                   |
+| FR21  | Epic 3 | GTD next-action rules (shared with Epic 2)                                                    |
+| FR22  | Epic 3 | Wizard generation 30s timeout + retry                                                         |
+| FR23  | Epic 3 | Wizard generation loading state                                                               |
+| FR24  | Epic 3 | Generation failure keeps Step 4 inputs intact                                                 |
+| FR44  | Epic 4 | Create / view / edit / delete goals                                                           |
+| FR45  | Epic 4 | Edit goal fields; no auto-regenerate                                                          |
+| FR46  | Epic 4 | Delete archives linked projects/actions (soft)                                                |
+| FR47  | Epic 4 | Goal statuses                                                                                 |
+| FR48  | Epic 4 | Paused goal removed from Engage                                                               |
+| FR49  | Epic 4 | Project fields + status + parent goal                                                         |
+| FR50  | Epic 4 | Edit any part of a generated project                                                          |
+| FR51  | Epic 4 | Regenerate a single project                                                                   |
+| FR52  | Epic 4 | Explicit project completion                                                                   |
+| FR53  | Epic 4 | Action fields + statuses                                                                      |
+| FR54  | Epic 4 | One committed action per project                                                              |
+| FR55  | Epic 4 | Completing committed action prompts next                                                      |
+| FR56  | Epic 4 | Context tags on actions (in scope v1)                                                         |
+| FR57  | Epic 4 | Add / edit / delete / reorder actions                                                         |
+| FR58  | Epic 4 | Stuck definition (Active + zero committed)                                                    |
+| FR59  | Epic 4 | Stuck surfaced, never hidden                                                                  |
+| FR61  | Epic 5 | Frictionless inbox capture                                                                    |
+| FR62  | Epic 5 | Inbox clarify/processing flow                                                                 |
+| FR63  | Epic 5 | Weekly review Get Clear to inbox zero; 7-day flag                                             |
+| FR64  | Epic 5 | Persistent capture from any view                                                              |
+| FR65  | Epic 5 | Engage shows committed actions only                                                           |
+| FR66  | Epic 5 | Engage context-tag filtering                                                                  |
+| FR67  | Epic 5 | Complete-in-Engage prompts next committed                                                     |
+| FR68  | Epic 5 | Engage surfaces stuck projects                                                                |
+| FR60  | Epic 5 | Get Current blocks past a stuck project                                                       |
+| FR69  | Epic 5 | Weekly review three-phase order                                                               |
+| FR70  | Epic 5 | Guided review, data surfaced per phase                                                        |
+| FR71  | Epic 5 | Review not timed                                                                              |
+| FR72  | Epic 5 | Review completion gates                                                                       |
+| FR73  | Epic 5 | Review progress preserved (Supabase)                                                          |
+| FR74  | Epic 5 | Last-review timestamp visible                                                                 |
+| FR75  | Epic 5 | Monthly goal check (prompted + manual)                                                        |
+| FR76  | Epic 5 | Monthly check surfaces projects/stuck/missing                                                 |
+| FR77  | Epic 5 | Change goal status from monthly check                                                         |
+| FR80  | Epic 6 | On-demand data export (JSON/Markdown)                                                         |
+| FR81  | Epic 6 | Archived data retained + in exports                                                           |
+| FR82  | Epic 6 | Vault open button                                                                             |
+| FR83  | Epic 6 | Vault passphrase unlock                                                                       |
+| FR84  | Epic 6 | Auto-save to vault when unlocked                                                              |
+| FR85  | Epic 6 | Vault entry contents                                                                          |
+| FR86  | Epic 6 | Restore / delete / clear vault                                                                |
+| FR87  | Epic 6 | Vault export / import JSON                                                                    |
+| FR88  | Epic 6 | Portable identity link + QR                                                                   |
+| FR89  | Epic 6 | Portable identity scrubbed from address bar                                                   |
+| FR90  | Epic 6 | Security warning before reveal                                                                |
+| FR91  | Epic 6 | All vault ops client-side only                                                                |
 
 **NFR coverage:** NFR2 (Node runtime/Vercel), NFR6 (privacy), NFR7 (vault security), NFR9 (data integrity) anchor in Epic 1 and Epic 6. NFR1 (performance), NFR3 (responsive), NFR4 (accessibility), NFR5 (browser support), NFR8 (error resilience) are cross-cutting — verified within every epic that ships UI, with the baseline established in Epic 1.
 
@@ -351,8 +351,8 @@ A user can create an account, sign in with email and password, reset a forgotten
 
 ### Epic 2: Project Mode Generation & Output Rendering
 
-A signed-in user can type a project, choose Minimal or Full-GTD depth, and get a complete GTD project breakdown generated by the AI, saved automatically to Supabase, and rendered as formatted output — then land on the new project's detail view. This epic delivers the first end-to-end AI value and builds the shared generation infrastructure the wizard reuses: the single discriminated `/api/generate` endpoint (Pattern A) with one auth check, one provider path, and one 30-second timeout handler; the react-markdown + remark-gfm + rehype-raw render stack; Notion-optimized markdown; provider-error handling; and the removal of the dead copy/download code from the prior build.
-**FRs covered:** FR25, FR26, FR27, FR28, FR29, FR29a, FR30, FR31, FR36, FR37, FR38, FR39, FR92
+A signed-in user can type a project, choose Minimal or Full-GTD depth, and get a complete GTD project breakdown generated by the AI as structured JSON, saved automatically to Supabase as structured rows, and shown on the new project's detail view. This epic delivers the first end-to-end AI value and builds the shared generation infrastructure the wizard reuses: the single discriminated `/api/generate` endpoint (Pattern A) with one auth check, one provider path, and one 30-second timeout handler; structured JSON generation validated server-side and persisted as `projects` + `actions` rows (no markdown stored); provider-error handling; and the removal of the dead copy/download code from the prior build.
+**FRs covered:** FR25, FR26, FR27, FR28, FR29, FR29a, FR30, FR31, FR36, FR37, FR92
 **NFRs covered:** NFR1, NFR8
 **ARs covered:** AR4, AR13, AR17, AR19, AR25
 
@@ -585,9 +585,9 @@ So that generation features can call Gemini, Groq, or OpenAI without hardcoded m
 
 ## Epic 2: Project Mode Generation & Output Rendering
 
-A signed-in user can type a project, choose Minimal or Full-GTD depth, and get a complete GTD project breakdown generated by the AI, saved automatically to Supabase, and rendered as formatted output — then land on the new project's detail view.
+A signed-in user can type a project, choose Minimal or Full-GTD depth, and get a complete GTD project breakdown generated by the AI as structured JSON, saved automatically to Supabase as structured rows — then land on the new project's detail view, which renders the breakdown from the stored structured data.
 
-**Relevant UX-DRs:** UX-DR9 (input + depth control + output panel), UX-DR25 (GTD template integrity).
+**Relevant UX-DRs:** UX-DR9 (input + depth control + structured detail view), UX-DR25 (GTD template integrity).
 
 ### Story 2.1: Single Generation Endpoint with Auth & Provider Path (Pattern A)
 
@@ -696,32 +696,7 @@ So that I am never left staring at a frozen screen.
 **When** it is surfaced
 **Then** the message is clear and actionable, including guidance for API-key misconfiguration (e.g. "No API key configured. Add GEMINI_API_KEY to .env.local.")
 
-### Story 2.5: Formatted Output Rendering & Notion-Optimized Markdown
-
-As a signed-in user,
-I want the generated breakdown rendered as readable formatted content,
-So that I can review the structure clearly on the project detail view.
-
-**Acceptance Criteria:**
-
-**Given** generated markdown
-**When** it renders
-**Then** it uses `react-markdown` with `remark-gfm` and `rehype-raw`
-**And** `<details>/<summary>` accordions render (confirming `rehype-raw` is present)
-**And** the generated content body uses JetBrains Mono
-
-**Given** the output panel
-**When** it first appears
-**Then** it is hidden until generation and enters with a subtle fade-in
-**And** if `prefers-reduced-motion` is set, the fade-in is suppressed
-
-**Given** generation completes
-**When** the output is shown
-**Then** the viewport smooth-scrolls so the top of the output panel is visible
-
-**Given** the raw generated markdown
-**When** inspected
-**Then** it is Notion-optimized: `#`/`##`/`###` headings, `- [ ]` checkboxes, `| pipe |` tables, `<details>/<summary>` for projects, and blank-line block separation with no trailing-whitespace empty blocks
+> **Story 2.5 removed.** The former "Formatted Output Rendering & Notion-Optimized Markdown" story is obsolete: generation now returns structured JSON persisted as `projects` + `actions` rows, and the project detail view (Story 2.3) renders directly from that structured data. There is no markdown artifact to format, no copy/paste-to-Notion target, and the same-page output panel (fade-in / smooth-scroll) no longer exists — the flow navigates to a dedicated detail page instead.
 
 ### Story 2.6: Remove Dead Copy/Download Code
 

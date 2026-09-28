@@ -2,94 +2,6 @@
 
 ## Deferred from: code review of 2-2/2-3 (2026-08-27)
 
-- ModeToggle tabs missing `aria-controls` and `id` attributes — WAI-ARIA tablist pattern recommends associating tabs with panels via id/aria-controls. Not blocking since this design doesn't use formal tabpanels. [archer/components/ModeToggle.tsx]
-- ModeToggle tabs don't handle Home/End keys — WAI-ARIA tablist recommends Home/End for first/last tab. Not critical for a 2-tab toggle. [archer/components/ModeToggle.tsx]
-
-- source_spec: `_bmad-output/implementation-artifacts/spec-3-1-copy-markdown-to-clipboard.md`
-  summary: Add focus trap to fallback clipboard modal (Tab cycles between textarea and Close button)
-  evidence: WCAG aria-modal contract requires focus to remain within the dialog; currently focus can escape to background content
-
-- source_spec: `_bmad-output/implementation-artifacts/spec-3-1-copy-markdown-to-clipboard.md`
-  summary: Add aria-live announcement for clipboard failure case (fallback modal shown)
-  evidence: Screen reader users get no audible notification that the copy failed; the modal's role="dialog" provides some signal but an explicit announcement would be more accessible
-
-- source_spec: `_bmad-output/implementation-artifacts/spec-3-2-download-as-markdown-file.md`
-  summary: Add focus trap to fallback clipboard modal so keyboard users cannot Tab behind the overlay
-  evidence: Backdrop div lacks tabIndex and focus-trap mechanism; Tab navigates to obscured page content violating WCAG 2.4.3
-
-- source_spec: `_bmad-output/implementation-artifacts/spec-3-2-download-as-markdown-file.md`
-  summary: Return focus to the trigger button when fallback modal closes
-  evidence: WAI-ARIA dialog pattern requires focus return to previously-focused element on dismiss
-
-- source_spec: `_bmad-output/implementation-artifacts/spec-3-2-download-as-markdown-file.md`
-  summary: Add backdrop tabIndex to modal so Escape key handler fires on keyboard interaction
-  evidence: Backdrop onKeyDown never fires because the div has no tabIndex attribute
-
-- source_spec: `_bmad-output/implementation-artifacts/spec-3-2-download-as-markdown-file.md`
-  summary: Add loading/disabled state on Copy button while async clipboard write is pending
-  evidence: Rapid clicks can queue multiple clipboard writes and flash confirmation text erratically
-
-- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-notion-optimized-markdown-quality.md`
-  summary: escapeMarkdown does not neutralize user input containing `<!--` sequences which could produce HTML comment artifacts in rendered markdown
-  evidence: Pre-existing behavior from Epic 2; escapeMarkdown escapes common markdown special chars but HTML comment delimiters are not in its character class
-
-- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-notion-optimized-markdown-quality.md`
-  summary: escapeMarkdown does not handle literal newlines or carriage returns in user input which could break table structure
-  evidence: Pre-existing behavior from Epic 2; input field is single-line so risk is minimal but the function itself has no newline handling
-
-- source_spec: none
-  summary: Extract escapeMarkdown into shared utility (duplicated in goal-template.ts and project-template.ts)
-  evidence: Blind-hunter review identified code duplication; both template files define identical escapeMarkdown functions
-  status: done
-
-- source_spec: none
-  summary: Add input length validation to /api/generate route to prevent prompt injection and cost inflation
-  evidence: Blind-hunter review; no maxLength check on user input before concatenating into LLM prompt
-  status: done
-
-- source_spec: none
-  summary: Add AbortController timeout to outbound fetch calls in /api/generate route
-  evidence: Blind-hunter review; if a provider hangs the serverless function will exhaust its execution budget
-  status: done
-
-- source_spec: none
-  summary: Move Gemini API key from URL query parameter to x-goog-api-key header
-  evidence: Blind-hunter review; key in URL leaks to access logs and intermediate proxies
-  status: done
-
-- source_spec: none
-  summary: Verify default Gemini model name (gemini-3.6-flash) is a valid model identifier
-  evidence: Blind-hunter review; does not match known published Gemini model names — changed to gemini-2.0-flash
-  status: done
-
-- source_spec: `_bmad-output/implementation-artifacts/spec-4-1-local-vault-storage-layer.md`
-  summary: Validate individual vault entry shape (not just the container's entries array) in isVaultSchema/readVault
-  evidence: Review found isVaultSchema only checks entries is an array; malformed entries (e.g. [null], [{}]) pass and are cast to VaultEntry unsafely, flowing to listEntries/readEntry consumers (relevant once 4.3 renders them)
-
-- source_spec: `_bmad-output/implementation-artifacts/spec-4-1-local-vault-storage-layer.md`
-  summary: Gate on schemaVersion and add a migration path before treating stored data as current version
-  evidence: isVaultSchema ignores schemaVersion; a future/foreign version is silently read and mutated as v1. Deliberately deferred in 4.1 but needed before the schema evolves (4.2 encryption changes the stored shape)
-
-- source_spec: `_bmad-output/implementation-artifacts/spec-4-1-local-vault-storage-layer.md`
-  summary: Multi-tab / concurrent write safety for the vault (read-modify-write can clobber across tabs)
-  evidence: saveEntry/deleteEntry do readVault -> mutate -> writeVault with no storage-event listener or locking; two tabs saving concurrently lose entries (last write wins)
-
-- source_spec: `_bmad-output/implementation-artifacts/spec-4-1-local-vault-storage-layer.md`
-  summary: Add a size/entry-count bound or pruning strategy to prevent unbounded vault growth toward QuotaExceededError
-  evidence: Every saveEntry appends with no cap or eviction; quota failure is only reported, never prevented. Also no length guard on inputText/outputMarkdown before persisting
-
-- source_spec: `_bmad-output/implementation-artifacts/spec-4-1-local-vault-storage-layer.md`
-  summary: Preserve/quarantine corrupt-but-parseable vault data instead of silently overwriting it on the next save
-  evidence: When stored JSON parses but fails isVaultSchema, readVault returns empty; a subsequent save overwrites the recoverable raw bytes with an empty container, with no backup or user warning
-
-- source_spec: `_bmad-output/implementation-artifacts/spec-1-1-standalone-nextjs-runtime-design-token-foundation.md`
-  summary: Add `--font-weight-*` tokens (heading 700, subheading 600, body 400, caption 500) to the `@theme` block
-  evidence: Review (blind-hunter) noted DESIGN.md specifies per-role font weights but Story 1.1's accepted scope only required the type-size scale; weight tokens would let later components consume weights from the token system instead of hardcoding
-
-- source_spec: `_bmad-output/implementation-artifacts/spec-1-1-standalone-nextjs-runtime-design-token-foundation.md`
-  summary: Add line-height / `--leading-*` tokens (hero 1.2, section 1.3, body 1.6, mono 1.7) to complete the DESIGN.md type scale
-  evidence: Review (blind-hunter) noted DESIGN.md defines a line-height per type role but Story 1.1's accepted scope only required the size scale; line-heights are currently hardcoded in `.output-prose`
-
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-1-standalone-nextjs-runtime-design-token-foundation.md`
   summary: Add `@media (prefers-reduced-motion: reduce)` handling to disable the `animate-fade-in` utility
   evidence: Review (blind-hunter) — the preserved MVP1 `@utility animate-fade-in` runs a 300ms animation unconditionally; NFR4 accessibility floor calls for respecting reduced-motion. Pre-existing (not introduced by this story); best fixed alongside the Epic 2 output-panel work
@@ -195,9 +107,6 @@
   summary: Project detail `loadProject` conflates transient DB/network errors with not-found/RLS-deny — all render as 404 instead of distinguishing a 500-class error
   evidence: Review (blind-hunter) — `page.tsx` try/catch returns null on any failure → notFound(). Fail-closed is safe for a detail view and matches the app-shell's fail-to-redirect pattern, but a transient backend error shows as 404, hurting debuggability. Add an error boundary / distinct error state in a later hardening pass.
 
-- source_spec: `_bmad-output/implementation-artifacts/spec-2-3-project-mode-generation-save-navigation.md`
-  summary: `breakdown_md` is rendered with `rehype-raw` (raw HTML enabled) and is unbounded — document/enforce a sanitization trust boundary before any project content becomes user-authored or shareable
-  evidence: Review (blind-hunter) — today the markdown is AI-provider output scoped to the owner's own RLS row (not a cross-user vector), and rehype-raw is required for the `<details>/<summary>` accordions. Pre-existing to OutputPanel (Story 2.5 owns rendering). Revisit sanitization when content can be edited/shared (Epic 4+).
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-4-loading-timeout-provider-error-handling.md`
   summary: Move focus to the error alert (or first invalid field) when a generation error renders, for keyboard/screen-reader users

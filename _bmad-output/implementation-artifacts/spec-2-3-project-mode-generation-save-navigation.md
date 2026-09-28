@@ -88,6 +88,17 @@ context:
 - Given the save-before-return rule, when generation completes, then the handler writes the Supabase row and returns the row id before the client navigates, there is no "show output then decide whether to save" path, and no copy or download action is offered anywhere.
 - Given all generated next actions, when inspected, then each begins with a physical verb, references a specific real tool/app/website/location, and is completable in 2–5 minutes; the first action is the lowest-friction possible starting point; and no action references "Open Notion" as a destination.
 
+## Spec Change Log
+
+- **2026-09-27 — Reworked from markdown to structured JSON (human-renegotiated intent).** The original spec had the AI return markdown, stored the blob in `projects.breakdown_md`, regex-parsed `name`/`purpose`/`successful_outcome` out of it, and rendered the blob via `OutputPanel`. The human directed that generation must return **structured JSON** and be **persisted as structured Supabase rows** (no markdown stored). Changes applied:
+  - `lib/ai/prompts.ts` now emits strict JSON (no markdown).
+  - `lib/projects/parse-breakdown.ts` (markdown regex parser) was **deleted** and replaced by `lib/projects/generate-project.ts` (prompt selection + `generate()` call + JSON parse/validate → typed `GeneratedProject`).
+  - `app/api/generate/route.ts` now inserts a structured `projects` row (`name`, `purpose`, `successful_outcome`, `planning_depth`, `planning_detail` JSON for Full-GTD, `goal_id=null`) **plus one `actions` row per next action** (with rollback of the project if the actions insert fails), and returns `{ id }`. `breakdown_md` is no longer written.
+  - `app/app/projects/[id]/page.tsx` renders from the structured columns + `planning_detail` + `actions` rows (no `OutputPanel`, no markdown).
+  - Migration `0002_project_json_structure.sql` adds `projects.planning_detail jsonb` and **drops `projects.breakdown_md`**; `lib/supabase/schema.ts` updated in lockstep (added `PlanningDetail`).
+  - Story 2.5 (markdown/Notion output rendering) was removed as obsolete.
+  - Where the frozen Intent/Boundaries above still say "markdown"/`breakdown_md`, read them as their structured-JSON equivalents per this entry; the entry is authoritative.
+
 ## Design Notes
 
 Save happens server-side in the route (not the client) so "save-before-return" is atomic with generation and the client never holds an unsaved result — the POST resolves to `{ id }` and the only next step is navigation. The detail view reads from the DB (not from the POST response body), which keeps the saved row the single source of truth and lets Story 2.5 polish rendering in one place. `parseProjectBreakdown` is a pragmatic extractor for the denormalized columns (used by list/detail later); `breakdown_md` remains the full artifact, so a parser miss degrades a column, never the content. GTD action-quality rules live in the prompts (LLM output isn't unit-testable); tests pin the deterministic seams — depth→prompt selection, row shape, and navigation.
