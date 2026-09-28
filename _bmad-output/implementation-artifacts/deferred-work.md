@@ -94,10 +94,12 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-1-single-generation-endpoint-with-auth-provider-path-pattern-a.md`
   summary: The MVP1 root page `app/page.tsx` still POSTs `{ mode: 'goal' }` to /api/generate, which now returns 400 (goal mode moves to Epic 3); the default Home flow errors until this superseded surface is removed
   evidence: Review (verification-gap + blind-hunter) — `app/page.tsx:handleSubmit` defaults mode to 'goal' and its test mocks fetch so no test catches the mismatch. Root cause is the superseded static-export root page, which Story 2.6 removes (dead copy/download + MVP1 output path). Tracked here so 2.6 closes it.
+  status: done # 2026-09-28 verified — Story 2.6 already replaced app/page.tsx with a redirect to /app/engage; no goal-mode POST remains. Not a live bug.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-1-single-generation-endpoint-with-auth-provider-path-pattern-a.md`
   summary: `docs/MASTER GOAL → GTD PROJECT SYSTEM PROMPT.md` still says it is the live prompt for `GOAL_SYSTEM_PROMPT` in `app/api/generate/route.ts`; that inline prompt was removed in 2.1 and the Goal prompt returns in Epic 3
   evidence: Review (verification-gap other-finding) — stale doc reference to a removed symbol. Not caused by this story's code behavior; refresh when the Goal prompt is reintroduced in Epic 3 (Pattern C).
+  status: done # 2026-09-28 verified — the doc header now correctly points to GOAL_GENERATE_SYSTEM_PROMPT in lib/ai/prompts.ts (Pattern C, Story 3.6). Already accurate.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-2-project-mode-input-with-depth-control-validation.md`
   summary: DepthControl does not handle Home/End keys (WAI-ARIA radiogroup pattern recommends Home→first, End→last option)
@@ -124,6 +126,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-1-wizard-shell-stepper-navigation.md`
   summary: Give the Step 1 goal input an explanatory validation message (not just a disabled Next) and a live character counter for the 500-char cap
   evidence: Review (blind-hunter) — the shell's Step 1 uses a placeholder input that gates advancement via a disabled Next button with no reason surfaced, and caps at maxLength=500 with no counter/aria-describedby. Both belong to Story 3.3 (Wizard Step 1 — Goal & Skill Framework), which replaces this placeholder input with the real one (epics.md 3.3 AC: "inline validation blocks advancing" + "live counter"). Deferred to 3.3 so the real input carries them.
+  status: done # 2026-09-28 verified — WizardStep1.tsx has the live counter (COUNTER_THRESHOLD 400, aria-live polite, aria-describedby), maxLength 500, and inline empty/whitespace validation. Delivered in 3.3.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-1-wizard-shell-stepper-navigation.md`
   summary: Consider an aria-live region announcing wizard step changes for screen-reader users, in addition to moving focus to the step heading
@@ -188,6 +191,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-6-wizard-step-4-review-generate-save-pattern-c.md`
   summary: Add a client-side AbortController on the Step 4 generate fetch aligned to the 30s server timeout, and a success confirmation/placeholder before navigating to the (Epic 4) /app/goals/[id] detail route
   evidence: Review (blind-hunter) — the client relies entirely on the server to bound the request; if the connection stalls the button stays "Generating…" indefinitely. And on success the user is pushed to a route that 404s until Epic 4 ships the Goal detail view. Mirrors the same client-abort deferral noted for Project Mode (2.4). The detail page is Epic 4 (Story 4.2) — the goal IS saved regardless.
+  status: partial # 2026-09-28 — the /app/goals/[id] 404 concern is RESOLVED (Story 4.2 shipped the goal detail page). The client-side AbortController refinement remains open and is now tracked under epic-H (H-3 provider-resilience).
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-6-wizard-step-4-review-generate-save-pattern-c.md`
   summary: Preserve a framework item's AI `description` on save rather than blanking a non-string to "" in validateFramework, and rely on returned-row identity (not insert array order) to link actions to projects
@@ -252,6 +256,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-4-action-management-context-tags.md`
   summary: Decide the intended behavior when a committed action is completed/unchecked — toggling a committed action to done (then back to available) silently drops the committed marking
   evidence: Review (edge-case + blind) — completing a committed action → done is correct GTD, but un-completing returns it to available, losing "committed". Story 4.5 owns commit semantics and the "prompt for the next committed action" flow; resolve this there (e.g. completing a committed action triggers the 4.5 next-action prompt rather than a bare available/done toggle).
+  status: done # 2026-09-28 verified — Story 4.5's ActionList.handleToggleDone detects a committed→done completion and opens the next-action prompt (commit the next available action, or mark the project complete) rather than a bare toggle.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-4-action-management-context-tags.md`
   summary: Add optimistic UI + inline validation/rollback for action mutations, cap/validate context-tag value length in the editor to match the server's 60-char limit, and consider drag-and-drop reordering

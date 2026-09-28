@@ -38,7 +38,7 @@ v # STATUS DEFINITIONS:
 # and has been preserved as sprint-status-superseded-mvp1.yaml. None of the new
 # 35 stories have been started under the current plan, so all are 'backlog'.
 generated: 09-27-2026 16:30
-last_updated: 09-28-2026 (Epic 4 — all stories 4.1–4.5 in review)
+last_updated: 09-28-2026 (Epic 4 in review; added hardening epic-H from deferred ledger)
 
 project: GTDGoalandProjectCreator
 project_key: NOKEY
@@ -99,3 +99,38 @@ development_status:
   6-3-vault-management-restore-delete-clear-export-import: backlog
   6-4-portable-identity-link-qr: backlog
   epic-6-retrospective: optional
+
+  # ===========================================================================
+  # HARDENING EPIC (epic-H) — promoted from the deferred-work ledger (2026-09-28).
+  # These are NOT new feature scope: each story consolidates related deferred
+  # findings (see deferred-work.md) that recurred across Epics 1–4 and are
+  # cheaper/safer to fix once than to retrofit per-story. Scheduled here so the
+  # debt is tracked and prioritized rather than buried in the ledger.
+  # ===========================================================================
+  epic-H: backlog
+  # H-1 absorbs the correctness cluster: atomicity + the single-committed
+  # invariant + missing data-integrity constraints. Ledger sources:
+  #   3.6 (goals→projects→actions save not atomic)
+  #   4.2 (goal soft-delete cascade not atomic)
+  #   4.3 (project regeneration update+delete+insert not atomic)
+  #   4.4 (action reorder row-by-row loop not atomic)
+  #   1.2 (fn_commit_action UPDATE-only; no row-lock/serialization)
+  #   4.5 (no DB backstop for one-committed-per-project)
+  #   1.2 (cross-owner FK guard; CHECK constraints; snapshot immutability + FK indexes)
+  H-1-atomic-writes-and-db-integrity-hardening: backlog
+  # H-2 absorbs the a11y cluster: a shared focus-trap modal primitive adopted by
+  # the confirm/prompt dialogs, plus error-focus and live-region announcements.
+  # Ledger sources:
+  #   4.2 (delete dialog Tab-trap), 4.3 (regenerate dialog Tab-trap),
+  #   4.5 (next-action prompt; aria-live status region)
+  #   1.4 / 2.4 (move focus to error alert)
+  #   1.6 (skip-to-content + route-change focus)
+  #   3.1 / 3.3 (polite live-region step/readiness announcements)
+  H-2-shared-focus-trap-modal-and-a11y-announcements: backlog
+  # H-3 absorbs resilience/observability. Ledger sources:
+  #   1.7 (provider retry/backoff; error diagnostics + AbortSignal; log gating)
+  #   3.6 (client AbortController on generate)
+  #   2.3 / 4.1 (distinguish transient backend error from 404 / empty state)
+  #   3.6 (friendly mapping for GenerationFormatError)
+  H-3-provider-resilience-and-error-observability: backlog
+  epic-H-retrospective: optional
