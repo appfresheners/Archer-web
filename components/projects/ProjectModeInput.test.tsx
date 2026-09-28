@@ -171,4 +171,38 @@ describe("ProjectModeInput", () => {
       expect(onSubmit).not.toHaveBeenCalled();
     });
   });
+
+  describe("Loading (generation in flight)", () => {
+    it("shows a spinner + 'Generating…' and disables the button while loading", () => {
+      render(<ProjectModeInput onSubmit={vi.fn()} loading />);
+      const button = screen.getByRole("button", { name: /generating/i });
+      expect(button).toHaveTextContent("Generating…");
+      expect(button).toBeDisabled();
+    });
+
+    it("disables the input and depth control while loading", () => {
+      render(<ProjectModeInput onSubmit={vi.fn()} loading />);
+      expect(screen.getByRole("textbox")).toBeDisabled();
+      for (const radio of screen.getAllByRole("radio")) {
+        expect(radio).toBeDisabled();
+      }
+    });
+
+    it("does not clear the input when loading toggles on", () => {
+      const { rerender } = render(<ProjectModeInput onSubmit={vi.fn()} />);
+      fireEvent.change(screen.getByRole("textbox"), {
+        target: { value: "Build a website" },
+      });
+      rerender(<ProjectModeInput onSubmit={vi.fn()} loading />);
+      expect(screen.getByRole("textbox")).toHaveValue("Build a website");
+    });
+
+    it("does not show 'Generating…' when not loading", () => {
+      render(<ProjectModeInput onSubmit={vi.fn()} />);
+      expect(
+        screen.getByRole("button", { name: /break it down/i }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Generating…")).not.toBeInTheDocument();
+    });
+  });
 });

@@ -38,7 +38,7 @@ v # STATUS DEFINITIONS:
 # and has been preserved as sprint-status-superseded-mvp1.yaml. None of the new
 # 35 stories have been started under the current plan, so all are 'backlog'.
 generated: 09-27-2026 16:30
-last_updated: 09-27-2026 (Epic 2 story 2.3 in review)
+last_updated: 09-27-2026 (Epic 2 story 2.4 in review)
 
 project: GTDGoalandProjectCreator
 project_key: NOKEY
@@ -59,7 +59,7 @@ development_status:
   2-1-single-generation-endpoint-with-auth-provider-path-pattern-a: review
   2-2-project-mode-input-with-depth-control-validation: review
   2-3-project-mode-generation-save-navigation: review
-  2-4-loading-timeout-provider-error-handling: backlog
+  2-4-loading-timeout-provider-error-handling: review
   2-5-formatted-output-rendering-notion-optimized-markdown: backlog
   2-6-remove-dead-copy-download-code: backlog
   epic-2-retrospective: optional

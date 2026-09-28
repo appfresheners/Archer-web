@@ -198,3 +198,11 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-3-project-mode-generation-save-navigation.md`
   summary: `breakdown_md` is rendered with `rehype-raw` (raw HTML enabled) and is unbounded — document/enforce a sanitization trust boundary before any project content becomes user-authored or shareable
   evidence: Review (blind-hunter) — today the markdown is AI-provider output scoped to the owner's own RLS row (not a cross-user vector), and rehype-raw is required for the `<details>/<summary>` accordions. Pre-existing to OutputPanel (Story 2.5 owns rendering). Revisit sanitization when content can be edited/shared (Epic 4+).
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-4-loading-timeout-provider-error-handling.md`
+  summary: Move focus to the error alert (or first invalid field) when a generation error renders, for keyboard/screen-reader users
+  evidence: Review (blind-hunter) — the error uses role="alert" aria-live="assertive" so it is announced, but focus is not moved to it. A focus-management pass would raise the a11y floor beyond the AC. Mirrors the same deferral made for the auth forms in Epic 1.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-4-loading-timeout-provider-error-handling.md`
+  summary: Recover the in-flight state if client-side navigation to the new project fails to mount (form stays disabled with no error)
+  evidence: Review (edge-case + blind-hunter) — on a successful `{id}`, `router.push` leaves `inFlight` true through the transition (intentional, to block double-submit); if the destination fails to load, the form has no recovery path. Low risk (a remount resets state); revisit with a navigation error boundary. Same class of issue noted in Story 2.3.

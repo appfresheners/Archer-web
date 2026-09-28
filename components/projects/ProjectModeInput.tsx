@@ -32,11 +32,18 @@ const COUNTER_THRESHOLD = 400;
 interface ProjectModeInputProps {
   onSubmit: (args: { input: string; depth: PlanningDepth }) => void;
   disabled?: boolean;
+  /**
+   * True while a generation request is in flight. Shows a spinner +
+   * "Generating…" on the submit button and disables the input + depth control.
+   * Loading implies disabled; the input value is never cleared.
+   */
+  loading?: boolean;
 }
 
 export default function ProjectModeInput({
   onSubmit,
   disabled = false,
+  loading = false,
 }: ProjectModeInputProps) {
   const [input, setInput] = useState("");
   const [depth, setDepth] = useState<PlanningDepth>("minimal");
@@ -46,10 +53,13 @@ export default function ProjectModeInput({
   const errorId = useId();
   const counterId = useId();
 
+  // Loading (a request in flight) implies the whole form is disabled.
+  const isDisabled = disabled || loading;
+
   const trimmed = input.trim();
   const isEmpty = trimmed === "";
   const showCounter = input.length > COUNTER_THRESHOLD;
-  const submitDisabled = isEmpty || disabled;
+  const submitDisabled = isEmpty || isDisabled;
 
   const handleInputChange = (value: string) => {
     if (validationError) setValidationError("");
@@ -61,7 +71,7 @@ export default function ProjectModeInput({
       setValidationError("Enter a project first");
       return;
     }
-    if (disabled) return;
+    if (isDisabled) return;
     onSubmit({ input: trimmed, depth });
   };
 
@@ -86,7 +96,7 @@ export default function ProjectModeInput({
           onKeyDown={handleKeyDown}
           placeholder={PLACEHOLDER}
           maxLength={MAX_LENGTH}
-          disabled={disabled}
+          disabled={isDisabled}
           aria-describedby={
             [showCounter ? counterId : null, validationError ? errorId : null]
               .filter(Boolean)
@@ -114,19 +124,26 @@ export default function ProjectModeInput({
         )}
       </div>
 
-      <DepthControl value={depth} onChange={setDepth} disabled={disabled} />
+      <DepthControl value={depth} onChange={setDepth} disabled={isDisabled} />
 
       <button
         type="button"
         onClick={handleAttemptSubmit}
-        disabled={disabled}
+        disabled={isDisabled}
         aria-disabled={submitDisabled ? "true" : undefined}
-        className={`min-h-[44px] w-full rounded-[var(--radius-sm)] px-6 py-3 font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] ${submitDisabled
-            ? "cursor-not-allowed bg-primary/40 text-white/60"
-            : "bg-primary text-white hover:bg-primary-hover motion-safe:transition-colors motion-safe:duration-150"
+        aria-busy={loading ? "true" : undefined}
+        className={`flex min-h-[44px] w-full items-center justify-center rounded-[var(--radius-sm)] px-6 py-3 font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] ${submitDisabled
+          ? "cursor-not-allowed bg-primary/40 text-white/60"
+          : "bg-primary text-white hover:bg-primary-hover motion-safe:transition-colors motion-safe:duration-150"
           }`}
       >
-        Break it down
+        {loading && (
+          <span
+            className="mr-2 inline-block h-4 w-4 motion-safe:animate-spin rounded-full border-2 border-white/40 border-t-white align-[-2px]"
+            aria-hidden="true"
+          />
+        )}
+        {loading ? "Generating…" : "Break it down"}
       </button>
     </div>
   );
