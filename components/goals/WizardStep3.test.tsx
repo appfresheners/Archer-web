@@ -3,6 +3,12 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { composeIfThen, parseIfThen } from "./WizardStep3";
 
+// Advancing to Step 4 mounts WizardStep4, which uses next/navigation's
+// useRouter; mock it so the gate test that lands on Step 4 doesn't crash.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
+
 /**
  * WizardStep3 is driven entirely through the shell's `StepContext`
  * (state + patchState + headingRef). Rendering it through the real `GoalWizard`

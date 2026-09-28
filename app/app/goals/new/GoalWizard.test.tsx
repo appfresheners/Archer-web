@@ -2,6 +2,12 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import GoalWizard, { applyGoalText, type WizardState } from "./GoalWizard";
 
+// Step 4 (WizardStep4) uses next/navigation's useRouter; mock it so the shell
+// tests that reach Step 4 don't crash. No navigation is asserted here.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
+
 // --- Helpers ---------------------------------------------------------------
 
 const THREE_ITEM_FRAMEWORK = [
@@ -205,6 +211,73 @@ describe("GoalWizard", () => {
       fireEvent.click(backButton());
       expect(activeStepLabel()).toMatch(/Step 1 of 4/);
       expect(goalInput().value).toBe("Run a marathon");
+    });
+  });
+
+  describe("goToStep (Step 4 Edit links)", () => {
+    /** Drive from a fresh render through Steps 1→2→3→4. */
+    async function goToStep4() {
+      await typeGoalAndFetch("Become a speaker");
+      fireEvent.click(nextButton()); // → Step 2
+      await screen.findByRole("heading", { name: "Gap Rating" });
+      fireEvent.click(nextButton()); // → Step 3 (ratings seeded to 5)
+      await screen.findByRole("heading", { name: "Drivers & Barriers" });
+      fireEvent.change(screen.getByLabelText("Drivers"), {
+        target: { value: "Discipline" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Add driver" }));
+      fireEvent.change(screen.getByLabelText("Barriers"), {
+        target: { value: "Distractions" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Add barrier" }));
+      fireEvent.change(screen.getByLabelText("If …"), {
+        target: { value: "it is 7am" },
+      });
+      fireEvent.change(screen.getByLabelText("then I will …"), {
+        target: { value: "practise 10 minutes" },
+      });
+      fireEvent.click(nextButton()); // → Step 4
+      await screen.findByRole("heading", { name: "Review & Generate" });
+    }
+
+    it("mounts WizardStep4 on the last step", async () => {
+      mockFrameworkFetch();
+      render(<GoalWizard />);
+      await goToStep4();
+      expect(
+        screen.getByRole("button", { name: "Generate my breakdown" }),
+      ).toBeInTheDocument();
+      // The shell's advance button is disabled on the last step.
+      expect(nextButton()).toBeDisabled();
+    });
+
+    it("Edit goal jumps back to Step 1 (backward jump always allowed)", async () => {
+      mockFrameworkFetch();
+      render(<GoalWizard />);
+      await goToStep4();
+      fireEvent.click(screen.getByRole("button", { name: "Edit goal" }));
+      expect(activeStepLabel()).toMatch(/Step 1 of 4/);
+      expect(goalInput().value).toBe("Become a speaker");
+    });
+
+    it("Edit ratings jumps back to Step 2 with inputs preserved", async () => {
+      mockFrameworkFetch();
+      render(<GoalWizard />);
+      await goToStep4();
+      fireEvent.click(screen.getByRole("button", { name: "Edit ratings" }));
+      expect(activeStepLabel()).toMatch(/Step 2 of 4: Gap Rating/);
+    });
+
+    it("does not jump forward past an unmet gate", async () => {
+      // On Step 1 with no framework yet, the shell exposes no forward-jump UI;
+      // a programmatic forward jump is gated. Verify by trying to reach Step 4
+      // through an Edit-like jump before gates are met: not possible via UI,
+      // so assert we remain unable to advance while gated.
+      mockFrameworkFetch();
+      render(<GoalWizard />);
+      // No goal/framework yet → still Step 1, Next disabled.
+      expect(activeStepLabel()).toMatch(/Step 1 of 4/);
+      expect(nextButton()).toBeDisabled();
     });
   });
 

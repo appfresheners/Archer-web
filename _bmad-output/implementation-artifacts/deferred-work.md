@@ -174,3 +174,21 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-5-wizard-step-3-drivers-barriers-if-then-plan.md`
   summary: Add char counters for the 500-char inputs and validate the COMPOSED if-then length against any downstream prompt/storage limit (two 500-char halves + template can exceed ~1000 chars)
   evidence: Review (blind + edge-case) — the maxLength cap is silent and the composed string can be long; Pattern C (3.6) should confirm the goal payload stays within provider/DB limits. Revisit when 3.6 wires the generate payload.
+
+## Deferred from: code review of 3-6 (2026-09-28)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-6-wizard-step-4-review-generate-save-pattern-c.md`
+  summary: Make the goals→projects→actions save atomic via a Postgres function/RPC instead of three round-trips with manual compensating deletes
+  evidence: Review (blind + edge-case) — the multi-row save is not transactional; a crash mid-sequence can leave partial state, and the manual rollback (now explicit actions→projects→goal) is best-effort. Matches Pattern A's existing non-transactional approach; a shared RPC would make both atomic. Cross-cutting infra improvement.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-6-wizard-step-4-review-generate-save-pattern-c.md`
+  summary: Map `GenerationFormatError` to a friendly user-facing message instead of surfacing the internal validation string (e.g. "Expected exactly 12 next actions for project 3 but got 11") verbatim via the 500 path
+  evidence: Review (blind-hunter) — `mapGenerateError` passes the error message through for 500s; format-error messages leak internal contract detail to users. Pre-existing behaviour shared with Pattern A (generate-project); fix once across both patterns.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-6-wizard-step-4-review-generate-save-pattern-c.md`
+  summary: Add a client-side AbortController on the Step 4 generate fetch aligned to the 30s server timeout, and a success confirmation/placeholder before navigating to the (Epic 4) /app/goals/[id] detail route
+  evidence: Review (blind-hunter) — the client relies entirely on the server to bound the request; if the connection stalls the button stays "Generating…" indefinitely. And on success the user is pushed to a route that 404s until Epic 4 ships the Goal detail view. Mirrors the same client-abort deferral noted for Project Mode (2.4). The detail page is Epic 4 (Story 4.2) — the goal IS saved regardless.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-6-wizard-step-4-review-generate-save-pattern-c.md`
+  summary: Preserve a framework item's AI `description` on save rather than blanking a non-string to "" in validateFramework, and rely on returned-row identity (not insert array order) to link actions to projects
+  evidence: Review (edge-case + blind) — the client always sends the real description so blanking is unreachable today; PostgREST returns multi-row inserts in input order in practice (and sort_order is stored), so action↔project linkage is correct today. Both are robustness hardening for shape drift. Low risk.

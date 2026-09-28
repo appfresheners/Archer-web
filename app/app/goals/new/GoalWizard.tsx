@@ -30,6 +30,7 @@
 import WizardStep1 from "@/components/goals/WizardStep1";
 import WizardStep2 from "@/components/goals/WizardStep2";
 import WizardStep3 from "@/components/goals/WizardStep3";
+import WizardStep4 from "@/components/goals/WizardStep4";
 import WizardStepper from "@/components/goals/WizardStepper";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -73,6 +74,13 @@ export interface StepContext {
    * authoritative — do not route `goalText` through `patchState`.
    */
   patchState: (partial: Partial<WizardState>) => void;
+  /**
+   * Jump directly to another step by index. Gated: back-navigation is always
+   * allowed, but a forward jump is only permitted when every step BEFORE the
+   * target has its gate satisfied (so an Edit link can't skip past an unmet
+   * gate). A blocked forward jump is a no-op. Used by Step 4's "Edit" links.
+   */
+  goToStep: (index: number) => void;
   /** First-interactive ref target for focus-on-advance. */
   headingRef: React.RefObject<HTMLHeadingElement | null>;
 }
@@ -173,40 +181,13 @@ const STEPS: WizardStep[] = [
   {
     id: "review",
     label: "Review & Generate",
+    // Step 4 is the last step: it generates rather than advancing, so there is
+    // no forward gate to satisfy. The shell disables its advance button on the
+    // last step (`isLastStep`).
     isComplete: () => true,
-    render: ({ headingRef }) => (
-      <PlaceholderPanel
-        headingRef={headingRef}
-        title="Review & Generate"
-        body="Review and generation arrive in a later step."
-      />
-    ),
+    render: (ctx) => <WizardStep4 ctx={ctx} />,
   },
 ];
-
-/** Shared placeholder panel for steps whose content lands in later stories. */
-function PlaceholderPanel({
-  headingRef,
-  title,
-  body,
-}: {
-  headingRef: React.RefObject<HTMLHeadingElement | null>;
-  title: string;
-  body: string;
-}) {
-  return (
-    <div className="flex flex-col gap-4">
-      <h2
-        ref={headingRef}
-        tabIndex={-1}
-        className="text-[length:var(--font-size-subheading)] font-bold text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
-      >
-        {title}
-      </h2>
-      <p className="text-text-secondary">{body}</p>
-    </div>
-  );
-}
 
 export default function GoalWizard() {
   const [state, setState] = useState<WizardState>(INITIAL_STATE);
@@ -268,6 +249,27 @@ export default function GoalWizard() {
     setCurrentIndex(currentIndex - 1);
   }, [currentIndex]);
 
+  /**
+   * Jump directly to `index` (used by Step 4's per-section "Edit" links).
+   * Back-navigation (index < current) is always allowed. A forward jump is only
+   * permitted when every step BEFORE the target satisfies its gate, so a jump
+   * can never land past an unmet gate. Out-of-range or blocked jumps are no-ops.
+   */
+  const goToStep = useCallback(
+    (index: number) => {
+      if (index < 0 || index >= STEPS.length) return;
+      if (index === currentIndex) return;
+      if (index > currentIndex) {
+        for (let i = 0; i < index; i++) {
+          if (!STEPS[i].isComplete(state)) return;
+        }
+      }
+      shouldFocusRef.current = true;
+      setCurrentIndex(index);
+    },
+    [currentIndex, state],
+  );
+
   // Focus management: after a navigation, move focus to the new panel's first
   // focusable element, else its heading. `useLayoutEffect` so focus lands
   // before paint; guarded by `shouldFocusRef` so typing never steals focus.
@@ -305,7 +307,13 @@ export default function GoalWizard() {
         ref={panelRef}
         className="rounded-[var(--radius-xl)] border border-border bg-surface p-[var(--spacing-card-p)]"
       >
-        {currentStep.render({ state, setGoalText, patchState, headingRef })}
+        {currentStep.render({
+          state,
+          setGoalText,
+          patchState,
+          goToStep,
+          headingRef,
+        })}
       </div>
 
       <div className="flex items-center justify-between gap-4">

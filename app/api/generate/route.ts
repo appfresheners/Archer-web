@@ -26,14 +26,37 @@
  */
 
 import { generateFramework } from "@/lib/goals/generate-framework";
+import { generateGoal } from "@/lib/goals/generate-goal";
 import { generateProject } from "@/lib/projects/generate-project";
 import type {
     ActionInsert,
+    GoalInsert,
     PlanningDepth,
     ProjectInsert,
+    SkillFrameworkItem
 } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+
+/** Minimum confirmed framework items required for a Pattern C generation. */
+const MIN_FRAMEWORK_ITEMS = 3;
+
+/**
+ * Upper bound on confirmed framework items accepted for a save. Pattern B
+ * proposes 5–8 and the user may add a few; this is a generous safety ceiling
+ * that rejects a malformed/oversized payload before it reaches the prompt/DB.
+ */
+const MAX_FRAMEWORK_ITEMS_SAVE = 30;
+
+/** Max entries accepted for each of drivers / barriers (safety cap). */
+const MAX_LIST_ITEMS = 30;
+
+/** Inclusive range a framework item's required level / user rating must fall in. */
+const MIN_LEVEL = 1;
+const MAX_LEVEL = 10;
+
+/** Months added to today to compute a new goal's target date. */
+const TARGET_DATE_MONTHS = 3;
 
 /** Hard server-side safety cap. Longer input is rejected before the AI call. */
 const MAX_INPUT_LENGTH = 2000;
@@ -109,13 +132,18 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    const { mode, input, depth, step, goal } = (body ?? {}) as {
-        mode?: unknown;
-        input?: unknown;
-        depth?: unknown;
-        step?: unknown;
-        goal?: unknown;
-    };
+    const { mode, input, depth, step, goal, framework, drivers, barriers, ifThen } =
+        (body ?? {}) as {
+            mode?: unknown;
+            input?: unknown;
+            depth?: unknown;
+            step?: unknown;
+            goal?: unknown;
+            framework?: unknown;
+            drivers?: unknown;
+            barriers?: unknown;
+            ifThen?: unknown;
+        };
 
     if (!isKnownMode(mode)) {
         return NextResponse.json(
@@ -128,7 +156,14 @@ export async function POST(request: NextRequest) {
     //    (`goal`/`framework`) share this one auth check, provider path, and
     //    30-second timeout.
     if (mode === "goal") {
-        return handleGoal(step, goal);
+        return handleGoal(userId, {
+            step,
+            goal,
+            framework,
+            drivers,
+            barriers,
+            ifThen,
+        });
     }
 
     if (mode !== "project") {
@@ -264,18 +299,24 @@ export async function POST(request: NextRequest) {
  * The response contains only the AI-owned Target Profile (`name`,
  * `required_level`, `description`); no user current-rating field is present.
  */
-async function handleGoal(step: unknown, goal: unknown): Promise<NextResponse> {
+interface GoalRequestFields {
+    step: unknown;
+    goal: unknown;
+    framework: unknown;
+    drivers: unknown;
+    barriers: unknown;
+    ifThen: unknown;
+}
+
+async function handleGoal(
+    userId: string,
+    fields: GoalRequestFields
+): Promise<NextResponse> {
+    const { step, goal } = fields;
+
     if (!isKnownGoalStep(step)) {
         return NextResponse.json(
             { error: "A valid goal step is required." },
-            { status: 400 }
-        );
-    }
-
-    // `generate` is Pattern C (Story 3.6) and is not wired yet.
-    if (step !== "framework") {
-        return NextResponse.json(
-            { error: "This goal step is not yet supported." },
             { status: 400 }
         );
     }
@@ -291,12 +332,326 @@ async function handleGoal(step: unknown, goal: unknown): Promise<NextResponse> {
         );
     }
 
+    if (step === "framework") {
+        try {
+            const { framework } = await generateFramework(goal.trim());
+            return NextResponse.json({ framework });
+        } catch (error) {
+            return mapGenerateError(error);
+        }
+    }
+
+    // Pattern C (`generate`) — validate the full payload, generate the
+    // breakdown, then persist goals→projects→actions with rollback.
+    return handleGoalGenerate(userId, goal.trim(), fields);
+}
+
+/**
+ * Pattern C (Story 3.6) — full goal breakdown generation + save.
+ *
+ * Validates the confirmed framework (≥3 items, each with an integer
+ * required_level and user_rating in 1–10) and the user's own drivers/barriers/
+ * if–then (non-empty), all BEFORE the provider call. On a successful
+ * generation, writes ONE `goals` row, one `projects` row per generated project,
+ * and one `actions` row per next action — all owned by the signed-in user — and
+ * returns `{ id }` (the new goal id). Any insert failure rolls back the written
+ * rows (delete the goal + its projects/actions) and returns 500 so the client
+ * never navigates to an unsaved result.
+ */
+async function handleGoalGenerate(
+    userId: string,
+    goal: string,
+    fields: GoalRequestFields
+): Promise<NextResponse> {
+    const { framework, drivers, barriers, ifThen } = fields;
+
+    const validFramework = validateFramework(framework);
+    if (!validFramework) {
+        return NextResponse.json(
+            {
+                error:
+                    "A confirmed skill framework with at least 3 rated items is required.",
+            },
+            { status: 400 }
+        );
+    }
+
+    if (!isBoundedStringList(drivers)) {
+        return NextResponse.json(
+            { error: "At least one driver is required." },
+            { status: 400 }
+        );
+    }
+
+    if (!isBoundedStringList(barriers)) {
+        return NextResponse.json(
+            { error: "At least one barrier is required." },
+            { status: 400 }
+        );
+    }
+
+    if (
+        typeof ifThen !== "string" ||
+        ifThen.trim() === "" ||
+        ifThen.length > MAX_INPUT_LENGTH
+    ) {
+        return NextResponse.json(
+            { error: "A valid if–then plan is required." },
+            { status: 400 }
+        );
+    }
+
+    // Generate the STRUCTURED breakdown (JSON) via lib/goals (which owns the
+    // prompt, the provider call, the 30s timeout, and JSON validation).
+    let generated;
     try {
-        const { framework } = await generateFramework(goal.trim());
-        return NextResponse.json({ framework });
+        generated = await generateGoal({
+            goal,
+            framework: validFramework,
+            drivers: drivers.map((d) => d.trim()),
+            barriers: barriers.map((b) => b.trim()),
+            ifThen: ifThen.trim(),
+        });
     } catch (error) {
         return mapGenerateError(error);
     }
+
+    // Save-before-return: goals → projects → actions, all owned by the user.
+    return saveGoalBreakdown(userId, goal, validFramework, drivers, barriers, ifThen, generated);
+}
+
+/**
+ * Persist the generated breakdown as linked `goals` + `projects` + `actions`
+ * rows, with rollback on any partial failure. Returns `{ id }` on success or a
+ * 500 on any insert failure (after deleting whatever was written).
+ */
+async function saveGoalBreakdown(
+    userId: string,
+    goal: string,
+    framework: SkillFrameworkItem[],
+    drivers: string[],
+    barriers: string[],
+    ifThen: string,
+    generated: Awaited<ReturnType<typeof generateGoal>>
+): Promise<NextResponse> {
+    const targetDate = computeTargetDate();
+
+    const goalRow: GoalInsert = {
+        user_id: userId,
+        goal_text: goal,
+        target_date: targetDate,
+        skill_framework: framework,
+        drivers: drivers.map((d) => d.trim()),
+        barriers: barriers.map((b) => b.trim()),
+        if_then_plan: ifThen.trim(),
+    };
+
+    const failure = () =>
+        NextResponse.json(
+            { error: "Failed to save your goal. Please try again." },
+            { status: 500 }
+        );
+
+    try {
+        const supabase = await createClient();
+
+        // 1. Insert the parent goal row.
+        const { data: goalData, error: goalError } = await supabase
+            .from("goals")
+            .insert(goalRow)
+            .select("id")
+            .single();
+
+        if (goalError || !goalData?.id) {
+            console.error(
+                "[api/generate] goal insert failed:",
+                goalError?.message ?? "no row returned"
+            );
+            return failure();
+        }
+
+        const goalId = goalData.id as string;
+
+        // Roll back everything written so far and return 500. IMPORTANT:
+        // `projects.goal_id` is `ON DELETE SET NULL` (not cascade — Project
+        // Mode intentionally keeps goal-less projects), so deleting the goal
+        // would ORPHAN its projects/actions rather than remove them. Delete
+        // explicitly in FK order: actions → projects → goal. `actions` are
+        // cascade-deleted with their project, but we delete them first anyway
+        // to be robust to partial project inserts.
+        const rollback = async () => {
+            const { data: toDelete } = await supabase
+                .from("projects")
+                .select("id")
+                .eq("goal_id", goalId);
+            const projectIdsToDelete = (toDelete ?? []).map((p) => p.id as string);
+            if (projectIdsToDelete.length > 0) {
+                await supabase
+                    .from("actions")
+                    .delete()
+                    .in("project_id", projectIdsToDelete);
+                await supabase.from("projects").delete().eq("goal_id", goalId);
+            }
+            const { error: goalDeleteError } = await supabase
+                .from("goals")
+                .delete()
+                .eq("id", goalId);
+            if (goalDeleteError) {
+                console.error(
+                    "[api/generate] rollback: goal delete failed:",
+                    goalDeleteError.message
+                );
+            }
+        };
+
+        // 2. Insert one projects row per generated project.
+        const projectRows: ProjectInsert[] = generated.projects.map(
+            (project, index) => ({
+                user_id: userId,
+                goal_id: goalId,
+                name: project.name,
+                purpose: project.purpose,
+                successful_outcome: project.successful_outcome,
+                sort_order: index,
+            })
+        );
+
+        const { data: projectData, error: projectsError } = await supabase
+            .from("projects")
+            .insert(projectRows)
+            .select("id");
+
+        if (projectsError || !projectData || projectData.length !== projectRows.length) {
+            console.error(
+                "[api/generate] projects insert failed, rolling back goal:",
+                projectsError?.message ?? "row count mismatch"
+            );
+            await rollback();
+            return failure();
+        }
+
+        // 3. Insert one actions row per next action, linked to its project.
+        //    `select("id")` preserves insert order, so projectData[i] maps to
+        //    generated.projects[i].
+        const projectIds = projectData.map((p) => p.id as string);
+        const actionRows: ActionInsert[] = [];
+        generated.projects.forEach((project, pIndex) => {
+            project.next_actions.forEach((text, aIndex) => {
+                actionRows.push({
+                    user_id: userId,
+                    project_id: projectIds[pIndex],
+                    text,
+                    sort_order: aIndex,
+                });
+            });
+        });
+
+        const { error: actionsError } = await supabase
+            .from("actions")
+            .insert(actionRows);
+
+        if (actionsError) {
+            console.error(
+                "[api/generate] actions insert failed, rolling back goal:",
+                actionsError.message
+            );
+            await rollback();
+            return failure();
+        }
+
+        return NextResponse.json({ id: goalId });
+    } catch (error) {
+        const message =
+            error instanceof Error ? error.message : "unexpected insert error";
+        console.error("[api/generate] goal save threw:", message);
+        return failure();
+    }
+}
+
+/**
+ * Validate the confirmed framework payload into a typed `SkillFrameworkItem[]`.
+ * Returns `null` when the shape is invalid (empty/<3 items, or any item missing
+ * an integer `required_level`/`user_rating` in 1–10 or a non-empty name).
+ */
+function validateFramework(value: unknown): SkillFrameworkItem[] | null {
+    if (
+        !Array.isArray(value) ||
+        value.length < MIN_FRAMEWORK_ITEMS ||
+        value.length > MAX_FRAMEWORK_ITEMS_SAVE
+    ) {
+        return null;
+    }
+
+    const items: SkillFrameworkItem[] = [];
+    for (const raw of value) {
+        if (typeof raw !== "object" || raw === null) return null;
+        const obj = raw as Record<string, unknown>;
+        if (typeof obj.name !== "string" || obj.name.trim() === "") return null;
+        if (!isLevel(obj.required_level)) return null;
+        if (!isLevel(obj.user_rating)) return null;
+        items.push({
+            name: obj.name.trim(),
+            required_level: obj.required_level,
+            description:
+                typeof obj.description === "string" ? obj.description : "",
+            user_rating: obj.user_rating,
+        });
+    }
+    return items;
+}
+
+function isLevel(value: unknown): value is number {
+    return (
+        typeof value === "number" &&
+        Number.isFinite(value) &&
+        value >= MIN_LEVEL &&
+        value <= MAX_LEVEL
+    );
+}
+
+/**
+ * A non-empty list of non-empty strings, bounded in count and per-item length,
+ * so an oversized drivers/barriers payload can't reach the prompt/DB unchecked.
+ */
+function isBoundedStringList(value: unknown): value is string[] {
+    return (
+        Array.isArray(value) &&
+        value.length > 0 &&
+        value.length <= MAX_LIST_ITEMS &&
+        value.every(
+            (v) =>
+                typeof v === "string" &&
+                v.trim() !== "" &&
+                v.length <= MAX_INPUT_LENGTH
+        )
+    );
+}
+
+/**
+ * Compute the target date (today + 3 months) as an ISO `YYYY-MM-DD` string.
+ *
+ * Built from LOCAL calendar components (not `toISOString`, which shifts to UTC
+ * and can land a day early for negative-UTC-offset users). Month overflow is
+ * clamped to the last valid day of the target month, so e.g. Nov 30 + 3mo →
+ * Feb 28/29 (not an accidental March 1/2 rollover from `setMonth`).
+ */
+function computeTargetDate(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const day = now.getDate();
+
+    const targetMonthIndex = month + TARGET_DATE_MONTHS;
+    const targetYear = year + Math.floor(targetMonthIndex / 12);
+    const targetMonth = targetMonthIndex % 12;
+
+    // Day 0 of the *next* month is the last day of the target month → clamp.
+    const lastDayOfTargetMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+    const targetDay = Math.min(day, lastDayOfTargetMonth);
+
+    const mm = String(targetMonth + 1).padStart(2, "0");
+    const dd = String(targetDay).padStart(2, "0");
+    return `${targetYear}-${mm}-${dd}`;
 }
 
 /**

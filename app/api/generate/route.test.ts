@@ -6,28 +6,73 @@ import { POST } from "./route";
 const getUser = vi.fn();
 const generateProject = vi.fn();
 const generateFramework = vi.fn();
+const generateGoal = vi.fn();
 
 // Supabase chains used by the route:
-//   projects: from("projects").insert(row).select("id").single()
-//   actions:  from("actions").insert(rows)
-//   rollback: from("projects").delete().eq("id", id)
+//   Pattern A:
+//     projects: from("projects").insert(row).select("id").single()
+//     actions:  from("actions").insert(rows)
+//     rollback: from("projects").delete().eq("id", id)
+//   Pattern C:
+//     goals:    from("goals").insert(row).select("id").single()
+//     projects: from("projects").insert(rows).select("id")   (multi-row)
+//     actions:  from("actions").insert(rows)
+//     rollback: from("goals").delete().eq("id", id)
 const projectSingle = vi.fn();
 const projectInsert = vi.fn();
+const projectSelect = vi.fn();
 const actionsInsert = vi.fn();
 const projectDeleteEq = vi.fn();
+// Rollback path (Pattern C): read orphan projects, delete their actions.
+const projectSelectByGoal = vi.fn();
+const actionsDeleteIn = vi.fn();
+const goalSingle = vi.fn();
+const goalInsert = vi.fn();
+const goalDeleteEq = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
     createClient: async () => ({
         auth: { getUser },
         from: (table: string) => {
+            if (table === "goals") {
+                return {
+                    insert: (row: unknown) => {
+                        goalInsert(row);
+                        return {
+                            select: () => ({ single: () => goalSingle() }),
+                        };
+                    },
+                    delete: () => ({
+                        eq: (col: string, val: string) => goalDeleteEq(col, val),
+                    }),
+                };
+            }
             if (table === "projects") {
                 return {
                     insert: (row: unknown) => {
                         projectInsert(row);
                         return {
-                            select: () => ({ single: () => projectSingle() }),
+                            // Pattern A: .select("id").single()
+                            // Pattern C: .select("id") resolves directly
+                            select: () => {
+                                const single = () => projectSingle();
+                                // `projectSelect` returns the multi-row result the
+                                // Pattern C route awaits, defaulting to a row per
+                                // inserted project unless a test overrides it.
+                                const promise = Promise.resolve(
+                                    projectSelect(row) ?? { data: null, error: null }
+                                );
+                                return Object.assign(promise, { single });
+                            },
                         };
                     },
+                    // Rollback reads the projects to delete: .select("id").eq("goal_id", id)
+                    select: () => ({
+                        eq: (col: string, val: string) =>
+                            Promise.resolve(
+                                projectSelectByGoal(col, val) ?? { data: [], error: null }
+                            ),
+                    }),
                     delete: () => ({
                         eq: (col: string, val: string) => projectDeleteEq(col, val),
                     }),
@@ -40,6 +85,11 @@ vi.mock("@/lib/supabase/server", () => ({
                     // defaulting to success unless a test overrides it.
                     return Promise.resolve(actionsInsert(rows) ?? { error: null });
                 },
+                // Rollback deletes actions for the orphaned projects: .delete().in(...)
+                delete: () => ({
+                    in: (col: string, vals: string[]) =>
+                        Promise.resolve(actionsDeleteIn(col, vals) ?? { error: null }),
+                }),
             };
         },
     }),
@@ -51,6 +101,10 @@ vi.mock("@/lib/projects/generate-project", () => ({
 
 vi.mock("@/lib/goals/generate-framework", () => ({
     generateFramework: (goal: string) => generateFramework(goal),
+}));
+
+vi.mock("@/lib/goals/generate-goal", () => ({
+    generateGoal: (payload: unknown) => generateGoal(payload),
 }));
 
 vi.mock("next/server", () => ({
@@ -111,6 +165,7 @@ describe("/api/generate route", () => {
         // actions insert succeeds by default ({ error: null } via the mock fallback)
         actionsInsert.mockReturnValue({ error: null });
         projectDeleteEq.mockResolvedValue({ error: null });
+        goalDeleteEq.mockResolvedValue({ error: null });
     });
 
     it("returns 401 and never generates when unauthenticated", async () => {
@@ -400,7 +455,9 @@ describe("/api/generate route — Pattern B (goal framework)", () => {
         expect(generateFramework).not.toHaveBeenCalled();
     });
 
-    it("returns 400 for the not-yet-supported generate step", async () => {
+    it("does not run framework generation for a generate-step request", async () => {
+        // The `generate` step is Pattern C now; with an incomplete payload it
+        // 400s on validation without ever calling framework generation.
         authed();
         const res = await call({
             mode: "goal",
@@ -438,5 +495,279 @@ describe("/api/generate route — Pattern B (goal framework)", () => {
         const res = await call({ mode: "goal", step: "framework", goal: "x" });
         expect(res.status).toBe(500);
         expect(res._body.error).toContain(".env.local");
+    });
+});
+
+// --- Pattern C (goal generate) ---------------------------------------------
+
+describe("/api/generate route — Pattern C (goal generate)", () => {
+    function sampleFramework() {
+        return [
+            { name: "Time management", required_level: 7, description: "Focus.", user_rating: 5 },
+            { name: "Vocal projection", required_level: 8, description: "Room.", user_rating: 4 },
+            { name: "Stage confidence", required_level: 9, description: "Calm.", user_rating: 3 },
+        ];
+    }
+
+    function validPayload(overrides: Record<string, unknown> = {}) {
+        return {
+            mode: "goal",
+            step: "generate",
+            goal: "Become a confident public speaker",
+            framework: sampleFramework(),
+            drivers: ["I love a challenge"],
+            barriers: ["I get nervous"],
+            ifThen: "If it is 7am, then I will rehearse for 10 minutes",
+            ...overrides,
+        };
+    }
+
+    function generatedBreakdown(projectCount = 5) {
+        return {
+            goal_statement: "In 3 months I will speak confidently.",
+            success_criteria: ["Gave a talk", "No notes", "Positive feedback"],
+            projects: Array.from({ length: projectCount }, (_, p) => ({
+                name: `Project ${p + 1}`,
+                purpose: "Why.",
+                successful_outcome: "Done.",
+                next_actions: Array.from({ length: 12 }, (_, a) => `P${p}A${a}`),
+            })),
+        };
+    }
+
+    /** Make the projects multi-row insert resolve with `count` ids. */
+    function projectsInsertSucceeds(count = 5) {
+        projectSelect.mockReturnValue({
+            data: Array.from({ length: count }, (_, i) => ({ id: `project-${i}` })),
+            error: null,
+        });
+    }
+    function goalInsertSucceeds(id = "goal-1") {
+        goalSingle.mockResolvedValue({ data: { id }, error: null });
+    }
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.spyOn(console, "error").mockImplementation(() => { });
+        actionsInsert.mockReturnValue({ error: null });
+        projectDeleteEq.mockResolvedValue({ error: null });
+        goalDeleteEq.mockResolvedValue({ error: null });
+    });
+
+    it("returns 401 and never generates when unauthenticated", async () => {
+        unauthenticated();
+        const res = await call(validPayload());
+        expect(res.status).toBe(401);
+        expect(generateGoal).not.toHaveBeenCalled();
+    });
+
+    it("returns { id } and saves goal + projects + actions (happy path)", async () => {
+        authed();
+        generateGoal.mockResolvedValue(generatedBreakdown(5));
+        goalInsertSucceeds("goal-happy");
+        projectsInsertSucceeds(5);
+
+        const res = await call(validPayload());
+
+        expect(res.status).toBe(200);
+        expect(res._body.id).toBe("goal-happy");
+
+        // Goal row: goal_text, target_date, skill_framework (with user_rating),
+        // drivers/barriers/if_then_plan verbatim.
+        const goalRow = goalInsert.mock.calls[0][0] as Record<string, unknown>;
+        expect(goalRow.user_id).toBe("user-123");
+        expect(goalRow.goal_text).toBe("Become a confident public speaker");
+        expect(typeof goalRow.target_date).toBe("string");
+        expect(goalRow.if_then_plan).toBe(
+            "If it is 7am, then I will rehearse for 10 minutes"
+        );
+        // Drivers/barriers persisted verbatim from the user payload (the
+        // AI-never-owns invariant): these come from the wizard, not the model.
+        expect(goalRow.drivers).toEqual(["I love a challenge"]);
+        expect(goalRow.barriers).toEqual(["I get nervous"]);
+        const persistedFramework = goalRow.skill_framework as Array<Record<string, unknown>>;
+        expect(persistedFramework[0]).toHaveProperty("user_rating");
+
+        // 5 project rows, each linked to the goal with a sort_order.
+        const projectRows = projectInsert.mock.calls[0][0] as Array<Record<string, unknown>>;
+        expect(projectRows).toHaveLength(5);
+        expect(projectRows[0]).toMatchObject({
+            user_id: "user-123",
+            goal_id: "goal-happy",
+            sort_order: 0,
+        });
+
+        // 60 action rows total (5 projects × 12), linked to their project ids.
+        const actionRows = actionsInsert.mock.calls[0][0] as Array<Record<string, unknown>>;
+        expect(actionRows).toHaveLength(60);
+        expect(actionRows[0]).toMatchObject({
+            user_id: "user-123",
+            project_id: "project-0",
+            sort_order: 0,
+        });
+        expect(actionRows[12]).toMatchObject({ project_id: "project-1", sort_order: 0 });
+    });
+
+    it("computes target_date roughly 3 months out (ISO YYYY-MM-DD)", async () => {
+        authed();
+        generateGoal.mockResolvedValue(generatedBreakdown(5));
+        goalInsertSucceeds();
+        projectsInsertSucceeds(5);
+
+        await call(validPayload());
+        const goalRow = goalInsert.mock.calls[0][0] as Record<string, unknown>;
+        expect(goalRow.target_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+
+    it("returns 400 for a framework with fewer than 3 items (before generating)", async () => {
+        authed();
+        const res = await call(
+            validPayload({ framework: sampleFramework().slice(0, 2) })
+        );
+        expect(res.status).toBe(400);
+        expect(generateGoal).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 when a framework item lacks a user_rating", async () => {
+        authed();
+        const framework = sampleFramework();
+        delete (framework[0] as Record<string, unknown>).user_rating;
+        const res = await call(validPayload({ framework }));
+        expect(res.status).toBe(400);
+        expect(generateGoal).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 when a framework item has an out-of-range required_level", async () => {
+        authed();
+        const framework = sampleFramework();
+        (framework[0] as Record<string, unknown>).required_level = 11;
+        const res = await call(validPayload({ framework }));
+        expect(res.status).toBe(400);
+        expect(generateGoal).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 for empty drivers", async () => {
+        authed();
+        const res = await call(validPayload({ drivers: [] }));
+        expect(res.status).toBe(400);
+        expect(generateGoal).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 for empty barriers", async () => {
+        authed();
+        const res = await call(validPayload({ barriers: ["   "] }));
+        expect(res.status).toBe(400);
+        expect(generateGoal).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 for an empty ifThen", async () => {
+        authed();
+        const res = await call(validPayload({ ifThen: "  " }));
+        expect(res.status).toBe(400);
+        expect(generateGoal).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 for an empty goal", async () => {
+        authed();
+        const res = await call(validPayload({ goal: "   " }));
+        expect(res.status).toBe(400);
+        expect(generateGoal).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 for an over-cap goal (>2000 chars)", async () => {
+        authed();
+        const res = await call(validPayload({ goal: "a".repeat(2001) }));
+        expect(res.status).toBe(400);
+        expect(generateGoal).not.toHaveBeenCalled();
+    });
+
+    it("maps a generation timeout to 504 and saves nothing", async () => {
+        authed();
+        generateGoal.mockRejectedValue(
+            new Error("Gemini request timed out after 30s. Please try again.")
+        );
+        const res = await call(validPayload());
+        expect(res.status).toBe(504);
+        expect(goalInsert).not.toHaveBeenCalled();
+    });
+
+    it("maps a format error to 500 and saves nothing", async () => {
+        authed();
+        generateGoal.mockRejectedValue(
+            new Error("The generator returned a response that was not valid JSON. Please try again.")
+        );
+        const res = await call(validPayload());
+        expect(res.status).toBe(500);
+        expect(res._body.error).toMatch(/JSON/i);
+        expect(goalInsert).not.toHaveBeenCalled();
+    });
+
+    it("returns 500 and no { id } when the goal insert fails", async () => {
+        authed();
+        generateGoal.mockResolvedValue(generatedBreakdown(5));
+        goalSingle.mockResolvedValue({ data: null, error: { message: "goal insert failed" } });
+
+        const res = await call(validPayload());
+        expect(res.status).toBe(500);
+        expect(res._body.id).toBeUndefined();
+        expect(projectInsert).not.toHaveBeenCalled();
+    });
+
+    it("rolls back the goal and returns 500 when the projects insert fails", async () => {
+        authed();
+        generateGoal.mockResolvedValue(generatedBreakdown(5));
+        goalInsertSucceeds("goal-orphan");
+        projectSelect.mockReturnValue({ data: null, error: { message: "projects insert failed" } });
+
+        const res = await call(validPayload());
+        expect(res.status).toBe(500);
+        expect(res._body.id).toBeUndefined();
+        expect(goalDeleteEq).toHaveBeenCalledWith("id", "goal-orphan");
+        expect(actionsInsert).not.toHaveBeenCalled();
+    });
+
+    it("rolls back projects, actions, and the goal when the actions insert fails", async () => {
+        authed();
+        generateGoal.mockResolvedValue(generatedBreakdown(5));
+        goalInsertSucceeds("goal-orphan-2");
+        projectsInsertSucceeds(5);
+        actionsInsert.mockReturnValue({ error: { message: "actions insert failed" } });
+        // Rollback reads the orphaned projects to delete their actions. Since
+        // projects.goal_id is ON DELETE SET NULL (not cascade), the rollback
+        // must delete actions → projects → goal explicitly.
+        projectSelectByGoal.mockReturnValue({
+            data: [{ id: "p1" }, { id: "p2" }, { id: "p3" }, { id: "p4" }, { id: "p5" }],
+            error: null,
+        });
+
+        const res = await call(validPayload());
+        expect(res.status).toBe(500);
+        expect(res._body.id).toBeUndefined();
+        // Explicit FK-order cleanup: actions for the orphan projects, then the
+        // projects, then the goal — no orphaned rows left behind.
+        expect(actionsDeleteIn).toHaveBeenCalledWith("project_id", [
+            "p1",
+            "p2",
+            "p3",
+            "p4",
+            "p5",
+        ]);
+        expect(projectDeleteEq).toHaveBeenCalledWith("goal_id", "goal-orphan-2");
+        expect(goalDeleteEq).toHaveBeenCalledWith("id", "goal-orphan-2");
+    });
+
+    it("returns 400 for a drivers list that exceeds the item cap", async () => {
+        authed();
+        const tooMany = Array.from({ length: 31 }, (_, i) => `driver ${i}`);
+        const res = await call(validPayload({ drivers: tooMany }));
+        expect(res.status).toBe(400);
+        expect(generateGoal).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 for an over-cap if–then plan (>2000 chars)", async () => {
+        authed();
+        const res = await call(validPayload({ ifThen: "x".repeat(2001) }));
+        expect(res.status).toBe(400);
+        expect(generateGoal).not.toHaveBeenCalled();
     });
 });
