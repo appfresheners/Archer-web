@@ -38,7 +38,7 @@ v # STATUS DEFINITIONS:
 # and has been preserved as sprint-status-superseded-mvp1.yaml. None of the new
 # 35 stories have been started under the current plan, so all are 'backlog'.
 generated: 09-27-2026 16:30
-last_updated: 09-28-2026 (Epic 3 — all stories 3.1–3.6 in review)
+last_updated: 09-28-2026 (Epic 4 — Story 4.1 in review)
 
 project: GTDGoalandProjectCreator
 project_key: NOKEY
@@ -75,8 +75,8 @@ development_status:
   3-6-wizard-step-4-review-generate-save-pattern-c: review
   epic-3-retrospective: optional
 
-  epic-4: backlog
-  4-1-goals-list-status-badges: backlog
+  epic-4: in-progress
+  4-1-goals-list-status-badges: review
   4-2-goal-detail-edit-status-changes: backlog
   4-3-project-detail-edit-regeneration: backlog
   4-4-action-management-context-tags: backlog

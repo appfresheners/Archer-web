@@ -192,3 +192,17 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-6-wizard-step-4-review-generate-save-pattern-c.md`
   summary: Preserve a framework item's AI `description` on save rather than blanking a non-string to "" in validateFramework, and rely on returned-row identity (not insert array order) to link actions to projects
   evidence: Review (edge-case + blind) — the client always sends the real description so blanking is unreachable today; PostgREST returns multi-row inserts in input order in practice (and sort_order is stored), so action↔project linkage is correct today. Both are robustness hardening for shape drift. Low risk.
+
+## Deferred from: code review of 4-1 (2026-09-28)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-1-goals-list-status-badges.md`
+  summary: Distinguish a transient DB/auth failure from a truly-empty goals list — the goals-list `loadGoals` try/catch returns `[]` on any error, so a backend failure renders the "No goals yet" empty state
+  evidence: Review (edge-case + blind, consensus) — matches the spec's chosen "degrade to empty state rather than crash" behaviour and the existing project-detail fail-closed pattern (see the 2.3 defer), but a real read failure is indistinguishable from zero goals, hurting debuggability. Add an error boundary / distinct error state in a later hardening pass across the read surfaces.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-1-goals-list-status-badges.md`
+  summary: Add pagination / row limits to the goals list reads — `loadGoals` fetches all goals, all projects, and all actions for the user on every render with no bound
+  evidence: Review (edge-case + blind) — fine at expected personal-use scale, but the unbounded `projects`/`actions` selects grow with history and the in-memory aggregation loads every action row. Introduce limits/pagination (or a server-side aggregate) when a user can accumulate large volumes; revisit alongside the Engage view (Epic 5) which reads the same tables.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-1-goals-list-status-badges.md`
+  summary: Handle a partial read failure (goals succeed but projects OR actions error) explicitly rather than treating a missing result as zero rows
+  evidence: Review (edge-case-hunter) — `Promise.all` destructures `data` as undefined on a per-query error and `?? []` then silently yields projectCount/stuckCount of 0 for affected goals. Degrades safely (no crash) but shows misleading counts. Surface a soft indicator or retry when the count reads fail; low risk at current scale.
