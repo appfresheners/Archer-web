@@ -5,6 +5,7 @@ import { POST } from "./route";
 
 const getUser = vi.fn();
 const generateProject = vi.fn();
+const generateFramework = vi.fn();
 
 // Supabase chains used by the route:
 //   projects: from("projects").insert(row).select("id").single()
@@ -48,6 +49,10 @@ vi.mock("@/lib/projects/generate-project", () => ({
     generateProject: (input: string, depth: string) => generateProject(input, depth),
 }));
 
+vi.mock("@/lib/goals/generate-framework", () => ({
+    generateFramework: (goal: string) => generateFramework(goal),
+}));
+
 vi.mock("next/server", () => ({
     NextResponse: {
         json: (body: unknown, init?: { status?: number }) => ({
@@ -60,7 +65,10 @@ vi.mock("next/server", () => ({
 
 // --- Helpers ---------------------------------------------------------------
 
-type RouteResponse = { _body: { id?: string; error?: string }; status: number };
+type RouteResponse = {
+    _body: { id?: string; error?: string; framework?: unknown[] };
+    status: number;
+};
 
 function requestWith(body: unknown, opts?: { invalidJson?: boolean }) {
     return {
@@ -231,7 +239,7 @@ describe("/api/generate route", () => {
 
     it("returns 400 for an unknown mode", async () => {
         authed();
-        const res = await call({ mode: "goal", input: "Learn guitar", depth: "minimal" });
+        const res = await call({ mode: "bogus", input: "Learn guitar", depth: "minimal" });
         expect(res.status).toBe(400);
         expect(generateProject).not.toHaveBeenCalled();
     });
@@ -280,5 +288,155 @@ describe("/api/generate route", () => {
         const res = await call({ mode: "project", input: "x", depth: "minimal" });
         expect(res.status).toBe(500);
         expect(res._body.error).toMatch(/JSON/i);
+    });
+});
+
+// --- Pattern B (goal framework) --------------------------------------------
+
+describe("/api/generate route — Pattern B (goal framework)", () => {
+    function sampleFramework() {
+        return [
+            { name: "Time management", required_level: 7, description: "Blocks focus time." },
+            { name: "Vocal projection", required_level: 8, description: "Fills a room." },
+            { name: "Stage confidence", required_level: 9, description: "Calm under eyes." },
+        ];
+    }
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.spyOn(console, "error").mockImplementation(() => { });
+    });
+
+    it("returns 401 and never generates when unauthenticated", async () => {
+        unauthenticated();
+        const res = await call({
+            mode: "goal",
+            step: "framework",
+            goal: "Become a confident public speaker",
+        });
+        expect(res.status).toBe(401);
+        expect(generateFramework).not.toHaveBeenCalled();
+    });
+
+    it("returns 200 with the framework and writes no DB row (happy path)", async () => {
+        authed();
+        generateFramework.mockResolvedValue({ framework: sampleFramework() });
+
+        const res = await call({
+            mode: "goal",
+            step: "framework",
+            goal: "Become a confident public speaker",
+        });
+
+        expect(res.status).toBe(200);
+        expect(res._body.framework).toHaveLength(3);
+        expect(generateFramework).toHaveBeenCalledWith(
+            "Become a confident public speaker"
+        );
+
+        // No Supabase writes for Pattern B.
+        expect(projectInsert).not.toHaveBeenCalled();
+        expect(actionsInsert).not.toHaveBeenCalled();
+        expect(projectDeleteEq).not.toHaveBeenCalled();
+    });
+
+    it("contains no user current-rating field in the response items", async () => {
+        authed();
+        generateFramework.mockResolvedValue({ framework: sampleFramework() });
+
+        const res = await call({
+            mode: "goal",
+            step: "framework",
+            goal: "Learn to cook",
+        });
+
+        const framework = res._body.framework as Array<Record<string, unknown>>;
+        for (const fi of framework) {
+            expect(fi).not.toHaveProperty("user_rating");
+            expect(fi).not.toHaveProperty("current_level");
+        }
+    });
+
+    it("trims the goal before generating", async () => {
+        authed();
+        generateFramework.mockResolvedValue({ framework: sampleFramework() });
+        await call({ mode: "goal", step: "framework", goal: "  Run a marathon  " });
+        expect(generateFramework).toHaveBeenCalledWith("Run a marathon");
+    });
+
+    it("returns 400 for an empty/whitespace goal, before generating", async () => {
+        authed();
+        const res = await call({ mode: "goal", step: "framework", goal: "   " });
+        expect(res.status).toBe(400);
+        expect(generateFramework).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 for an over-cap goal (>2000 chars), before generating", async () => {
+        authed();
+        const res = await call({
+            mode: "goal",
+            step: "framework",
+            goal: "a".repeat(2001),
+        });
+        expect(res.status).toBe(400);
+        expect(generateFramework).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 for an unknown step", async () => {
+        authed();
+        const res = await call({
+            mode: "goal",
+            step: "bogus",
+            goal: "Learn guitar",
+        });
+        expect(res.status).toBe(400);
+        expect(generateFramework).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 for a missing step", async () => {
+        authed();
+        const res = await call({ mode: "goal", goal: "Learn guitar" });
+        expect(res.status).toBe(400);
+        expect(generateFramework).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 for the not-yet-supported generate step", async () => {
+        authed();
+        const res = await call({
+            mode: "goal",
+            step: "generate",
+            goal: "Learn guitar",
+        });
+        expect(res.status).toBe(400);
+        expect(generateFramework).not.toHaveBeenCalled();
+    });
+
+    it("maps a framework generation timeout to 504", async () => {
+        authed();
+        generateFramework.mockRejectedValue(
+            new Error("Gemini request timed out after 30s. Please try again.")
+        );
+        const res = await call({ mode: "goal", step: "framework", goal: "x" });
+        expect(res.status).toBe(504);
+    });
+
+    it("maps a framework format error to 500", async () => {
+        authed();
+        generateFramework.mockRejectedValue(
+            new Error("The generator returned a response that was not valid JSON. Please try again.")
+        );
+        const res = await call({ mode: "goal", step: "framework", goal: "x" });
+        expect(res.status).toBe(500);
+        expect(res._body.error).toMatch(/JSON/i);
+    });
+
+    it("maps a provider/config error to 500 with an actionable message", async () => {
+        authed();
+        generateFramework.mockRejectedValue(
+            new Error("GEMINI_API_KEY not configured. Add it to your .env.local file.")
+        );
+        const res = await call({ mode: "goal", step: "framework", goal: "x" });
+        expect(res.status).toBe(500);
+        expect(res._body.error).toContain(".env.local");
     });
 });

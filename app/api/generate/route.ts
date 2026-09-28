@@ -25,6 +25,7 @@
  * fetch code, or hardcoded model strings.
  */
 
+import { generateFramework } from "@/lib/goals/generate-framework";
 import { generateProject } from "@/lib/projects/generate-project";
 import type {
     ActionInsert,
@@ -38,15 +39,26 @@ import { NextRequest, NextResponse } from "next/server";
 const MAX_INPUT_LENGTH = 2000;
 
 /** Modes wired on this route today. Epic 3 extends this union. */
-const KNOWN_MODES = ["project"] as const;
+const KNOWN_MODES = ["project", "goal"] as const;
 type Mode = (typeof KNOWN_MODES)[number];
 
 /** Valid `planning_depth` values accepted for a project request. */
 const KNOWN_DEPTHS = ["minimal", "full_gtd"] as const;
 
+/** Valid `step` values accepted for a `goal` request. */
+const KNOWN_GOAL_STEPS = ["framework", "generate"] as const;
+type GoalStep = (typeof KNOWN_GOAL_STEPS)[number];
+
 function isKnownMode(value: unknown): value is Mode {
     return (
         typeof value === "string" && (KNOWN_MODES as readonly string[]).includes(value)
+    );
+}
+
+function isKnownGoalStep(value: unknown): value is GoalStep {
+    return (
+        typeof value === "string" &&
+        (KNOWN_GOAL_STEPS as readonly string[]).includes(value)
     );
 }
 
@@ -97,11 +109,39 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    const { mode, input, depth } = (body ?? {}) as {
+    const { mode, input, depth, step, goal } = (body ?? {}) as {
         mode?: unknown;
         input?: unknown;
         depth?: unknown;
+        step?: unknown;
+        goal?: unknown;
     };
+
+    if (!isKnownMode(mode)) {
+        return NextResponse.json(
+            { error: "Unsupported generation mode." },
+            { status: 400 }
+        );
+    }
+
+    // 3. Dispatch on the recognized mode. Pattern A (`project`) and Pattern B
+    //    (`goal`/`framework`) share this one auth check, provider path, and
+    //    30-second timeout.
+    if (mode === "goal") {
+        return handleGoal(step, goal);
+    }
+
+    if (mode !== "project") {
+        // Exhaustive today; guards a future mode added to the union without a
+        // dispatch branch.
+        const unreachable: never = mode;
+        return NextResponse.json(
+            { error: `Unsupported generation mode: ${String(unreachable)}` },
+            { status: 400 }
+        );
+    }
+
+    // --- Pattern A (`project`) — validation + dispatch, unchanged. ---
 
     if (typeof input !== "string" || input.trim() === "") {
         return NextResponse.json({ error: "Input is required." }, { status: 400 });
@@ -114,26 +154,7 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    if (!isKnownMode(mode)) {
-        return NextResponse.json(
-            { error: "Unsupported generation mode." },
-            { status: 400 }
-        );
-    }
-
-    // 3. Dispatch on the recognized mode. Today only Pattern A (`project`);
-    //    Epic 3 slots `goal`/`step` branches in here.
     const trimmedInput = input.trim();
-
-    if (mode !== "project") {
-        // Exhaustive today; guards a future mode added to the union without a
-        // dispatch branch.
-        const unreachable: never = mode;
-        return NextResponse.json(
-            { error: `Unsupported generation mode: ${String(unreachable)}` },
-            { status: 400 }
-        );
-    }
 
     // Depth is a first-class, required input for a project request: it selects
     // the prompt and the persisted `planning_depth`. Reject a missing/invalid
@@ -229,6 +250,52 @@ export async function POST(request: NextRequest) {
             { error: "Failed to save the generated project. Please try again." },
             { status: 500 }
         );
+    }
+}
+
+/**
+ * Pattern B (Story 3.2) — goal skill-framework generation.
+ *
+ * Runs AFTER the shared auth guard in `POST`. Validates `step` and `goal`
+ * (same non-empty + ≤2000-char rules Pattern A enforces on `input`), then
+ * calls `generateFramework(goal)` and returns the framework JSON. Writes NO
+ * Supabase row — the wizard holds the framework in transient state.
+ *
+ * The response contains only the AI-owned Target Profile (`name`,
+ * `required_level`, `description`); no user current-rating field is present.
+ */
+async function handleGoal(step: unknown, goal: unknown): Promise<NextResponse> {
+    if (!isKnownGoalStep(step)) {
+        return NextResponse.json(
+            { error: "A valid goal step is required." },
+            { status: 400 }
+        );
+    }
+
+    // `generate` is Pattern C (Story 3.6) and is not wired yet.
+    if (step !== "framework") {
+        return NextResponse.json(
+            { error: "This goal step is not yet supported." },
+            { status: 400 }
+        );
+    }
+
+    if (typeof goal !== "string" || goal.trim() === "") {
+        return NextResponse.json({ error: "Goal is required." }, { status: 400 });
+    }
+
+    if (goal.length > MAX_INPUT_LENGTH) {
+        return NextResponse.json(
+            { error: `Goal must be ${MAX_INPUT_LENGTH} characters or fewer.` },
+            { status: 400 }
+        );
+    }
+
+    try {
+        const { framework } = await generateFramework(goal.trim());
+        return NextResponse.json({ framework });
+    } catch (error) {
+        return mapGenerateError(error);
     }
 }
 
