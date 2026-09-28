@@ -7,9 +7,9 @@
  *
  * What it owns:
  *   - `WizardState`: all step data as optional fields (goalText, framework,
- *     ratings, drivers, barriers, ifThen). Later stories populate their slices;
- *     this story wires only Step 1's `goalText` + the framework-invalidation
- *     seam so the contract is proven end-to-end.
+ *     drivers, barriers, ifThen). Self-assessment ratings live inline on each
+ *     framework item as `user_rating` (Step 2), so there is no separate ratings
+ *     map. Later stories populate their slices.
  *   - A `steps` config: each step declares an id, a label, an `isComplete`
  *     gate predicate (the rule to advance FROM that step), and a `render`
  *     function (placeholder panels this story).
@@ -28,6 +28,7 @@
  */
 
 import WizardStep1 from "@/components/goals/WizardStep1";
+import WizardStep2 from "@/components/goals/WizardStep2";
 import WizardStepper from "@/components/goals/WizardStepper";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -54,7 +55,6 @@ export interface SkillFrameworkItem {
 export interface WizardState {
   goalText: string;
   framework: SkillFrameworkItem[] | null;
-  ratings: Record<string, number>;
   drivers: string[];
   barriers: string[];
   ifThen: string;
@@ -93,7 +93,6 @@ export interface WizardStep {
 const INITIAL_STATE: WizardState = {
   goalText: "",
   framework: null,
-  ratings: {},
   drivers: [],
   barriers: [],
   ifThen: "",
@@ -108,17 +107,19 @@ const INITIAL_STATE: WizardState = {
  * Rules:
  *   - No change → same reference (lets React bail out of a re-render).
  *   - No framework yet → just update the text.
- *   - Framework present → invalidate it and its dependent ratings, since a
- *     framework built for the old goal must not survive a goal edit. Drivers,
- *     barriers, and the if–then plan are the user's own words (Step 3) and are
- *     NOT derived from the framework, so they are intentionally preserved.
+ *   - Framework present → invalidate it, since a framework built for the old
+ *     goal must not survive a goal edit. Ratings now live inline on each
+ *     framework item (`user_rating`), so clearing the framework clears them
+ *     too — there is no separate ratings map to reset. Drivers, barriers, and
+ *     the if–then plan are the user's own words (Step 3) and are NOT derived
+ *     from the framework, so they are intentionally preserved.
  */
 export function applyGoalText(prev: WizardState, text: string): WizardState {
   if (prev.goalText === text) return prev;
   if (prev.framework === null) {
     return { ...prev, goalText: text };
   }
-  return { ...prev, goalText: text, framework: null, ratings: {} };
+  return { ...prev, goalText: text, framework: null };
 }
 
 /**
@@ -142,14 +143,16 @@ const STEPS: WizardStep[] = [
   {
     id: "gap",
     label: "Gap Rating",
-    isComplete: () => true,
-    render: ({ headingRef }) => (
-      <PlaceholderPanel
-        headingRef={headingRef}
-        title="Gap Rating"
-        body="Gap ratings arrive in a later step."
-      />
-    ),
+    // Advance from Step 2 requires a framework whose every item carries a
+    // numeric `user_rating`. Step 2 seeds each item to the neutral midpoint 5
+    // on entry, so this gate is satisfiable by confirmation-at-default while
+    // still reflecting real, user-owned values.
+    isComplete: (s) =>
+      (s.framework?.length ?? 0) > 0 &&
+      (s.framework?.every((item) => typeof item.user_rating === "number") ??
+        false),
+    nextLabel: "Next: Drivers & Barriers →",
+    render: (ctx) => <WizardStep2 ctx={ctx} />,
   },
   {
     id: "drivers",

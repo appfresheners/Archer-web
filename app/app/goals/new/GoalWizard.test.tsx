@@ -219,7 +219,6 @@ describe("GoalWizard", () => {
       framework: [
         { name: "Chords", required_level: 7, description: "…", user_rating: 4 },
       ],
-      ratings: { Chords: 4 },
       drivers: ["I love music"],
       barriers: ["No practice time"],
       ifThen: "If it is 7am, then I will practice for 10 minutes",
@@ -230,17 +229,18 @@ describe("GoalWizard", () => {
     });
 
     it("just updates the text when no framework is set", () => {
-      const start: WizardState = { ...withFramework, framework: null, ratings: {} };
+      const start: WizardState = { ...withFramework, framework: null };
       const next = applyGoalText(start, "Learn piano");
       expect(next.goalText).toBe("Learn piano");
       expect(next.framework).toBeNull();
     });
 
-    it("clears the framework and its ratings when the goal changes", () => {
+    it("clears the framework (and its inline ratings) when the goal changes", () => {
+      // Ratings live inline on framework items now, so clearing the framework
+      // clears the ratings too — there is no separate ratings map.
       const next = applyGoalText(withFramework, "Learn piano");
       expect(next.goalText).toBe("Learn piano");
       expect(next.framework).toBeNull();
-      expect(next.ratings).toEqual({});
     });
 
     it("preserves user-owned drivers, barriers, and if–then across a goal edit", () => {
@@ -259,10 +259,11 @@ describe("GoalWizard", () => {
       render(<GoalWizard />);
       await typeGoalAndFetch("Learn to code");
       fireEvent.click(nextButton());
-      // Step 2 is a placeholder with no interactive element → focus falls back
-      // to its heading (tabIndex=-1).
-      const heading = screen.getByRole("heading", { name: "Gap Rating" });
-      expect(heading).toHaveFocus();
+      // Step 2's first focusable is the first skill's rating slider.
+      const firstSlider = screen.getByLabelText(
+        "Your current level for Skill A",
+      );
+      expect(firstSlider).toHaveFocus();
     });
 
     it("moves focus back to Step 1's input (first interactive) on Back", async () => {

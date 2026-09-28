@@ -146,3 +146,17 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-3-wizard-step-1-goal-skill-framework.md`
   summary: Give the "Add a skill" input a shorter, name-appropriate maxLength (it currently reuses the 500-char goal cap) and disable Add while a framework re-fetch is in flight
   evidence: Review (blind + edge-case) — a single skill name doesn't need 500 chars; adding during an in-flight re-fetch could race an overwrite. Low impact (list only shows post-fetch); tidy in a later pass.
+
+## Deferred from: code review of 3-4 (2026-09-28)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-4-wizard-step-2-gap-rating.md`
+  summary: Guard the Step 2 "Add a skill" field against duplicate names, add a char counter for the 500-char cap, and support Home/End/PageUp/PageDown on the sliders
+  evidence: Review (blind + edge-case) — duplicate names produce ambiguous slider `aria-label`s; the add field silently drops whitespace and reuses the 500-char goal cap; native range gives arrow keys but not Home/End. All UX-completeness niceties beyond the AC. Shares the duplicate-guard class already deferred for Step 1 (3.3) — best done once for the shared add-item pattern.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-4-wizard-step-2-gap-rating.md`
+  summary: Consider surfacing over-qualification (user rates above required) rather than flooring the gap silently to 0
+  evidence: Review (edge-case) — gap = max(0, required − rating) hides the case where the user exceeds the required level. The spec chose the floor-at-0 option deliberately; a "met/exceeded" affordance is a possible future enhancement, not a defect.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-4-wizard-step-2-gap-rating.md`
+  summary: Extract the neutral-default (5) and 1–10 scale into shared constants referenced by the instructional copy, so prose can't drift from behaviour
+  evidence: Review (blind-hunter) — the intro paragraph hard-codes "starts at 5" / "1 to 10" as prose while the values live as constants in code. Minor maintainability nicety.
