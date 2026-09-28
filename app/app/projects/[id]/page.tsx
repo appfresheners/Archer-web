@@ -16,8 +16,9 @@
  */
 
 import StatusBadge from "@/components/goals/StatusBadge";
+import type { ActionItemData } from "@/components/projects/ActionItem";
+import ActionList from "@/components/projects/ActionList";
 import type {
-    Action,
     PlanningDetail,
     ProjectStatus,
 } from "@/lib/supabase/schema";
@@ -43,7 +44,7 @@ interface LoadedProject {
     planning_depth: "minimal" | "full_gtd";
     planning_detail: PlanningDetail | null;
     goalText: string | null;
-    actions: Pick<Action, "id" | "text" | "sort_order">[];
+    actions: ActionItemData[];
 }
 
 /** Fetch the RLS-scoped project + parent goal + ordered actions, or null. */
@@ -75,7 +76,7 @@ async function loadProject(id: string): Promise<LoadedProject | null> {
 
         const { data: actions } = await supabase
             .from("actions")
-            .select("id, text, sort_order")
+            .select("id, text, status, context_tags, sort_order")
             .eq("project_id", id)
             .order("sort_order", { ascending: true });
 
@@ -226,23 +227,7 @@ export default async function ProjectDetailPage({
             {detail && <ListSection title="Ideas & Brainstorming" items={detail.ideas} />}
             {detail && <ListSection title="Organizing" items={detail.organizing} />}
 
-            {project.actions.length > 0 && (
-                <Section title="Next Actions">
-                    <ul className="flex flex-col gap-2">
-                        {project.actions.map((action) => (
-                            <li key={action.id} className="flex items-start gap-2 text-text-primary">
-                                <input
-                                    type="checkbox"
-                                    disabled
-                                    aria-label={action.text}
-                                    className="mt-1 h-4 w-4 shrink-0"
-                                />
-                                <span>{action.text}</span>
-                            </li>
-                        ))}
-                    </ul>
-                </Section>
-            )}
+            <ActionList projectId={project.id} actions={project.actions} />
         </article>
     );
 }

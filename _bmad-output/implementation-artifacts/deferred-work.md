@@ -242,3 +242,21 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-3-project-detail-edit-regeneration.md`
   summary: Refresh the browser title/breadcrumb promptly when regeneration changes the project name (currently stale until router.refresh resolves) and skip a redundant PATCH when Save is pressed with no field changes
   evidence: Review (edge-case + blind) — minor UX polish; router.refresh() does reconcile, and a no-op save is harmless. Low priority.
+
+## Deferred from: code review of 4-4 (2026-09-28)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-4-action-management-context-tags.md`
+  summary: Make the action reorder atomic (single RPC/batched update) and race-safe — currently it verifies the id set then updates sort_order row-by-row in a loop, so a mid-loop failure (now tested → 500) or a concurrent add/delete can leave partially-applied ordering
+  evidence: Review (edge-case + blind + verification-gap, consensus) — same non-transactional class already deferred for 3.6 / 4.2 / 4.3. A `reorder_actions(project_id, ids[])` Postgres function would make it atomic and let it re-verify the set under a lock. Also compute append `sort_order` inside the insert (or a sequence) to avoid concurrent-add collisions.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-4-action-management-context-tags.md`
+  summary: Decide the intended behavior when a committed action is completed/unchecked — toggling a committed action to done (then back to available) silently drops the committed marking
+  evidence: Review (edge-case + blind) — completing a committed action → done is correct GTD, but un-completing returns it to available, losing "committed". Story 4.5 owns commit semantics and the "prompt for the next committed action" flow; resolve this there (e.g. completing a committed action triggers the 4.5 next-action prompt rather than a bare available/done toggle).
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-4-action-management-context-tags.md`
+  summary: Add optimistic UI + inline validation/rollback for action mutations, cap/validate context-tag value length in the editor to match the server's 60-char limit, and consider drag-and-drop reordering
+  evidence: Review (blind + edge-case) — every add/toggle/edit/reorder waits a full round-trip + router.refresh(); the tag editor lets users type past the server cap with no counter; reorder is button-only (satisfies the AC's "reorder", keyboard-operable). All UX polish beyond the ACs.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-4-action-management-context-tags.md`
+  summary: Consider a unique/contiguous constraint on (project_id, sort_order) or document that gaps/ties are tolerated, and a per-project action cap / pagination for very large lists
+  evidence: Review (edge-case + blind) — ordering is best-effort with possible gaps after add+delete; large projects rewrite all sort_order per move. Fine at expected scale; revisit with the Engage view (Epic 5) which reads the same rows.

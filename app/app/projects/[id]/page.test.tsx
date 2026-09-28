@@ -31,11 +31,16 @@ const notFound = vi.fn(() => {
 });
 vi.mock("next/navigation", () => ({ notFound: () => notFound() }));
 
-// The interactive client header is covered in its own concern; stub it so the
-// server-page test focuses on the read/render surface.
+// The interactive client pieces are covered in their own concerns; stub them
+// so the server-page test focuses on the read/render surface.
 vi.mock("./ProjectDetailClient", () => ({
   default: ({ project }: { project: { name: string } }) => (
     <div data-testid="project-client">{project.name}</div>
+  ),
+}));
+vi.mock("@/components/projects/ActionList", () => ({
+  default: ({ actions }: { actions: { id: string }[] }) => (
+    <div data-testid="action-list">{actions.length} actions</div>
   ),
 }));
 
@@ -88,7 +93,8 @@ describe("ProjectDetailPage", () => {
     expect(screen.getByText("Establishes an online presence.")).toBeInTheDocument();
     expect(screen.getByText("Deployed at a public URL.")).toBeInTheDocument();
     expect(screen.getByText("Minimal")).toBeInTheDocument();
-    expect(screen.getAllByRole("checkbox")).toHaveLength(12);
+    // Actions are handed to the (stubbed) interactive ActionList.
+    expect(screen.getByTestId("action-list")).toHaveTextContent("12 actions");
     expect(screen.getByTestId("project-client")).toHaveTextContent(
       "Portfolio site live",
     );
