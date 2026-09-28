@@ -107,7 +107,6 @@
   summary: Project detail `loadProject` conflates transient DB/network errors with not-found/RLS-deny — all render as 404 instead of distinguishing a 500-class error
   evidence: Review (blind-hunter) — `page.tsx` try/catch returns null on any failure → notFound(). Fail-closed is safe for a detail view and matches the app-shell's fail-to-redirect pattern, but a transient backend error shows as 404, hurting debuggability. Add an error boundary / distinct error state in a later hardening pass.
 
-
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-4-loading-timeout-provider-error-handling.md`
   summary: Move focus to the error alert (or first invalid field) when a generation error renders, for keyboard/screen-reader users
   evidence: Review (blind-hunter) — the error uses role="alert" aria-live="assertive" so it is announced, but focus is not moved to it. A focus-management pass would raise the a11y floor beyond the AC. Mirrors the same deferral made for the auth forms in Epic 1.
@@ -115,3 +114,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-4-loading-timeout-provider-error-handling.md`
   summary: Recover the in-flight state if client-side navigation to the new project fails to mount (form stays disabled with no error)
   evidence: Review (edge-case + blind-hunter) — on a successful `{id}`, `router.push` leaves `inFlight` true through the transition (intentional, to block double-submit); if the destination fails to load, the form has no recovery path. Low risk (a remount resets state); revisit with a navigation error boundary. Same class of issue noted in Story 2.3.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-6-remove-dead-copy-download-code.md`
+  summary: Remove now-unused npm dependencies (react-markdown, rehype-raw, remark-gfm, qrcode) from package.json and regenerate the lockfile
+  evidence: Review (blind-hunter) — these were consumed only by the deleted MVP1 components (OutputPanel, SavedBreakdowns). The 2.6 spec's "Ask First" deferred dependency removal (harmless to leave; a later epic may reintroduce a renderer). Drop them in a dedicated dependency-cleanup pass with a lockfile regen + full build.

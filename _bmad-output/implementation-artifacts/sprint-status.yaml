@@ -38,7 +38,7 @@ v # STATUS DEFINITIONS:
 # and has been preserved as sprint-status-superseded-mvp1.yaml. None of the new
 # 35 stories have been started under the current plan, so all are 'backlog'.
 generated: 09-27-2026 16:30
-last_updated: 09-27-2026 (Epic 2 story 2.4 in review)
+last_updated: 09-27-2026 (Epic 2 complete — JSON-structured; Story 2.5 removed)
 
 project: GTDGoalandProjectCreator
 project_key: NOKEY
@@ -55,7 +55,7 @@ development_status:
   1-7-ai-provider-configuration-layer: done
   epic-1-retrospective: optional
 
-  epic-2: in-progress
+  epic-2: done
   2-1-single-generation-endpoint-with-auth-provider-path-pattern-a: review
   2-2-project-mode-input-with-depth-control-validation: review
   2-3-project-mode-generation-save-navigation: review
@@ -63,7 +63,7 @@ development_status:
   # 2-5 (formatted-output-rendering / Notion-optimized markdown) REMOVED —
   # obsolete: generation returns structured JSON persisted as Supabase rows;
   # the project detail view (2.3) renders from structured data, not markdown.
-  2-6-remove-dead-copy-download-code: backlog
+  2-6-remove-dead-copy-download-code: review
   epic-2-retrospective: optional
 
   epic-3: backlog

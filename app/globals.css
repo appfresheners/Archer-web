@@ -24,10 +24,6 @@
   --color-destructive-hover: #dc2626; /* red-600 */
   --color-destructive-subtle: #fef2f2; /* red-50 */
 
-  /* Legacy error token — still consumed by MVP1 components (InputSection,
-     SavedBreakdowns, page). Preserved until the Epic 2 cleanup pass. */
-  --color-error: #b91c1c; /* red-700 */
-
   /* Neutral surfaces */
   --color-background: #ffffff;
   --color-surface: #f9fafb; /* gray-50 — sidebar, cards, panels */
