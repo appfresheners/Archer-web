@@ -36,6 +36,8 @@ export interface ActionItemProps {
   onSaveTags: (action: ActionItemData, tags: string[]) => void;
   onDelete: (action: ActionItemData) => void;
   onMove: (action: ActionItemData, direction: "up" | "down") => void;
+  /** Commit this action as the project's single next action (Story 4.5). */
+  onCommit: (action: ActionItemData) => void;
 }
 
 function containerClass(status: ActionStatus): string {
@@ -60,6 +62,7 @@ export default function ActionItem({
   onSaveTags,
   onDelete,
   onMove,
+  onCommit,
 }: ActionItemProps) {
   const [editing, setEditing] = useState(false);
   const [taggingOpen, setTaggingOpen] = useState(false);
@@ -146,6 +149,17 @@ export default function ActionItem({
         </div>
 
         <div className="flex shrink-0 items-center">
+          {action.status === "available" && (
+            <button
+              type="button"
+              className="mr-1 inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-primary px-3 py-1 text-[length:var(--font-size-small)] font-medium text-primary hover:bg-primary-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label={`Commit "${action.text}" as the next action`}
+              disabled={disabled}
+              onClick={() => onCommit(action)}
+            >
+              Commit
+            </button>
+          )}
           <button
             type="button"
             className={iconBtn}

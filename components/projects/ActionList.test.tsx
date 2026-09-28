@@ -140,6 +140,90 @@ describe("ActionList", () => {
     });
   });
 
+  it("commits an available action via the dedicated commit route", async () => {
+    const user = userEvent.setup();
+    render(<ActionList projectId="p1" actions={actions()} />);
+
+    // Only available actions expose a Commit control; a1 is available.
+    await user.click(screen.getByRole("button", { name: /Commit "Draft outline"/ }));
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    const [url, init] = lastCall();
+    expect(url).toBe("/api/actions/a1/commit");
+    expect(init.method).toBe("POST");
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("prompts for the next committed action after completing a committed one", async () => {
+    const user = userEvent.setup();
+    render(<ActionList projectId="p1" actions={actions()} />);
+
+    // Complete the committed action (a2, "Write intro") via its checkbox.
+    await user.click(screen.getAllByRole("checkbox")[1]);
+
+    // The done PATCH fires, then the next-action prompt opens.
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(lastCall()[1].body)).toEqual({ status: "done" });
+    expect(
+      await screen.findByText("What's next for this project?"),
+    ).toBeInTheDocument();
+    // The remaining available action (a1) is offered to commit.
+    const choice = screen.getByRole("button", { name: "Draft outline" });
+    await user.click(choice);
+
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    expect(lastCall()[0]).toBe("/api/actions/a1/commit");
+    expect(lastCall()[1].method).toBe("POST");
+  });
+
+  it("does not open the next-action prompt when completing a non-committed action", async () => {
+    const user = userEvent.setup();
+    render(<ActionList projectId="p1" actions={actions()} />);
+
+    // a1 is available (not committed) — completing it must not prompt.
+    await user.click(screen.getAllByRole("checkbox")[0]);
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    expect(
+      screen.queryByText("What's next for this project?"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("offers to mark the project complete when no available actions remain", async () => {
+    const user = userEvent.setup();
+    // Only a committed action + a done one: completing the committed leaves none available.
+    const noneRemaining: ActionItemData[] = [
+      { id: "c1", text: "The one", status: "committed", context_tags: [], sort_order: 0 },
+      { id: "d1", text: "Already done", status: "done", context_tags: [], sort_order: 1 },
+    ];
+    render(<ActionList projectId="p1" actions={noneRemaining} />);
+
+    await user.click(screen.getAllByRole("checkbox")[0]); // complete committed c1
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+
+    expect(
+      await screen.findByText("No actions remain. Mark this project complete?"),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Mark project complete" }));
+
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    const [url, init] = lastCall();
+    expect(url).toBe("/api/projects/p1");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body)).toEqual({ status: "completed" });
+  });
+
+  it("dismisses the next-action prompt on 'Not now' without further mutation", async () => {
+    const user = userEvent.setup();
+    render(<ActionList projectId="p1" actions={actions()} />);
+
+    await user.click(screen.getAllByRole("checkbox")[1]); // complete committed a2
+    await screen.findByText("What's next for this project?");
+    await user.click(screen.getByRole("button", { name: "Not now" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    // Only the initial done PATCH fired — no commit/complete.
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
   it("surfaces an error when a mutation fails", async () => {
     mockFetch(false, { error: "Failed to add the action." }, 500);
     const user = userEvent.setup();

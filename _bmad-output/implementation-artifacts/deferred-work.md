@@ -260,3 +260,21 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-4-action-management-context-tags.md`
   summary: Consider a unique/contiguous constraint on (project_id, sort_order) or document that gaps/ties are tolerated, and a per-project action cap / pagination for very large lists
   evidence: Review (edge-case + blind) — ordering is best-effort with possible gaps after add+delete; large projects rewrite all sort_order per move. Fine at expected scale; revisit with the Engage view (Epic 5) which reads the same rows.
+
+## Deferred from: code review of 4-5 (2026-09-28)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-5-commit-single-next-action-stuck-detection.md`
+  summary: Add a DB-level backstop for the single-committed invariant (partial unique index `UNIQUE (project_id) WHERE status = 'committed'`, or row-locking in fn_commit_action) so two concurrent commits cannot both succeed
+  evidence: Review (blind + edge-case, consensus) — the invariant is currently enforced only by the fn_commit_action trigger's decommit, which is not serialized against concurrent commits. Complements the existing 1-2 deferral about fn_commit_action concurrency/INSERT coverage; a schema-hardening migration should add the unique guard.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-5-commit-single-next-action-stuck-detection.md`
+  summary: Gate committing on project status — the commit route and the ActionItem "Commit" button both allow committing an action on a Paused/Completed/Archived project
+  evidence: Review (blind + edge-case) — committing on a non-active project is odd but harmless (it just sets committed; stuck detection only applies to active). Restricting it (route 409 + hide/disable the button off-active) belongs with a broader "only active projects surface commit affordances" pass, best done alongside the Engage view (Epic 5) which also reads committed actions.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-5-commit-single-next-action-stuck-detection.md`
+  summary: Refresh remaining-available actions when the next-action prompt opens rather than building it from the current (pre-completion) props, and add an "Add next action" affordance for the empty-remaining case
+  evidence: Review (edge-case + blind) — the prompt filters the current props excluding the just-completed action, which is valid today (choices are still-available actions), but could go stale under concurrent edits; and GTD's "always define the next action" suggests offering to add one when none remain. UX/robustness refinement beyond the AC.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-5-commit-single-next-action-stuck-detection.md`
+  summary: Make the page-level StuckIndicator CTA focus the commit/add-action control (via a small client wrapper) instead of only scrolling to `#actions`, and add a polite aria-live status region announcing commit/complete results
+  evidence: Review (blind + edge-case) — the server-rendered StuckIndicator can't pass an onClick, so its CTA is an anchor to `#actions` (scrolls, doesn't focus). The next-action prompt now has focus-on-open + Escape (patched), but action-result feedback isn't announced beyond the assertive role=alert band. A11y enhancements beyond the AC's stated floor.

@@ -18,6 +18,8 @@
 import StatusBadge from "@/components/goals/StatusBadge";
 import type { ActionItemData } from "@/components/projects/ActionItem";
 import ActionList from "@/components/projects/ActionList";
+import StuckIndicator from "@/components/projects/StuckIndicator";
+import { isProjectStuck } from "@/lib/goals/stuck";
 import type {
     PlanningDetail,
     ProjectStatus,
@@ -165,6 +167,8 @@ export default async function ProjectDetailPage({
         successful_outcome: project.successful_outcome,
         status: project.status,
     };
+    // Stuck = Active project with zero committed actions (Story 4.5).
+    const stuck = isProjectStuck({ status: project.status }, project.actions);
 
     return (
         <article className="flex flex-col gap-[var(--spacing-section-y)]">
@@ -203,6 +207,8 @@ export default async function ProjectDetailPage({
                 <ProjectDetailClient project={header} />
             </header>
 
+            {stuck && <StuckIndicator />}
+
             {project.purpose && (
                 <Collapsible title="Purpose" defaultOpen>
                     <p>{project.purpose}</p>
@@ -227,7 +233,9 @@ export default async function ProjectDetailPage({
             {detail && <ListSection title="Ideas & Brainstorming" items={detail.ideas} />}
             {detail && <ListSection title="Organizing" items={detail.organizing} />}
 
-            <ActionList projectId={project.id} actions={project.actions} />
+            <div id="actions">
+                <ActionList projectId={project.id} actions={project.actions} />
+            </div>
         </article>
     );
 }

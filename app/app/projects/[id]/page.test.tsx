@@ -52,6 +52,9 @@ async function renderPage(id: string) {
 const twelveActions = Array.from({ length: 12 }, (_, i) => ({
   id: `a${i}`,
   text: `Action ${i + 1}`,
+  // One committed action → the project is NOT stuck by default.
+  status: i === 0 ? "committed" : "available",
+  context_tags: [],
   sort_order: i,
 }));
 
@@ -122,6 +125,86 @@ describe("ProjectDetailPage", () => {
     expect(crumb).toHaveAttribute("href", "/app/goals");
     // The parent-goal lookup is never attempted for a goal-less project.
     expect(goalMaybeSingle).not.toHaveBeenCalled();
+  });
+
+  it("shows the stuck indicator for an Active project with zero committed actions", async () => {
+    projectMaybeSingle.mockResolvedValue({
+      data: {
+        id: "project-stuck",
+        name: "Stuck project",
+        goal_id: null,
+        status: "active",
+        purpose: null,
+        successful_outcome: null,
+        planning_depth: "minimal",
+        planning_detail: null,
+      },
+      error: null,
+    });
+    // Actions exist but none are committed → stuck.
+    actionsOrder.mockResolvedValue({
+      data: [
+        { id: "a0", text: "A", status: "available", context_tags: [], sort_order: 0 },
+      ],
+      error: null,
+    });
+
+    await renderPage("project-stuck");
+
+    expect(
+      screen.getByText("No committed next action — this project is stuck."),
+    ).toBeInTheDocument();
+  });
+
+  it("hides the stuck indicator when a committed action exists", async () => {
+    projectMaybeSingle.mockResolvedValue({
+      data: {
+        id: "project-ok",
+        name: "Healthy project",
+        goal_id: null,
+        status: "active",
+        purpose: null,
+        successful_outcome: null,
+        planning_depth: "minimal",
+        planning_detail: null,
+      },
+      error: null,
+    });
+    // Default twelveActions has one committed action → not stuck.
+
+    await renderPage("project-ok");
+
+    expect(
+      screen.queryByText("No committed next action — this project is stuck."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hides the stuck indicator for a non-active project", async () => {
+    projectMaybeSingle.mockResolvedValue({
+      data: {
+        id: "project-paused",
+        name: "Paused project",
+        goal_id: null,
+        status: "paused",
+        purpose: null,
+        successful_outcome: null,
+        planning_depth: "minimal",
+        planning_detail: null,
+      },
+      error: null,
+    });
+    actionsOrder.mockResolvedValue({
+      data: [
+        { id: "a0", text: "A", status: "available", context_tags: [], sort_order: 0 },
+      ],
+      error: null,
+    });
+
+    await renderPage("project-paused");
+
+    expect(
+      screen.queryByText("No committed next action — this project is stuck."),
+    ).not.toBeInTheDocument();
   });
 
   it("falls back to the goals-list breadcrumb when the parent goal text is null", async () => {

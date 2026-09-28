@@ -21,7 +21,7 @@
 
 import ActionItem, { type ActionItemData } from "@/components/projects/ActionItem";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const GENERIC_ERROR = "Something went wrong. Please try again.";
 
@@ -36,6 +36,14 @@ export default function ActionList({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [newText, setNewText] = useState("");
+  // After completing a committed action, prompt for the next committed action
+  // (Story 4.5). Holds the still-available actions to choose from, or an empty
+  // array to signal "no actions remain — offer to complete the project".
+  const [nextPrompt, setNextPrompt] = useState<ActionItemData[] | null>(null);
+  const promptRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (nextPrompt !== null) promptRef.current?.focus();
+  }, [nextPrompt]);
 
   async function call(
     url: string,
@@ -83,9 +91,54 @@ export default function ActionList({
 
   async function handleToggleDone(action: ActionItemData) {
     const nextStatus = action.status === "done" ? "available" : "done";
-    await refreshOn(
-      await call(`/api/actions/${action.id}`, "PATCH", { status: nextStatus }),
-    );
+    const wasCommitted = action.status === "committed";
+    const ok = await call(`/api/actions/${action.id}`, "PATCH", {
+      status: nextStatus,
+    });
+    if (!ok) return;
+
+    // Completing the committed action → prompt for the next committed action
+    // from the remaining still-available actions (Story 4.5).
+    if (wasCommitted && nextStatus === "done") {
+      const remaining = actions.filter(
+        (a) => a.id !== action.id && a.status === "available",
+      );
+      setNextPrompt(remaining);
+      // Do not refresh yet — the prompt is driven by current props; a refresh
+      // happens after the user commits the next action or dismisses.
+      return;
+    }
+    router.refresh();
+  }
+
+  /** Commit an available action (POST to the dedicated commit route). */
+  async function handleCommit(action: ActionItemData) {
+    await refreshOn(await call(`/api/actions/${action.id}/commit`, "POST"));
+  }
+
+  /** Choose the next committed action from the completion prompt. */
+  async function handleCommitNext(action: ActionItemData) {
+    const ok = await call(`/api/actions/${action.id}/commit`, "POST");
+    if (ok) {
+      setNextPrompt(null);
+      router.refresh();
+    }
+  }
+
+  /** From the prompt when no actions remain: mark the project complete. */
+  async function handleCompleteProject() {
+    const ok = await call(`/api/projects/${projectId}`, "PATCH", {
+      status: "completed",
+    });
+    if (ok) {
+      setNextPrompt(null);
+      router.refresh();
+    }
+  }
+
+  function dismissPrompt() {
+    setNextPrompt(null);
+    router.refresh();
   }
 
   async function handleSaveText(action: ActionItemData, text: string) {
@@ -138,9 +191,88 @@ export default function ActionList({
               onSaveTags={handleSaveTags}
               onDelete={handleDelete}
               onMove={handleMove}
+              onCommit={handleCommit}
             />
           ))}
         </ul>
+      )}
+
+      {nextPrompt !== null && (
+        <div
+          ref={promptRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="next-action-title"
+          tabIndex={-1}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && !busy) dismissPrompt();
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 focus:outline-none"
+        >
+          <div className="flex w-full max-w-md flex-col gap-4 rounded-[var(--radius-lg)] bg-surface-raised p-6 shadow-lg">
+            <h3
+              id="next-action-title"
+              className="text-[length:var(--font-size-subheading)] font-semibold text-text-primary"
+            >
+              What&apos;s next for this project?
+            </h3>
+            {nextPrompt.length > 0 ? (
+              <>
+                <p className="text-text-secondary">
+                  Commit the next action to work on.
+                </p>
+                <ul className="flex flex-col gap-2">
+                  {nextPrompt.map((a) => (
+                    <li key={a.id}>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => handleCommitNext(a)}
+                        className="w-full rounded-[var(--radius-sm)] border border-border-strong px-3 py-2 text-left text-text-primary hover:border-primary hover:bg-primary-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
+                      >
+                        {a.text}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={dismissPrompt}
+                    className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-border-strong px-4 py-2 font-medium text-text-primary hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
+                  >
+                    Not now
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-text-secondary">
+                  No actions remain. Mark this project complete?
+                </p>
+                <div className="flex flex-wrap justify-end gap-3">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={dismissPrompt}
+                    className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-border-strong px-4 py-2 font-medium text-text-primary hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
+                  >
+                    Not now
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={handleCompleteProject}
+                    className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] bg-primary px-4 py-2 font-medium text-text-inverse hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
+                  >
+                    Mark project complete
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
 
       <div className="flex flex-wrap items-center gap-2">

@@ -12,8 +12,8 @@
  * `GoalDetailClient`, which mutates via `/api/goals/[id]` and refreshes.
  */
 
-import GoalDetailClient from "./GoalDetailClient";
 import StatusBadge from "@/components/goals/StatusBadge";
+import { STUCK_MESSAGE } from "@/components/projects/StuckIndicator";
 import { isProjectStuck } from "@/lib/goals/stuck";
 import type {
   ActionStatus,
@@ -25,6 +25,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import GoalDetailClient from "./GoalDetailClient";
 
 interface GoalDetailPageProps {
   params: Promise<{ id: string }>;
@@ -269,7 +270,7 @@ function ProjectCards({ projects }: { projects: LoadedProjectCard[] }) {
                     role="alert"
                     className="rounded-[var(--radius-sm)] border-l-4 border-[var(--color-warning)] bg-warning-subtle px-3 py-2 text-[length:var(--font-size-small)] font-medium text-warning"
                   >
-                    No committed next action — this project is stuck.
+                    {STUCK_MESSAGE}
                   </p>
                 )}
               </Link>
