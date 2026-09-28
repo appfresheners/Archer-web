@@ -135,6 +135,65 @@ describe("GoalWizard", () => {
     });
   });
 
+  describe("Step 3 gate + label", () => {
+    /** Drive from a fresh render through Steps 1→2→3. */
+    async function goToStep3() {
+      await typeGoalAndFetch("Learn to present");
+      fireEvent.click(nextButton()); // Step 1 → Step 2
+      await screen.findByRole("heading", { name: "Gap Rating" });
+      fireEvent.click(nextButton()); // Step 2 → Step 3 (ratings seeded to 5)
+      await screen.findByRole("heading", { name: "Drivers & Barriers" });
+    }
+
+    it("labels the Step 3 advance button 'Next: Review →'", async () => {
+      mockFrameworkFetch();
+      render(<GoalWizard />);
+      await goToStep3();
+      expect(
+        screen.getByRole("button", { name: "Next: Review →" }),
+      ).toBeInTheDocument();
+    });
+
+    it("blocks advance until ≥1 driver, ≥1 barrier, and a complete if–then", async () => {
+      mockFrameworkFetch();
+      render(<GoalWizard />);
+      await goToStep3();
+
+      // Nothing entered → gated.
+      expect(nextButton()).toBeDisabled();
+
+      // One driver only → still gated.
+      fireEvent.change(screen.getByLabelText("Drivers"), {
+        target: { value: "Discipline" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Add driver" }));
+      expect(nextButton()).toBeDisabled();
+
+      // + one barrier → still gated (no if–then yet).
+      fireEvent.change(screen.getByLabelText("Barriers"), {
+        target: { value: "Distractions" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Add barrier" }));
+      expect(nextButton()).toBeDisabled();
+
+      // + partial if–then (only "if") → still gated.
+      fireEvent.change(screen.getByLabelText("If …"), {
+        target: { value: "it is 7am" },
+      });
+      expect(nextButton()).toBeDisabled();
+
+      // + complete if–then → gate met.
+      fireEvent.change(screen.getByLabelText("then I will …"), {
+        target: { value: "practise for 10 minutes" },
+      });
+      expect(nextButton()).not.toBeDisabled();
+
+      // Advancing lands on Step 4.
+      fireEvent.click(nextButton());
+      expect(activeStepLabel()).toMatch(/Step 4 of 4: Review & Generate/);
+    });
+  });
+
   describe("Back navigation preserves inputs", () => {
     it("returns to Step 1 with the goal text intact", async () => {
       mockFrameworkFetch();

@@ -29,6 +29,7 @@
 
 import WizardStep1 from "@/components/goals/WizardStep1";
 import WizardStep2 from "@/components/goals/WizardStep2";
+import WizardStep3 from "@/components/goals/WizardStep3";
 import WizardStepper from "@/components/goals/WizardStepper";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -157,14 +158,17 @@ const STEPS: WizardStep[] = [
   {
     id: "drivers",
     label: "Drivers & Barriers",
-    isComplete: () => true,
-    render: ({ headingRef }) => (
-      <PlaceholderPanel
-        headingRef={headingRef}
-        title="Drivers & Barriers"
-        body="Drivers, barriers, and your if–then plan arrive in a later step."
-      />
-    ),
+    // Advance from Step 3 requires the user's own inputs: at least one driver,
+    // at least one barrier, and a complete if–then plan. The if–then is a
+    // single composed string that is `""` unless BOTH halves are filled (see
+    // `composeIfThen` in WizardStep3), so a non-empty trimmed value is exactly
+    // "both parts present" — the gate stays a simple non-empty check.
+    isComplete: (s) =>
+      s.drivers.length >= 1 &&
+      s.barriers.length >= 1 &&
+      s.ifThen.trim() !== "",
+    nextLabel: "Next: Review →",
+    render: (ctx) => <WizardStep3 ctx={ctx} />,
   },
   {
     id: "review",

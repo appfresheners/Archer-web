@@ -160,3 +160,17 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-4-wizard-step-2-gap-rating.md`
   summary: Extract the neutral-default (5) and 1–10 scale into shared constants referenced by the instructional copy, so prose can't drift from behaviour
   evidence: Review (blind-hunter) — the intro paragraph hard-codes "starts at 5" / "1 to 10" as prose while the values live as constants in code. Minor maintainability nicety.
+
+## Deferred from: code review of 3-5 (2026-09-28)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-wizard-step-3-drivers-barriers-if-then-plan.md`
+  summary: Dedupe (or intentionally allow + document) driver/barrier entries and give multi-value rows stable ids instead of value-index keys
+  evidence: Review (blind + edge-case) — adding an identical driver/barrier twice yields duplicate rows with colliding value-index React keys and ambiguous remove `aria-label`s. Benign today; part of the shared add-item hardening already deferred for Steps 1/3 (3.3/3.4). Do once for the shared pattern.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-wizard-step-3-drivers-barriers-if-then-plan.md`
+  summary: Wrap each multi-value group in a fieldset/legend (or role=group + aria-labelledby) and label the add input distinctly (e.g. "Add a driver"); add the shared if-then guidance as aria-describedby on BOTH halves
+  evidence: Review (blind-hunter) — the group `<label>` currently names the add input, which reads oddly for AT; only the "If …" input references the shared guidance, not "then I will …". A11y refinements beyond the AC's stated floor.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-5-wizard-step-3-drivers-barriers-if-then-plan.md`
+  summary: Add char counters for the 500-char inputs and validate the COMPOSED if-then length against any downstream prompt/storage limit (two 500-char halves + template can exceed ~1000 chars)
+  evidence: Review (blind + edge-case) — the maxLength cap is silent and the composed string can be long; Pattern C (3.6) should confirm the goal payload stays within provider/DB limits. Revisit when 3.6 wires the generate payload.
