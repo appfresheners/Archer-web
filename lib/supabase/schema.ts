@@ -107,6 +107,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       projects: {
         Row: {
@@ -151,6 +152,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       actions: {
         Row: {
@@ -186,6 +188,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       inbox_items: {
         Row: {
@@ -221,6 +224,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       review_sessions: {
         Row: {
@@ -271,6 +275,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       weekly_snapshots: {
         Row: {
@@ -312,10 +317,11 @@ export interface Database {
           opening_retrospective?: string | null;
           created_at?: string;
         };
+        Relationships: [];
       };
     };
-    Views: Record<never, never>;
-    Functions: Record<never, never>;
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
     Enums: {
       goal_status: GoalStatus;
       project_status: ProjectStatus;

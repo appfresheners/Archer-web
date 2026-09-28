@@ -5,21 +5,81 @@
  * `ProjectModeInput` form.
  *
  * A server component cannot hand a function prop to a client component, so this
- * wrapper owns the placeholder `onSubmit`. In this story submission is a no-op
- * seam: generation, save, and navigation are wired here by Story 2.3, which
- * replaces this handler with the `fetch('/api/generate')` → save → navigate
- * flow (and can drive the `disabled` in-flight state).
+ * wrapper owns the submit handler. On a valid submit it POSTs
+ * `{ mode: 'project', input, depth }` to `/api/generate`; the route generates
+ * AND saves the project (save-before-return) and resolves to `{ id }`. Only
+ * then do we navigate to `/app/projects/{id}` — the flow never leaves the user
+ * on a transient, unsaved result.
+ *
+ * Scope note: this story keeps a minimal in-flight guard (disables the form
+ * while a request is running) and a basic inline error surface. The richer
+ * loading/timeout/error UX (spinner, retry toast, key-misconfig guidance) is
+ * Story 2.4.
  */
 
 import ProjectModeInput from "@/components/projects/ProjectModeInput";
 import type { PlanningDepth } from "@/lib/supabase/schema";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export default function NewProjectClient() {
-  // Placeholder seam — Story 2.3 replaces this with generate/save/navigate.
-  const handleSubmit = (args: { input: string; depth: PlanningDepth }) => {
-    // Intentionally a no-op in Story 2.2; reference args to keep the typed seam.
-    void args;
+  const router = useRouter();
+  const [inFlight, setInFlight] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (args: { input: string; depth: PlanningDepth }) => {
+    if (inFlight) return;
+    setError("");
+    setInFlight(true);
+
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "project",
+          input: args.input,
+          depth: args.depth,
+        }),
+      });
+
+      const payload = (await res.json().catch(() => null)) as {
+        id?: string;
+        error?: string;
+      } | null;
+
+      if (!res.ok || !payload?.id) {
+        setError(
+          payload?.error ??
+          "Something went wrong generating your project. Please try again."
+        );
+        setInFlight(false);
+        return;
+      }
+
+      // Navigate only after the row is saved and we hold its id. Keep the form
+      // disabled through navigation so a double-submit can't fire.
+      router.push(`/app/projects/${payload.id}`);
+      router.refresh();
+    } catch {
+      setError(
+        "Could not reach the server. Check your connection and try again."
+      );
+      setInFlight(false);
+    }
   };
 
-  return <ProjectModeInput onSubmit={handleSubmit} />;
+  return (
+    <div className="flex flex-col gap-4">
+      <ProjectModeInput onSubmit={handleSubmit} disabled={inFlight} />
+      {error && (
+        <p
+          role="alert"
+          className="text-[length:var(--font-size-small)] text-destructive"
+        >
+          {error}
+        </p>
+      )}
+    </div>
+  );
 }

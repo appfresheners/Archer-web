@@ -190,3 +190,11 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-2-project-mode-input-with-depth-control-validation.md`
   summary: DepthControl does not handle Home/End keys (WAI-ARIA radiogroup pattern recommends Home→first, End→last option)
   evidence: Review (edge-case + blind-hunter) — arrow keys work and the AC only requires keyboard-operability; Home/End is a completeness nicety for a 2-option group. Mirrors the same deferral made for ModeToggle in Epic 1.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-3-project-mode-generation-save-navigation.md`
+  summary: Project detail `loadProject` conflates transient DB/network errors with not-found/RLS-deny — all render as 404 instead of distinguishing a 500-class error
+  evidence: Review (blind-hunter) — `page.tsx` try/catch returns null on any failure → notFound(). Fail-closed is safe for a detail view and matches the app-shell's fail-to-redirect pattern, but a transient backend error shows as 404, hurting debuggability. Add an error boundary / distinct error state in a later hardening pass.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-3-project-mode-generation-save-navigation.md`
+  summary: `breakdown_md` is rendered with `rehype-raw` (raw HTML enabled) and is unbounded — document/enforce a sanitization trust boundary before any project content becomes user-authored or shareable
+  evidence: Review (blind-hunter) — today the markdown is AI-provider output scoped to the owner's own RLS row (not a cross-user vector), and rehype-raw is required for the `<details>/<summary>` accordions. Pre-existing to OutputPanel (Story 2.5 owns rendering). Revisit sanitization when content can be edited/shared (Epic 4+).

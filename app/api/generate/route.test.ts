@@ -6,9 +6,24 @@ import { POST } from "./route";
 const getUser = vi.fn();
 const generate = vi.fn();
 
+// Supabase insert chain: `from(table).insert(row).select("id").single()`.
+// `single` resolves to the row-shaped `{ data, error }` the route reads.
+const single = vi.fn();
+const insert = vi.fn();
+
 vi.mock("@/lib/supabase/server", () => ({
     createClient: async () => ({
         auth: { getUser },
+        from: (table: string) => ({
+            insert: (row: unknown) => {
+                insert(table, row);
+                return {
+                    select: () => ({
+                        single: () => single(),
+                    }),
+                };
+            },
+        }),
     }),
 }));
 
@@ -16,6 +31,19 @@ vi.mock("@/lib/ai", () => ({
     generate: (systemPrompt: string, userMessage: string) =>
         generate(systemPrompt, userMessage),
 }));
+
+/** Make the mocked Supabase insert resolve to a saved row with `id`. */
+function insertSucceeds(id = "project-1") {
+    single.mockResolvedValue({ data: { id }, error: null });
+}
+
+/** Make the mocked Supabase insert resolve to an error (no row). */
+function insertFails() {
+    single.mockResolvedValue({
+        data: null,
+        error: { message: "insert failed" },
+    });
+}
 
 // Light `next/server` stand-in: `NextResponse.json(body, init)` returns an
 // object exposing the JSON payload and status so we can assert without pulling
@@ -32,7 +60,10 @@ vi.mock("next/server", () => ({
 
 // --- Helpers ---------------------------------------------------------------
 
-type RouteResponse = { _body: { markdown?: string; error?: string }; status: number };
+type RouteResponse = {
+    _body: { id?: string; markdown?: string; error?: string };
+    status: number;
+};
 
 /** Build a request-shaped object exposing the `json()` the handler reads. */
 function requestWith(body: unknown, opts?: { invalidJson?: boolean }) {
@@ -62,7 +93,7 @@ const call = (body: unknown, opts?: { invalidJson?: boolean }) =>
 describe("/api/generate route", () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        vi.spyOn(console, "error").mockImplementation(() => {});
+        vi.spyOn(console, "error").mockImplementation(() => { });
     });
 
     it("returns 401 and never calls the provider when unauthenticated", async () => {
@@ -84,19 +115,103 @@ describe("/api/generate route", () => {
         expect(generate).not.toHaveBeenCalled();
     });
 
-    it("returns 200 { markdown } on a valid project request", async () => {
+    it("returns 200 { id } on a valid Minimal project request and saves the row", async () => {
         authed();
-        generate.mockResolvedValue("# Project\n\n## Purpose\n...");
+        generate.mockResolvedValue(
+            "# Portfolio site live\n\n## Purpose\nWhy.\n\n## Successful Outcome\nDone."
+        );
+        insertSucceeds("project-minimal");
 
-        const res = await call({ mode: "project", input: "Personal portfolio site" });
+        const res = await call({
+            mode: "project",
+            input: "Personal portfolio site",
+            depth: "minimal",
+        });
 
         expect(res.status).toBe(200);
-        expect(res._body.markdown).toContain("# Project");
+        expect(res._body.id).toBe("project-minimal");
+        expect(res._body.markdown).toBeUndefined();
         expect(generate).toHaveBeenCalledTimes(1);
-        // Project Mode prompt is used and the user input is passed through.
+
+        // Minimal depth selects the Minimal prompt (NOT the Natural Planning
+        // Model), and the user input is passed through.
         const [systemPrompt, userMessage] = generate.mock.calls[0];
         expect(systemPrompt).toContain("GTD");
+        expect(systemPrompt).not.toContain("Natural Planning Model");
         expect(userMessage).toContain("Personal portfolio site");
+
+        // A row was inserted into `projects` with the request depth.
+        expect(insert).toHaveBeenCalledTimes(1);
+        const [table, row] = insert.mock.calls[0] as [string, Record<string, unknown>];
+        expect(table).toBe("projects");
+        expect(row.user_id).toBe("user-123");
+        expect(row.planning_depth).toBe("minimal");
+        expect(row.goal_id).toBeNull();
+        expect(row.name).toBe("Portfolio site live");
+        expect(row.breakdown_md).toContain("## Successful Outcome");
+    });
+
+    it("selects the Full-GTD prompt and saves planning_depth=full_gtd", async () => {
+        authed();
+        generate.mockResolvedValue("# Thing\n\n## Purpose\nWhy.");
+        insertSucceeds("project-full");
+
+        const res = await call({
+            mode: "project",
+            input: "Write a novel",
+            depth: "full_gtd",
+        });
+
+        expect(res.status).toBe(200);
+        expect(res._body.id).toBe("project-full");
+
+        const [systemPrompt] = generate.mock.calls[0];
+        expect(systemPrompt).toContain("Natural Planning Model");
+
+        const [, row] = insert.mock.calls[0] as [string, Record<string, unknown>];
+        expect(row.planning_depth).toBe("full_gtd");
+    });
+
+    it("returns 400 with no AI call for a missing depth on a project request", async () => {
+        authed();
+
+        const res = await call({ mode: "project", input: "Build a website" });
+
+        expect(res.status).toBe(400);
+        expect(generate).not.toHaveBeenCalled();
+        expect(insert).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 with no AI call for an invalid depth", async () => {
+        authed();
+
+        const res = await call({
+            mode: "project",
+            input: "Build a website",
+            depth: "deep",
+        });
+
+        expect(res.status).toBe(400);
+        expect(generate).not.toHaveBeenCalled();
+        expect(insert).not.toHaveBeenCalled();
+    });
+
+    it("returns 500 and no { id } when the Supabase insert fails", async () => {
+        authed();
+        generate.mockResolvedValue("# Project\n\n## Purpose\n...");
+        insertFails();
+
+        const res = await call({
+            mode: "project",
+            input: "Build a website",
+            depth: "minimal",
+        });
+
+        expect(res.status).toBe(500);
+        expect(res._body.id).toBeUndefined();
+        expect(res._body.error).toBeTruthy();
+        // Generation still happened; only the save failed.
+        expect(generate).toHaveBeenCalledTimes(1);
     });
 
     it("returns 400 and no provider call for empty input", async () => {
@@ -159,7 +274,11 @@ describe("/api/generate route", () => {
             new Error("Gemini request timed out after 30s. Please try again.")
         );
 
-        const res = await call({ mode: "project", input: "Build a website" });
+        const res = await call({
+            mode: "project",
+            input: "Build a website",
+            depth: "minimal",
+        });
 
         expect(res.status).toBe(504);
         expect(res._body.error).toMatch(/timed out|try again/i);
@@ -171,7 +290,11 @@ describe("/api/generate route", () => {
         err.name = "AbortError";
         generate.mockRejectedValue(err);
 
-        const res = await call({ mode: "project", input: "Build a website" });
+        const res = await call({
+            mode: "project",
+            input: "Build a website",
+            depth: "minimal",
+        });
 
         expect(res.status).toBe(504);
     });
@@ -184,7 +307,11 @@ describe("/api/generate route", () => {
             )
         );
 
-        const res = await call({ mode: "project", input: "Build a website" });
+        const res = await call({
+            mode: "project",
+            input: "Build a website",
+            depth: "minimal",
+        });
 
         expect(res.status).toBe(500);
         expect(res._body.error).toContain(".env.local");
@@ -196,7 +323,11 @@ describe("/api/generate route", () => {
             new Error("Gemini returned no content. Please try again.")
         );
 
-        const res = await call({ mode: "project", input: "Build a website" });
+        const res = await call({
+            mode: "project",
+            input: "Build a website",
+            depth: "minimal",
+        });
 
         expect(res.status).toBe(500);
         expect(res._body.error).toMatch(/no content/i);
