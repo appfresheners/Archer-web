@@ -206,3 +206,21 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-1-goals-list-status-badges.md`
   summary: Handle a partial read failure (goals succeed but projects OR actions error) explicitly rather than treating a missing result as zero rows
   evidence: Review (edge-case-hunter) — `Promise.all` destructures `data` as undefined on a per-query error and `?? []` then silently yields projectCount/stuckCount of 0 for affected goals. Degrades safely (no crash) but shows misleading counts. Surface a soft indicator or retry when the count reads fail; low risk at current scale.
+
+## Deferred from: code review of 4-2 (2026-09-28)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-2-goal-detail-edit-status-changes.md`
+  summary: Make the goal soft-delete cascade (archive projects → archive goal) atomic via a Postgres function/RPC instead of sequential updates with a mid-cascade 500
+  evidence: Review (edge-case + verification-gap, consensus) — a failure archiving the goal after its projects are archived leaves projects archived while the goal stays active. The handler halts before archiving the goal if the project step fails (tested), but the reverse partial state is possible. Matches the non-transactional multi-write pattern already deferred for 3.6; a shared RPC would make goal-delete and the generate saves atomic together.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-2-goal-detail-edit-status-changes.md`
+  summary: Make the goal delete idempotent — early-return when the goal is already archived rather than re-archiving it and its projects
+  evidence: Review (edge-case-hunter) — deleting an already-archived goal re-runs the project + goal archive writes. Harmless (same terminal state) but wasteful; a `status === 'archived'` short-circuit would make DELETE idempotent.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-2-goal-detail-edit-status-changes.md`
+  summary: Add client-side pre-validation (goal_text length, date presence) and de-duplication of drivers/barriers before PATCH, and format the header target date like the goals list (short label, not raw YYYY-MM-DD)
+  evidence: Review (blind + edge-case) — the edit form relies entirely on the server 400 for feedback and the detail header shows the raw ISO date while the list formats it. UX-consistency niceties beyond the ACs; the mutations are safe as-is.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-2-goal-detail-edit-status-changes.md`
+  summary: Add a full focus trap (Tab cycling) to the delete confirmation dialog — focus-on-open, Escape-to-close, and focus-restore are implemented, but Tab can still leave the modal
+  evidence: Review (edge-case-hunter) — the alertdialog now moves focus in on open, closes on Escape, and restores focus to the trigger on close, but does not wrap Tab within the dialog. A shared modal primitive with a proper focus trap would close this across Epic 4; low risk for a two-button confirmation.
