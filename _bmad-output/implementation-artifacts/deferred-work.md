@@ -224,3 +224,21 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-2-goal-detail-edit-status-changes.md`
   summary: Add a full focus trap (Tab cycling) to the delete confirmation dialog — focus-on-open, Escape-to-close, and focus-restore are implemented, but Tab can still leave the modal
   evidence: Review (edge-case-hunter) — the alertdialog now moves focus in on open, closes on Escape, and restores focus to the trigger on close, but does not wrap Tab within the dialog. A shared modal primitive with a proper focus trap would close this across Epic 4; low risk for a two-button confirmation.
+
+## Deferred from: code review of 4-3 (2026-09-28)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-3-project-detail-edit-regeneration.md`
+  summary: Make single-project regeneration atomic via a Postgres function/RPC — currently the project AI fields are updated, then actions are deleted and re-inserted in separate calls, so a mid-sequence failure leaves new fields with stale/absent actions
+  evidence: Review (edge-case + verification-gap, consensus) — the route returns 500 on each failure branch (now tested) and best-effort restores the prior actions if the new insert fails, but the update+delete+insert is not transactional. Same non-transactional class already deferred for 3.6 and 4.2 goal-delete; a shared RPC would make all three atomic.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-3-project-detail-edit-regeneration.md`
+  summary: Warn the user (or preserve) when regenerating a project that has user-edited/committed actions — regeneration silently replaces the entire action list
+  evidence: Review (blind-hunter) — once Story 4.4 lets users add/edit/commit actions and 4.5 commits a next action, a regenerate wipes that work. The confirmation modal states actions are replaced, but does not distinguish AI-generated from user-authored actions. Revisit after 4.4/4.5 land so the warning can reflect committed/edited state.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-3-project-detail-edit-regeneration.md`
+  summary: Add optimistic-lock / in-flight guarding for concurrent regenerate + status/edit on the same project, and a full Tab focus trap on the regenerate confirmation dialog
+  evidence: Review (edge-case + blind) — concurrent mutations could lose updates; the dialog implements focus-on-open, Escape-to-close (guarded while busy), and focus-restore but not Tab cycling. Both are cross-cutting (a shared modal primitive + an RPC/lock) — same focus-trap item deferred for 4.2.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-3-project-detail-edit-regeneration.md`
+  summary: Refresh the browser title/breadcrumb promptly when regeneration changes the project name (currently stale until router.refresh resolves) and skip a redundant PATCH when Save is pressed with no field changes
+  evidence: Review (edge-case + blind) — minor UX polish; router.refresh() does reconcile, and a no-op save is harmless. Low priority.

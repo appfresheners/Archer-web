@@ -85,7 +85,9 @@ export function sanitizeFramework(value: unknown): SkillFrameworkItem[] | null {
  * rejected (returns null). Returns null for an empty patch (nothing to update).
  */
 export function sanitizeGoalPatch(body: unknown): GoalUpdate | null {
-  if (typeof body !== "object" || body === null) return null;
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    return null;
+  }
   const obj = body as Record<string, unknown>;
   const patch: GoalUpdate = {};
 

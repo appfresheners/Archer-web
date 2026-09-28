@@ -1,22 +1,33 @@
 /**
  * Project detail view (server component) inside the authenticated `/app` shell.
  *
- * Loads the project row + its actions by id through the server Supabase client.
- * RLS is default-deny scoped to `auth.uid()`, so the queries return rows only
- * when the signed-in user owns them — a nonexistent id OR another user's id
- * both yield no row, which we render as a 404 via `notFound()`. The saved rows
- * are the single source of truth: everything is rendered from STRUCTURED data
- * (scalar columns + `planning_detail` JSON + `actions` rows). No markdown is
- * stored or rendered.
+ * Loads the project row + its parent goal (for a breadcrumb) + its actions by
+ * id through the server Supabase client. RLS is default-deny scoped to
+ * `auth.uid()`, so the queries return rows only when the signed-in user owns
+ * them — a nonexistent id OR another user's id both yield no row, which we
+ * render as a 404 via `notFound()`. The saved rows are the single source of
+ * truth: everything is rendered from STRUCTURED data (scalar columns +
+ * `planning_detail` JSON + `actions` rows). No markdown is stored or rendered.
+ *
+ * Interactivity (edit, status change, regenerate) is owned by
+ * `ProjectDetailClient`, which mutates via `/api/projects/[id]` and refreshes.
  *
  * The `/app` layout already enforces auth, so no auth check is repeated here.
- * In Next.js 16 the dynamic-route `params` is a Promise and must be awaited.
  */
 
-import type { Action, PlanningDetail } from "@/lib/supabase/schema";
+import StatusBadge from "@/components/goals/StatusBadge";
+import type {
+    Action,
+    PlanningDetail,
+    ProjectStatus,
+} from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import ProjectDetailClient, {
+    type ProjectHeaderData,
+} from "./ProjectDetailClient";
 
 interface ProjectDetailPageProps {
     params: Promise<{ id: string }>;
@@ -25,21 +36,24 @@ interface ProjectDetailPageProps {
 interface LoadedProject {
     id: string;
     name: string;
+    goal_id: string | null;
+    status: ProjectStatus;
     purpose: string | null;
     successful_outcome: string | null;
     planning_depth: "minimal" | "full_gtd";
     planning_detail: PlanningDetail | null;
+    goalText: string | null;
     actions: Pick<Action, "id" | "text" | "sort_order">[];
 }
 
-/** Fetch the RLS-scoped project + its ordered actions, or null if not found. */
+/** Fetch the RLS-scoped project + parent goal + ordered actions, or null. */
 async function loadProject(id: string): Promise<LoadedProject | null> {
     try {
         const supabase = await createClient();
         const { data, error } = await supabase
             .from("projects")
             .select(
-                "id, name, purpose, successful_outcome, planning_depth, planning_detail"
+                "id, name, goal_id, status, purpose, successful_outcome, planning_depth, planning_detail"
             )
             .eq("id", id)
             .maybeSingle();
@@ -48,13 +62,24 @@ async function loadProject(id: string): Promise<LoadedProject | null> {
             return null;
         }
 
+        // Parent goal text for the breadcrumb (goal-less projects skip this).
+        let goalText: string | null = null;
+        if (data.goal_id) {
+            const { data: goal } = await supabase
+                .from("goals")
+                .select("goal_text")
+                .eq("id", data.goal_id)
+                .maybeSingle();
+            goalText = goal?.goal_text ?? null;
+        }
+
         const { data: actions } = await supabase
             .from("actions")
             .select("id, text, sort_order")
             .eq("project_id", id)
             .order("sort_order", { ascending: true });
 
-        return { ...data, actions: actions ?? [] };
+        return { ...data, goalText, actions: actions ?? [] };
     } catch {
         return null;
     }
@@ -79,6 +104,31 @@ function Section({ title, children }: { title: string; children: React.ReactNode
             </h2>
             {children}
         </section>
+    );
+}
+
+/** A collapsible prose section (keyboard-native via <details>). */
+function Collapsible({
+    title,
+    children,
+    defaultOpen,
+}: {
+    title: string;
+    children: React.ReactNode;
+    defaultOpen?: boolean;
+}) {
+    return (
+        <details
+            open={defaultOpen}
+            className="rounded-[var(--radius-md)] border border-border bg-surface-raised"
+        >
+            <summary className="cursor-pointer rounded-[var(--radius-md)] px-[var(--spacing-card-p)] py-3 text-[length:var(--font-size-subheading)] font-semibold text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]">
+                {title}
+            </summary>
+            <div className="px-[var(--spacing-card-p)] pb-[var(--spacing-card-p)] pt-1 text-text-primary">
+                {children}
+            </div>
+        </details>
     );
 }
 
@@ -107,22 +157,55 @@ export default async function ProjectDetailPage({
     }
 
     const detail = project.planning_detail;
+    const header: ProjectHeaderData = {
+        id: project.id,
+        name: project.name,
+        purpose: project.purpose,
+        successful_outcome: project.successful_outcome,
+        status: project.status,
+    };
 
     return (
         <article className="flex flex-col gap-[var(--spacing-section-y)]">
-            <header className="flex flex-col gap-2">
-                <h1 className="text-[length:var(--font-size-section)] font-bold text-text-primary">
-                    {project.name}
-                </h1>
-                <span className="w-fit rounded-[var(--radius-full)] bg-primary-subtle px-3 py-1 text-[length:var(--font-size-caption)] font-medium text-primary">
-                    {project.planning_depth === "full_gtd" ? "Full GTD" : "Minimal"}
-                </span>
+            <header className="flex flex-col gap-3">
+                {/* Parent-goal breadcrumb (only for goal-linked projects). */}
+                <nav aria-label="Breadcrumb" className="text-[length:var(--font-size-small)] text-text-secondary">
+                    {project.goal_id && project.goalText ? (
+                        <Link
+                            href={`/app/goals/${project.goal_id}`}
+                            className="hover:text-text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+                        >
+                            ← {project.goalText}
+                        </Link>
+                    ) : (
+                        <Link
+                            href="/app/goals"
+                            className="hover:text-text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+                        >
+                            ← Goals
+                        </Link>
+                    )}
+                </nav>
+
+                <div className="flex flex-col gap-2">
+                    <h1 className="text-[length:var(--font-size-section)] font-bold text-text-primary">
+                        {project.name}
+                    </h1>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <StatusBadge status={project.status} />
+                        <span className="w-fit rounded-[var(--radius-full)] bg-primary-subtle px-3 py-1 text-[length:var(--font-size-caption)] font-medium text-primary">
+                            {project.planning_depth === "full_gtd" ? "Full GTD" : "Minimal"}
+                        </span>
+                    </div>
+                </div>
+
+                <ProjectDetailClient project={header} />
             </header>
 
             {project.purpose && (
-                <Section title="Purpose">
-                    <p className="text-text-primary">{project.purpose}</p>
-                </Section>
+                <Collapsible title="Purpose" defaultOpen>
+                    <p>{project.purpose}</p>
+                </Collapsible>
             )}
 
             {/* Full-GTD Natural Planning extras (structured JSON). */}
@@ -135,9 +218,9 @@ export default async function ProjectDetailPage({
             )}
 
             {project.successful_outcome && (
-                <Section title="Successful Outcome">
-                    <p className="text-text-primary">{project.successful_outcome}</p>
-                </Section>
+                <Collapsible title="Successful Outcome" defaultOpen>
+                    <p>{project.successful_outcome}</p>
+                </Collapsible>
             )}
 
             {detail && <ListSection title="Ideas & Brainstorming" items={detail.ideas} />}
