@@ -14,7 +14,8 @@
  *     on mobile.
  *
  * Accessibility:
- *   - Wrapped in `<nav aria-label="Goal creation progress">`.
+ *   - Wrapped in `<nav aria-label={ariaLabel}>` (defaults to "Goal creation
+ *     progress"; the clarify wizard passes its own label).
  *   - The active node carries `aria-current="step"`.
  *   - Every node exposes an accessible label like "Step 2 of 4: Gap Rating"
  *     with a completion suffix so a screen reader conveys status without
@@ -36,6 +37,12 @@ interface WizardStepperProps {
   currentIndex: number;
   /** Indices of steps that are complete. */
   completedIndices: number[];
+  /**
+   * Accessible label for the wrapping `<nav>`. Defaults to the goal-creation
+   * copy so existing goals usage is unchanged; the clarify wizard passes its
+   * own label (e.g. "Clarify progress").
+   */
+  ariaLabel?: string;
 }
 
 /** White checkmark glyph for a completed step (inline SVG, no icon library). */
@@ -62,12 +69,13 @@ export default function WizardStepper({
   steps,
   currentIndex,
   completedIndices,
+  ariaLabel = "Goal creation progress",
 }: WizardStepperProps) {
   const completed = new Set(completedIndices);
   const total = steps.length;
 
   return (
-    <nav aria-label="Goal creation progress">
+    <nav aria-label={ariaLabel}>
       <ol className="flex flex-col gap-0 sm:flex-row sm:items-start">
         {steps.map((step, index) => {
           const isComplete = completed.has(index);
@@ -118,22 +126,20 @@ export default function WizardStepper({
                 {!isLast && (
                   <span
                     aria-hidden="true"
-                    className={`${
-                      connectorComplete
-                        ? "bg-[var(--color-step-complete)]"
-                        : "bg-border"
-                    } my-1 h-6 w-0.5 sm:my-0 sm:ml-2 sm:h-0.5 sm:w-full`}
+                    className={`${connectorComplete
+                      ? "bg-[var(--color-step-complete)]"
+                      : "bg-border"
+                      } my-1 h-6 w-0.5 sm:my-0 sm:ml-2 sm:h-0.5 sm:w-full`}
                   />
                 )}
               </div>
 
               {/* Label: beneath the circle on desktop, hidden on mobile. */}
               <span
-                className={`hidden text-[length:var(--font-size-small)] sm:block ${
-                  isActive
-                    ? "font-semibold text-text-primary"
-                    : "text-text-secondary"
-                }`}
+                className={`hidden text-[length:var(--font-size-small)] sm:block ${isActive
+                  ? "font-semibold text-text-primary"
+                  : "text-text-secondary"
+                  }`}
               >
                 {step.label}
               </span>

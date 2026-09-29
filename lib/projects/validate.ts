@@ -24,6 +24,13 @@ export function isProjectStatus(value: unknown): value is ProjectStatus {
   );
 }
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUuid(value: unknown): value is string {
+  return typeof value === "string" && UUID_RE.test(value);
+}
+
 /**
  * Build a bounded `ProjectUpdate` from an untrusted body. Only editable fields
  * are considered; each present field must be valid or the whole patch is
@@ -61,6 +68,16 @@ export function sanitizeProjectPatch(body: unknown): ProjectUpdate | null {
   if ("status" in obj) {
     if (!isProjectStatus(obj.status)) return null;
     patch.status = obj.status;
+  }
+
+  // goal_id — link this project to a goal (uuid) or clear the link (null).
+  // Enables goal↔project linking from the clarify flow (Story 5.2). A present
+  // but non-uuid, non-null value rejects the whole patch.
+  if ("goal_id" in obj) {
+    const v = obj.goal_id;
+    if (v === null) patch.goal_id = null;
+    else if (isUuid(v)) patch.goal_id = v;
+    else return null;
   }
 
   if (Object.keys(patch).length === 0) return null;

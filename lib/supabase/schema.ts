@@ -28,9 +28,14 @@ export type GoalStatus =
 
 export type ProjectStatus = 'active' | 'paused' | 'completed' | 'archived';
 
-export type ActionStatus = 'available' | 'committed' | 'done';
+export type ActionStatus = 'available' | 'committed' | 'done' | 'waiting';
 
-export type InboxProcessingStatus = 'unprocessed' | 'processed' | 'trashed';
+export type InboxProcessingStatus =
+  | 'unprocessed'
+  | 'processed'
+  | 'trashed'
+  | 'someday'
+  | 'reference';
 
 export type ReviewPhase =
   | 'snapshot_open'
@@ -167,10 +172,15 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          project_id: string;
+          // Nullable since 0003: NULL = standalone action (no parent project).
+          project_id: string | null;
           text: string;
           status: ActionStatus;
           context_tags: string[] | null;
+          // 0003: who a `waiting` action is waiting on; NULL otherwise.
+          delegated_to: string | null;
+          // 0003: calendar date a deferred action is tied to; NULL otherwise.
+          scheduled_for: string | null;
           sort_order: number;
           created_at: string;
           updated_at: string;
@@ -178,10 +188,12 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
-          project_id: string;
+          project_id?: string | null;
           text: string;
           status?: ActionStatus;
           context_tags?: string[] | null;
+          delegated_to?: string | null;
+          scheduled_for?: string | null;
           sort_order?: number;
           created_at?: string;
           updated_at?: string;
@@ -189,10 +201,12 @@ export interface Database {
         Update: {
           id?: string;
           user_id?: string;
-          project_id?: string;
+          project_id?: string | null;
           text?: string;
           status?: ActionStatus;
           context_tags?: string[] | null;
+          delegated_to?: string | null;
+          scheduled_for?: string | null;
           sort_order?: number;
           created_at?: string;
           updated_at?: string;

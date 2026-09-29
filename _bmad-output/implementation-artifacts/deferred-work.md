@@ -297,3 +297,17 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-5-1-frictionless-inbox-capture.md`
   summary: Extract a shared inbox-capture hook (POST /api/inbox + validation + inline-error handling) consumed by both InboxCaptureForm and CaptureDrawer, so the two capture paths cannot drift
   evidence: Review (blind + verification-gap) — the form and drawer duplicate the same capture flow with intentionally different post-submit behaviour (form refocuses & stays; drawer closes). Not a correctness bug today; a shared hook would keep the fetch/error contract single-sourced. DRY/maintainability refinement; revisit alongside Story 5.2 which adds more inbox mutations.
+
+## Deferred from: code review of 5-2 (2026-09-28)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-5-2-inbox-processing-clarify.md`
+  summary: No executed test harness exercises the DB migration itself (nullable actions.project_id, new enum values, new columns) or RLS/FK behavior against a real Postgres — all route/component tests mock the Supabase client
+  evidence: Review (verification-gap) — the entire suite mocks `@/lib/supabase/server`, so migration 0003 and the RLS/WITH-CHECK/FK contracts are verified only by tsc + manual apply. This is the project's standing posture (no DB-integration harness exists anywhere, Epics 1–4 included). A throwaway-Postgres migration/integration test (apply 0001→0003, insert a standalone action, insert each new enum value, attempt a cross-owner link) would close this and the app-layer ownership guards' DB half at once. Tracked as cross-cutting test-infra debt (pairs with epic-H).
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-5-2-inbox-processing-clarify.md`
+  summary: Add a dedicated page.test.tsx for app/app/inbox/[id]/page.tsx asserting notFound() for a missing OR already-terminal item and a rendered wizard for an unprocessed item
+  evidence: Review (verification-gap) — the "only clarify an unprocessed item" guard lives in the server component's loader and has no executed coverage (the ClarifyWizard component tests mock the page away). The route-level PATCH now also enforces unprocessed (tested), so the invariant is defended at the API; the page-load guard remains untested. Mirror app/app/projects/[id]/page.test.tsx when convenient.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-5-2-inbox-processing-clarify.md`
+  summary: Consider a full goal↔project linking UI (attach existing projects to a goal from the goal side; change a project's goal from project detail) — this story added the goal_id PATCH capability but no dedicated management surface
+  evidence: Review (blind-hunter) — sanitizeProjectPatch now accepts goal_id (link/clear) and is route-exposed + tested, satisfying the linking mechanism the amendment required. A discoverable UI (goal detail "attach projects", project detail "change goal") is a usability follow-up beyond this story's clarify flow; revisit alongside Epic 4 goal/project detail polish.

@@ -38,14 +38,21 @@ interface ProjectModeInputProps {
    * Loading implies disabled; the input value is never cleared.
    */
   loading?: boolean;
+  /**
+   * Optional seed text for the input (Story 5.2 — the clarify flow's multistep
+   * branch hands the inbox item's text here). Used only as the initial value;
+   * the user can edit it freely.
+   */
+  initialInput?: string;
 }
 
 export default function ProjectModeInput({
   onSubmit,
   disabled = false,
   loading = false,
+  initialInput = "",
 }: ProjectModeInputProps) {
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(initialInput);
   const [depth, setDepth] = useState<PlanningDepth>("minimal");
   const [validationError, setValidationError] = useState("");
 

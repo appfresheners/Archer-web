@@ -6,9 +6,13 @@ import NewProjectClient from "./NewProjectClient";
 
 const push = vi.fn();
 const refresh = vi.fn();
+// Search params are configurable per-test so we can simulate the clarify
+// multistep hand-off (`?from_inbox=...&seed=...`).
+let searchParams = new URLSearchParams();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, refresh }),
+  useSearchParams: () => searchParams,
 }));
 
 // --- Helpers ---------------------------------------------------------------
@@ -21,6 +25,7 @@ function typeAndSubmit(value: string) {
 describe("NewProjectClient", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    searchParams = new URLSearchParams();
     vi.spyOn(console, "error").mockImplementation(() => { });
   });
 
@@ -194,5 +199,46 @@ describe("NewProjectClient", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ body: expectedBody });
     expect(fetchMock.mock.calls[1][1]).toMatchObject({ body: expectedBody });
+  });
+
+  it("seeds the input from the ?seed query param (clarify hand-off)", () => {
+    searchParams = new URLSearchParams({
+      from_inbox: "item-1",
+      seed: "Plan the offsite",
+    });
+    render(<NewProjectClient />);
+    expect(screen.getByRole("textbox")).toHaveValue("Plan the offsite");
+  });
+
+  it("links the inbox item (processed + resolved_project_id) after creating", async () => {
+    searchParams = new URLSearchParams({
+      from_inbox: "item-1",
+      seed: "Plan the offsite",
+    });
+    const fetchMock = vi
+      .fn()
+      // 1) generate → returns the new project id
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "proj-1" }) })
+      // 2) inbox PATCH link
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "item-1" }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<NewProjectClient />);
+    fireEvent.click(screen.getByRole("button", { name: /break it down/i }));
+
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith("/app/projects/proj-1"),
+    );
+
+    // The second call linked the inbox item to the new project + processed it.
+    const linkCall = fetchMock.mock.calls.find(
+      (c) => c[0] === "/api/inbox/item-1",
+    );
+    expect(linkCall).toBeTruthy();
+    expect(linkCall![1]).toMatchObject({ method: "PATCH" });
+    expect(JSON.parse(linkCall![1].body as string)).toEqual({
+      status: "processed",
+      resolved_project_id: "proj-1",
+    });
   });
 });

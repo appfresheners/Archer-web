@@ -1,32 +1,62 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DELETE } from "./route";
+import { DELETE, PATCH } from "./route";
 
 // --- Mocks -----------------------------------------------------------------
 
 const getUser = vi.fn();
-// Supabase chain used by the route:
-//   from("inbox_items").delete().eq("id", id).eq("user_id", userId)
-//     .select("id").maybeSingle()
+// DELETE chain: from("inbox_items").delete().eq("id",id).eq("user_id",uid)
+//   .select("id").maybeSingle()
 const deleteMaybeSingle = vi.fn();
-// Record every .eq(col, val) applied to the delete chain so the test can
-// assert the user-scope security boundary.
+// PATCH chain: from("inbox_items").update(patch).eq("id",id).eq("user_id",uid)
+//   .select("id").maybeSingle()
+const updateMaybeSingle = vi.fn();
+const updateSpy = vi.fn();
+// Record every .eq(col, val) applied to the inbox_items chain so the test can
+// assert the user-scope + unprocessed-guard boundary.
 const eqCalls: Array<[string, string]> = [];
+// Project ownership guard: from("projects").select("id").eq(id).eq(user_id).maybeSingle()
+const projectOwnerMaybeSingle = vi.fn();
+const projectEqCalls: Array<[string, string]> = [];
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser },
-    from: () => ({
-      delete: () => {
+    from: (table: string) => {
+      if (table === "projects") {
         const chain = {
+          select: () => chain,
           eq: (col: string, val: string) => {
-            eqCalls.push([col, val]);
+            projectEqCalls.push([col, val]);
             return chain;
           },
-          select: () => ({ maybeSingle: () => deleteMaybeSingle() }),
+          maybeSingle: () => projectOwnerMaybeSingle(),
         };
         return chain;
-      },
-    }),
+      }
+      return {
+        delete: () => {
+          const chain = {
+            eq: (col: string, val: string) => {
+              eqCalls.push([col, val]);
+              return chain;
+            },
+            select: () => ({ maybeSingle: () => deleteMaybeSingle() }),
+          };
+          return chain;
+        },
+        update: (patch: unknown) => {
+          updateSpy(patch);
+          const chain = {
+            eq: (col: string, val: string) => {
+              eqCalls.push([col, val]);
+              return chain;
+            },
+            select: () => ({ maybeSingle: () => updateMaybeSingle() }),
+          };
+          return chain;
+        },
+      };
+    },
   }),
 }));
 
@@ -58,11 +88,20 @@ function unauthenticated() {
   getUser.mockResolvedValue({ data: { user: null } });
 }
 
-const call = (id: string) =>
+const callDelete = (id: string) =>
   DELETE(
     {} as unknown as Parameters<typeof DELETE>[0],
     ctx(id),
   ) as unknown as Promise<RouteResponse>;
+
+function patchReq(body: unknown): Request {
+  return new Request("http://localhost/api/inbox/inbox-1", {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+const callPatch = (id: string, body: unknown) =>
+  PATCH(patchReq(body) as never, ctx(id)) as unknown as Promise<RouteResponse>;
 
 // --- Tests -----------------------------------------------------------------
 
@@ -75,7 +114,7 @@ describe("/api/inbox/[id] DELETE", () => {
 
   it("returns 401 when unauthenticated (no delete attempted)", async () => {
     unauthenticated();
-    const res = await call("inbox-1");
+    const res = await callDelete("inbox-1");
     expect(res.status).toBe(401);
     expect(deleteMaybeSingle).not.toHaveBeenCalled();
   });
@@ -83,7 +122,7 @@ describe("/api/inbox/[id] DELETE", () => {
   it("returns 404 when the item is not owned/unknown (!data)", async () => {
     authed();
     deleteMaybeSingle.mockResolvedValue({ data: null, error: null });
-    const res = await call("nope");
+    const res = await callDelete("nope");
     expect(res.status).toBe(404);
   });
 
@@ -93,7 +132,7 @@ describe("/api/inbox/[id] DELETE", () => {
       data: null,
       error: { message: "delete failed" },
     });
-    const res = await call("inbox-1");
+    const res = await callDelete("inbox-1");
     expect(res.status).toBe(500);
   });
 
@@ -101,13 +140,94 @@ describe("/api/inbox/[id] DELETE", () => {
     authed();
     deleteMaybeSingle.mockResolvedValue({ data: { id: "inbox-1" }, error: null });
 
-    const res = await call("inbox-1");
+    const res = await callDelete("inbox-1");
 
     expect(res.status).toBe(200);
     expect(res._body.id).toBe("inbox-1");
-    // App-layer half of the cross-user security boundary: the query is scoped
-    // to both the row id and the acting user's id.
     expect(eqCalls).toContainEqual(["id", "inbox-1"]);
     expect(eqCalls).toContainEqual(["user_id", "user-123"]);
+  });
+});
+
+describe("/api/inbox/[id] PATCH (clarify outcome)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    eqCalls.length = 0;
+    projectEqCalls.length = 0;
+    vi.spyOn(console, "error").mockImplementation(() => { });
+    authed();
+    updateMaybeSingle.mockResolvedValue({ data: { id: "inbox-1" }, error: null });
+    // Default: any looked-up project is owned by the acting user.
+    projectOwnerMaybeSingle.mockResolvedValue({ data: { id: "p1" }, error: null });
+  });
+
+  it("returns 401 when unauthenticated (no update attempted)", async () => {
+    unauthenticated();
+    const res = await callPatch("inbox-1", { status: "processed" });
+    expect(res.status).toBe(401);
+    expect(updateSpy).not.toHaveBeenCalled();
+  });
+
+  it("400s on an invalid/rejected body (unprocessed is not terminal)", async () => {
+    const res = await callPatch("inbox-1", { status: "unprocessed" });
+    expect(res.status).toBe(400);
+    expect(updateSpy).not.toHaveBeenCalled();
+  });
+
+  // Matrix: Trash / Someday / Reference / Do-it(processed) all set status +
+  // processed_at and leave the inbox.
+  it.each(["processed", "trashed", "someday", "reference"] as const)(
+    "records terminal status %s with processed_at and returns { id }",
+    async (status) => {
+      const res = await callPatch("inbox-1", { status });
+      expect(res.status).toBe(200);
+      expect(res._body.id).toBe("inbox-1");
+      const patch = updateSpy.mock.calls[0][0] as Record<string, unknown>;
+      expect(patch.processing_status).toBe(status);
+      expect(typeof patch.processed_at).toBe("string");
+    },
+  );
+
+  it("passes an OWNED resolved_project_id through for the multistep link", async () => {
+    const pid = "22222222-2222-4222-8222-222222222222";
+    await callPatch("inbox-1", { status: "processed", resolved_project_id: pid });
+    const patch = updateSpy.mock.calls[0][0] as Record<string, unknown>;
+    expect(patch.resolved_project_id).toBe(pid);
+    // Ownership was verified, scoped to the acting user.
+    expect(projectEqCalls).toContainEqual(["id", pid]);
+    expect(projectEqCalls).toContainEqual(["user_id", "user-123"]);
+  });
+
+  it("400s (no update) when resolved_project_id is not owned by the user", async () => {
+    projectOwnerMaybeSingle.mockResolvedValue({ data: null, error: null });
+    const pid = "22222222-2222-4222-8222-222222222222";
+    const res = await callPatch("inbox-1", {
+      status: "processed",
+      resolved_project_id: pid,
+    });
+    expect(res.status).toBe(400);
+    expect(updateSpy).not.toHaveBeenCalled();
+  });
+
+  it("scopes the update by id, user_id AND unprocessed (terminal items cannot be re-processed)", async () => {
+    await callPatch("inbox-1", { status: "processed" });
+    expect(eqCalls).toContainEqual(["id", "inbox-1"]);
+    expect(eqCalls).toContainEqual(["user_id", "user-123"]);
+    expect(eqCalls).toContainEqual(["processing_status", "unprocessed"]);
+  });
+
+  it("404s when no owned row matches", async () => {
+    updateMaybeSingle.mockResolvedValue({ data: null, error: null });
+    const res = await callPatch("nope", { status: "processed" });
+    expect(res.status).toBe(404);
+  });
+
+  it("500s on a db error", async () => {
+    updateMaybeSingle.mockResolvedValue({
+      data: null,
+      error: { message: "boom" },
+    });
+    const res = await callPatch("inbox-1", { status: "processed" });
+    expect(res.status).toBe(500);
   });
 });

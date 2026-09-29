@@ -112,7 +112,7 @@ export default function InboxList({ items }: { items: InboxListItem[] }) {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                {/* Process is a placeholder affordance for Story 5.2. */}
+                {/* Process opens the Clarify Wizard at /app/inbox/[id] (Story 5.2). */}
                 <button
                   type="button"
                   onClick={() => router.push(`/app/inbox/${item.id}`)}

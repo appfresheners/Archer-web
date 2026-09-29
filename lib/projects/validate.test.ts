@@ -17,13 +17,13 @@ describe("isProjectStatus", () => {
 });
 
 describe("sanitizeProjectPatch", () => {
-  it("keeps valid editable fields and drops unknown ones", () => {
+  it("keeps valid editable fields and drops truly unknown ones", () => {
     const patch = sanitizeProjectPatch({
       name: "  Base training  ",
       purpose: "Build a mileage base",
       successful_outcome: "Run 20 miles comfortably",
       status: "paused",
-      goal_id: "should-be-ignored",
+      extraneous: "should-be-ignored",
     });
     expect(patch).toEqual({
       name: "Base training",
@@ -31,7 +31,21 @@ describe("sanitizeProjectPatch", () => {
       successful_outcome: "Run 20 miles comfortably",
       status: "paused",
     });
-    expect(patch && "goal_id" in patch).toBe(false);
+    expect(patch && "extraneous" in patch).toBe(false);
+  });
+
+  it("links a project to a goal (goal_id uuid)", () => {
+    const gid = "55555555-5555-4555-8555-555555555555";
+    expect(sanitizeProjectPatch({ goal_id: gid })).toEqual({ goal_id: gid });
+  });
+
+  it("clears a project's goal (goal_id null)", () => {
+    expect(sanitizeProjectPatch({ goal_id: null })).toEqual({ goal_id: null });
+  });
+
+  it("rejects an invalid (non-uuid) goal_id", () => {
+    expect(sanitizeProjectPatch({ goal_id: "not-a-uuid" })).toBeNull();
+    expect(sanitizeProjectPatch({ goal_id: 5 })).toBeNull();
   });
 
   it("allows clearing purpose/outcome to null", () => {

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import NewProjectClient from "./NewProjectClient";
 
 export const metadata: Metadata = {
@@ -18,7 +19,10 @@ export default function NewProjectPage() {
       <h1 className="text-[length:var(--font-size-section)] font-bold text-text-primary">
         New project
       </h1>
-      <NewProjectClient />
+      {/* useSearchParams (clarify seed) requires a Suspense boundary. */}
+      <Suspense>
+        <NewProjectClient />
+      </Suspense>
     </div>
   );
 }

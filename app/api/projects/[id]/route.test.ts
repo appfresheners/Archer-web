@@ -64,6 +64,27 @@ describe("PATCH /api/projects/[id]", () => {
     });
   });
 
+  it("links the project to a goal via goal_id", async () => {
+    projectUpdateMaybeSingle.mockResolvedValue({ data: { id: "p1" }, error: null });
+    const gid = "66666666-6666-4666-8666-666666666666";
+    const res = await PATCH(patchReq({ goal_id: gid }) as never, ctx());
+    expect(res.status).toBe(200);
+    expect(projectUpdate).toHaveBeenCalledWith({ goal_id: gid });
+  });
+
+  it("clears the project's goal via goal_id null", async () => {
+    projectUpdateMaybeSingle.mockResolvedValue({ data: { id: "p1" }, error: null });
+    const res = await PATCH(patchReq({ goal_id: null }) as never, ctx());
+    expect(res.status).toBe(200);
+    expect(projectUpdate).toHaveBeenCalledWith({ goal_id: null });
+  });
+
+  it("400s on an invalid goal_id (non-uuid)", async () => {
+    const res = await PATCH(patchReq({ goal_id: "nope" }) as never, ctx());
+    expect(res.status).toBe(400);
+    expect(projectUpdate).not.toHaveBeenCalled();
+  });
+
   it("404s when no owned row matches", async () => {
     projectUpdateMaybeSingle.mockResolvedValue({ data: null, error: null });
     const res = await PATCH(patchReq({ status: "paused" }) as never, ctx());

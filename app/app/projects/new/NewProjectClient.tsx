@@ -23,7 +23,7 @@
 
 import ProjectModeInput from "@/components/projects/ProjectModeInput";
 import type { PlanningDepth } from "@/lib/supabase/schema";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 type SubmitArgs = { input: string; depth: PlanningDepth };
@@ -37,6 +37,12 @@ const GENERIC_MESSAGE =
 
 export default function NewProjectClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Clarify multistep hand-off (Story 5.2): when arriving from the inbox, seed
+  // the input with the item text and remember which item to link on create.
+  const fromInbox = searchParams.get("from_inbox");
+  const seed = searchParams.get("seed") ?? "";
+
   const [inFlight, setInFlight] = useState(false);
   const [error, setError] = useState("");
   // Remember the last submission so "Try again" can re-run it with the exact
@@ -66,6 +72,21 @@ export default function NewProjectClient() {
       } | null;
 
       if (res.ok && payload?.id) {
+        // Clarify hand-off: link the originating inbox item to this project and
+        // mark it processed. Best-effort — a link failure must not strand the
+        // user on the created project, so we still navigate. The item simply
+        // stays unprocessed and can be re-clarified.
+        if (fromInbox) {
+          await fetch(`/api/inbox/${fromInbox}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              status: "processed",
+              resolved_project_id: payload.id,
+            }),
+          }).catch(() => null);
+        }
+
         // Navigate only after the row is saved and we hold its id. Keep the
         // form disabled through navigation so a double-submit can't fire.
         router.push(`/app/projects/${payload.id}`);
@@ -96,7 +117,12 @@ export default function NewProjectClient() {
 
   return (
     <div className="flex flex-col gap-4">
-      <ProjectModeInput onSubmit={run} disabled={inFlight} loading={inFlight} />
+      <ProjectModeInput
+        onSubmit={run}
+        disabled={inFlight}
+        loading={inFlight}
+        initialInput={seed}
+      />
       {error && (
         <div
           role="alert"
