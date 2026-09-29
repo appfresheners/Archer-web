@@ -6,9 +6,11 @@
  * A fixed bottom-right affordance present in every `/app/*` view. It can be
  * triggered by click or the global `C` keyboard shortcut.
  *
- * Scope note: this story ships the *affordance only*. The actual capture
- * drawer is Epic 5, so `handleCapture` is an intentional documented no-op /
- * placeholder — do not wire drawer behavior here.
+ * It owns the global `CaptureDrawer` open-state (Story 5.1): because it already
+ * holds the trigger (button + `C` shortcut) and lives in the app shell, keeping
+ * the drawer state here makes capture reachable from any view without a global
+ * provider. When the drawer is already open, the trigger is a no-op so `C`/click
+ * cannot re-open it on top of itself.
  *
  * Accessibility:
  *   - `aria-label` gives it an accessible name (icon-only button).
@@ -19,7 +21,8 @@
  *     so browser/OS shortcuts still work.
  */
 
-import { useCallback, useEffect } from "react";
+import CaptureDrawer from "@/components/inbox/CaptureDrawer";
+import { useCallback, useEffect, useState } from "react";
 
 /** True when the event target is a field where a bare `C` should type, not fire the shortcut. */
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -36,10 +39,16 @@ function isEditableTarget(target: EventTarget | null): boolean {
 }
 
 export default function FloatingCapture() {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Open via a functional update so the trigger is idempotent while open —
+  // `C`/click cannot re-open the drawer on top of itself, and the handler
+  // stays stable (no dependency on the current open-state).
   const handleCapture = useCallback(() => {
-    // Placeholder — the Inbox capture drawer is delivered in Epic 5.
-    // Intentionally a no-op affordance for now.
+    setDrawerOpen((open) => (open ? open : true));
   }, []);
+
+  const handleClose = useCallback(() => setDrawerOpen(false), []);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -62,28 +71,32 @@ export default function FloatingCapture() {
   }, [handleCapture]);
 
   return (
-    <button
-      type="button"
-      onClick={handleCapture}
-      aria-label="Capture to inbox (shortcut: C)"
-      data-testid="floating-capture"
-      className="fixed bottom-20 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-text-inverse shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] motion-safe:transition-colors motion-safe:duration-150 hover:bg-primary-hover md:bottom-6"
-    >
-      <svg
-        width={24}
-        height={24}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-        focusable="false"
+    <>
+      <button
+        type="button"
+        onClick={handleCapture}
+        aria-label="Capture to inbox (shortcut: C)"
+        data-testid="floating-capture"
+        className="fixed bottom-20 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-text-inverse shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] motion-safe:transition-colors motion-safe:duration-150 hover:bg-primary-hover md:bottom-6"
       >
-        <path d="M12 5v14" />
-        <path d="M5 12h14" />
-      </svg>
-    </button>
+        <svg
+          width={24}
+          height={24}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M12 5v14" />
+          <path d="M5 12h14" />
+        </svg>
+      </button>
+
+      <CaptureDrawer open={drawerOpen} onClose={handleClose} />
+    </>
   );
 }

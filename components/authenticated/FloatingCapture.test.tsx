@@ -1,7 +1,22 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { act } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import FloatingCapture from "./FloatingCapture";
+
+// The rewired FloatingCapture renders CaptureDrawer, which uses useRouter.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
+}));
+
+beforeEach(() => {
+  // Keep fetch from being called if a test ever submits the drawer.
+  globalThis.fetch = vi.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => ({ id: "x" }),
+  }) as unknown as typeof fetch;
+});
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -97,5 +112,38 @@ describe("FloatingCapture", () => {
     const button = screen.getByRole("button", { name: /capture/i });
     await user.click(button);
     expect(button).toBeInTheDocument();
+  });
+
+  it("opens the capture drawer when the FAB is clicked", async () => {
+    const user = userEvent.setup();
+    render(<FloatingCapture />);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId("floating-capture"));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("opens the capture drawer when the C shortcut fires", () => {
+    render(<FloatingCapture />);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "c" }));
+    });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("does not re-trigger when C is pressed while the drawer is already open", () => {
+    render(<FloatingCapture />);
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "c" }));
+    });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    // A second C while open must not open a second dialog or throw.
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "c" }));
+    });
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
   });
 });

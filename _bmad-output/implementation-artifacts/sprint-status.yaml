@@ -38,7 +38,7 @@ v # STATUS DEFINITIONS:
 # and has been preserved as sprint-status-superseded-mvp1.yaml. None of the new
 # 35 stories have been started under the current plan, so all are 'backlog'.
 generated: 09-27-2026 16:30
-last_updated: 09-28-2026 (Epic 4 in review; added hardening epic-H from deferred ledger)
+last_updated: 09-28-2026 (Epic 5 in progress; Story 5.1 in review)
 
 project: GTDGoalandProjectCreator
 project_key: NOKEY
@@ -83,8 +83,8 @@ development_status:
   4-5-commit-single-next-action-stuck-detection: review
   epic-4-retrospective: optional
 
-  epic-5: backlog
-  5-1-frictionless-inbox-capture: backlog
+  epic-5: in-progress
+  5-1-frictionless-inbox-capture: review
   5-2-inbox-processing-clarify: backlog
   5-3-engage-view-committed-actions-next-action-prompting: backlog
   5-4-weekly-review-shell-phase-bar-persistence: backlog

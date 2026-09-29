@@ -283,3 +283,17 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-5-commit-single-next-action-stuck-detection.md`
   summary: Make the page-level StuckIndicator CTA focus the commit/add-action control (via a small client wrapper) instead of only scrolling to `#actions`, and add a polite aria-live status region announcing commit/complete results
   evidence: Review (blind + edge-case) — the server-rendered StuckIndicator can't pass an onClick, so its CTA is an anchor to `#actions` (scrolls, doesn't focus). The next-action prompt now has focus-on-open + Escape (patched), but action-result feedback isn't announced beyond the assertive role=alert band. A11y enhancements beyond the AC's stated floor.
+
+## Deferred from: code review of 5-1 (2026-09-28)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-5-1-frictionless-inbox-capture.md`
+  summary: Give CaptureDrawer a full focus trap (Tab/Shift+Tab cycling) and restore focus to the triggering FAB on close — currently it auto-focuses the field and closes on Escape/backdrop but Tab can leave the dialog
+  evidence: Review (blind + edge-case, consensus) — the drawer is role="dialog" aria-modal but has no Tab containment and no focus-restore, so keyboard/AT users can tab to background content. This is the same dialog-focus-trap gap already deferred for the Epic 4 confirm dialogs (4.2/4.3); it belongs to the shared focus-trap modal primitive tracked under epic-H (H-2), which should adopt CaptureDrawer too. Focus-restore-to-trigger is folded into that primitive.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-5-1-frictionless-inbox-capture.md`
+  summary: Distinguish a transient inbox read failure from a genuinely empty inbox — loadInboxItems() try/catch returns [] on any error, so a Supabase/RLS failure renders "Inbox zero."
+  evidence: Review (blind + edge-case + verification-gap, consensus) — matches the spec's chosen "degrade to empty rather than crash" behaviour and the identical pattern already deferred across the Epic 4 read surfaces (4.1) and the project detail view (2.3). Tracked for the cross-cutting error-vs-empty hardening under epic-H (H-3); fix once across all read surfaces.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-5-1-frictionless-inbox-capture.md`
+  summary: Extract a shared inbox-capture hook (POST /api/inbox + validation + inline-error handling) consumed by both InboxCaptureForm and CaptureDrawer, so the two capture paths cannot drift
+  evidence: Review (blind + verification-gap) — the form and drawer duplicate the same capture flow with intentionally different post-submit behaviour (form refocuses & stays; drawer closes). Not a correctness bug today; a shared hook would keep the fetch/error contract single-sourced. DRY/maintainability refinement; revisit alongside Story 5.2 which adds more inbox mutations.
