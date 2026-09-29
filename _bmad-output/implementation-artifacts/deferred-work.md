@@ -311,3 +311,21 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-5-2-inbox-processing-clarify.md`
   summary: Consider a full goal↔project linking UI (attach existing projects to a goal from the goal side; change a project's goal from project detail) — this story added the goal_id PATCH capability but no dedicated management surface
   evidence: Review (blind-hunter) — sanitizeProjectPatch now accepts goal_id (link/clear) and is route-exposed + tested, satisfying the linking mechanism the amendment required. A discoverable UI (goal detail "attach projects", project detail "change goal") is a usability follow-up beyond this story's clarify flow; revisit alongside Epic 4 goal/project detail polish.
+
+## Deferred from: code review of 5-3 (2026-09-28)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-5-3-engage-view-committed-actions-next-action-prompting.md`
+  summary: The Engage `today` cutoff for future-scheduled exclusion uses the server's UTC date (new Date().toISOString().slice(0,10)) — not the user's local date, so a scheduled action can show/hide one day early or late near the timezone day boundary
+  evidence: Review (all three layers, consensus) — the app has no per-user timezone plumbing anywhere, and `scheduled_for` is a bare DATE, so a fully-correct boundary needs user-tz infrastructure (a profile tz or client-side cutoff passed to the model). Low impact (a single day's fuzziness on the defer boundary); tracked for the broader user-timezone work rather than a misleading UTC→server-local swap that would not fix it.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-5-3-engage-view-committed-actions-next-action-prompting.md`
+  summary: Add focus restoration (and eventually a shared focus trap) to the Engage "What's next for [project]?" prompt — it focuses on open but does not restore focus to the triggering Done button on close
+  evidence: Review (blind + edge-case) — the prompt is adapted verbatim from ActionList's nextPrompt (Epic 4), which has the same gap; both should adopt the epic-H shared focus-trap modal primitive (H-2). Consistent with the Epic 4 confirm dialogs and the CaptureDrawer (5.1) already tracked under H-2.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-5-3-engage-view-committed-actions-next-action-prompting.md`
+  summary: Collapsible goal groups (<details open>) reset to open after every router.refresh() (post-mutation) — a manually collapsed group snaps back open
+  evidence: Review (edge-case) — the AC only requires groups be "collapsible" (satisfied); persisting collapse state across refresh (e.g. a per-goalId open map) is a UX refinement. Low impact; revisit if users report it.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-5-3-engage-view-committed-actions-next-action-prompting.md`
+  summary: A COMMITTED action with a future scheduled_for makes its project show neither a do-now row (excluded by isDoNow) nor a stuck band (isProjectStuck sees it as committed) — the project silently disappears from Engage until the date arrives
+  evidence: Review (blind + edge-case) — an unusual combination (clarify creates scheduled actions as `available`, not `committed`), and arguably correct GTD behaviour (a committed action on the calendar is "handled"). Documented as a known corner; revisit only if committed+scheduled becomes a common path.

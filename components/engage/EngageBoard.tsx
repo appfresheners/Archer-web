@@ -1,0 +1,418 @@
+"use client";
+
+/**
+ * EngageBoard — the interactive Engage surface (Story 5.3).
+ *
+ * Renders the committed next actions grouped by goal (collapsible), a per-goal
+ * amber stuck band at the bottom of each group, a final "Anytime / No project"
+ * group for standalone committed actions, an optional context-tag filter bar,
+ * and the honest empty state. It owns the Done → "What's next for [project]?"
+ * flow, adapted from `components/projects/ActionList.tsx`:
+ *
+ *   - Done on a PROJECT row: PATCH status=done, then open a prompt listing that
+ *     project's remaining `available` actions (carried in the model). Committing
+ *     one POSTs `/api/actions/[id]/commit`; if none remain, offer
+ *     "mark project complete?" (PATCH `/api/projects/[id]` status=completed).
+ *   - Done on a STANDALONE row (no project): PATCH status=done, then refresh.
+ *     No prompt — there is no project to prompt for.
+ *
+ * All reads are done server-side; every mutation calls `router.refresh()` so the
+ * board re-renders from the database. Errors render inline as `role="alert"`.
+ *
+ * The context filter is client-side over the already-loaded rows: the bar shows
+ * the distinct tags present, and selecting one keeps rows carrying that tag.
+ */
+
+import EngageActionRow from "@/components/engage/EngageActionRow";
+import StuckIndicator from "@/components/projects/StuckIndicator";
+import type {
+  EngageAvailableAction,
+  EngageModel,
+  EngageRow,
+} from "@/lib/engage/model";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+const GENERIC_ERROR = "Something went wrong. Please try again.";
+
+/** State for the open "What's next for [project]?" prompt. */
+interface NextPromptState {
+  projectId: string;
+  projectName: string;
+  available: EngageAvailableAction[];
+}
+
+export default function EngageBoard({ model }: { model: EngageModel }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [nextPrompt, setNextPrompt] = useState<NextPromptState | null>(null);
+  const promptRef = useRef<HTMLDivElement>(null);
+
+  // Focus the prompt when it opens (mirrors ActionList). Effect only calls
+  // .focus() — no state writes — so it satisfies react-hooks/set-state-in-effect.
+  useEffect(() => {
+    if (nextPrompt !== null) promptRef.current?.focus();
+  }, [nextPrompt]);
+
+  // Distinct context tags across all loaded committed rows (goal groups +
+  // anytime), for the filter bar. Derived — no state, so it stays pure.
+  const allTags = useMemo(() => {
+    const tags = new Set<string>();
+    for (const group of model.goalGroups) {
+      for (const row of group.committed) {
+        for (const tag of row.context_tags) tags.add(tag);
+      }
+    }
+    for (const row of model.anytime) {
+      for (const tag of row.context_tags) tags.add(tag);
+    }
+    return [...tags].sort();
+  }, [model]);
+
+  // Reconcile a stale filter selection during render (not in an effect, to
+  // satisfy react-hooks/set-state-in-effect): after a refresh the selected tag
+  // may no longer exist in the data — clear it so the user isn't stranded on a
+  // "No match" view with a tag that has no chip.
+  if (activeTag !== null && !allTags.includes(activeTag)) {
+    setActiveTag(null);
+  }
+
+  function rowMatchesFilter(row: EngageRow): boolean {
+    if (activeTag === null) return true;
+    return row.context_tags.includes(activeTag);
+  }
+
+  async function call(
+    url: string,
+    method: string,
+    body?: unknown,
+  ): Promise<boolean> {
+    setError("");
+    setBusy(true);
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: body ? { "Content-Type": "application/json" } : undefined,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        setError(payload?.error || GENERIC_ERROR);
+        setBusy(false);
+        return false;
+      }
+      setBusy(false);
+      return true;
+    } catch {
+      setError(GENERIC_ERROR);
+      setBusy(false);
+      return false;
+    }
+  }
+
+  /** Mark a committed row done, then branch on project vs standalone. */
+  async function handleDone(row: EngageRow) {
+    if (busy) return;
+    const ok = await call(`/api/actions/${row.id}`, "PATCH", {
+      status: "done",
+    });
+    if (!ok) return;
+
+    // Standalone (no project) → nothing to prompt; just refresh.
+    if (row.projectId === null) {
+      router.refresh();
+      return;
+    }
+
+    // Project row → open the "What's next for [project]?" prompt with that
+    // project's remaining available actions from the model.
+    const group = model.goalGroups.find((g) =>
+      g.committed.some((r) => r.id === row.id),
+    );
+    const available = group?.availableByProject[row.projectId] ?? [];
+    setNextPrompt({
+      projectId: row.projectId,
+      projectName: row.projectName ?? "this project",
+      available,
+    });
+    // Do not refresh yet — the prompt is driven by the current model; refresh
+    // happens after the user commits, completes, or dismisses.
+  }
+
+  /** Commit the chosen next action from the prompt. */
+  async function handleCommitNext(action: EngageAvailableAction) {
+    if (busy) return;
+    const ok = await call(`/api/actions/${action.id}/commit`, "POST");
+    if (ok) {
+      setNextPrompt(null);
+      router.refresh();
+    }
+  }
+
+  /** No actions remain → mark the project complete. */
+  async function handleCompleteProject() {
+    if (busy || !nextPrompt) return;
+    const ok = await call(`/api/projects/${nextPrompt.projectId}`, "PATCH", {
+      status: "completed",
+    });
+    if (ok) {
+      setNextPrompt(null);
+      router.refresh();
+    }
+  }
+
+  function dismissPrompt() {
+    setNextPrompt(null);
+    router.refresh();
+  }
+
+  if (model.isEmpty) {
+    return (
+      <div className="flex flex-col gap-[var(--spacing-section-y)]">
+        <Header />
+        <p className="rounded-[var(--radius-md)] border border-border bg-surface p-[var(--spacing-card-p)] text-text-secondary">
+          No committed actions. Open a project and commit one.
+        </p>
+      </div>
+    );
+  }
+
+  // Filtered projections of the model rows (client-side, over loaded data).
+  const groupsForRender = model.goalGroups.map((group) => ({
+    ...group,
+    visible: group.committed.filter(rowMatchesFilter),
+  }));
+  const anytimeVisible = model.anytime.filter(rowMatchesFilter);
+
+  return (
+    <div className="flex flex-col gap-[var(--spacing-section-y)]">
+      <Header />
+
+      {allTags.length > 0 && (
+        <div
+          role="group"
+          aria-label="Filter by context tag"
+          className="flex flex-wrap items-center gap-2"
+        >
+          <button
+            type="button"
+            aria-pressed={activeTag === null}
+            onClick={() => setActiveTag(null)}
+            className={filterChipClass(activeTag === null)}
+          >
+            All
+          </button>
+          {allTags.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              aria-pressed={activeTag === tag}
+              onClick={() => setActiveTag((cur) => (cur === tag ? null : tag))}
+              className={filterChipClass(activeTag === tag)}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-4">
+        {groupsForRender.map((group) => {
+          // A goal group renders when it has any visible row OR a stuck
+          // project to surface (stuck bands are not tag-filtered).
+          const showGroup =
+            group.visible.length > 0 || group.stuckProjects.length > 0;
+          if (!showGroup) return null;
+          return (
+            <details
+              key={group.goalId}
+              open
+              className="rounded-[var(--radius-md)] border border-border bg-surface"
+            >
+              <summary className="cursor-pointer rounded-[var(--radius-md)] px-[var(--spacing-card-p)] py-3 text-[length:var(--font-size-subheading)] font-semibold text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]">
+                {group.goalText}
+              </summary>
+              <div className="flex flex-col gap-3 px-[var(--spacing-card-p)] pb-[var(--spacing-card-p)] pt-1">
+                {group.visible.length > 0 && (
+                  <ul className="flex flex-col gap-2">
+                    {group.visible.map((row) => (
+                      <EngageActionRow
+                        key={row.id}
+                        row={row}
+                        disabled={busy}
+                        onDone={handleDone}
+                      />
+                    ))}
+                  </ul>
+                )}
+                {group.stuckProjects.map((sp) => (
+                  <StuckProjectBand key={sp.id} id={sp.id} name={sp.name} />
+                ))}
+              </div>
+            </details>
+          );
+        })}
+
+        {anytimeVisible.length > 0 && (
+          <details
+            open
+            className="rounded-[var(--radius-md)] border border-border bg-surface"
+          >
+            <summary className="cursor-pointer rounded-[var(--radius-md)] px-[var(--spacing-card-p)] py-3 text-[length:var(--font-size-subheading)] font-semibold text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]">
+              Anytime / No project
+            </summary>
+            <div className="px-[var(--spacing-card-p)] pb-[var(--spacing-card-p)] pt-1">
+              <ul className="flex flex-col gap-2">
+                {anytimeVisible.map((row) => (
+                  <EngageActionRow
+                    key={row.id}
+                    row={row}
+                    disabled={busy}
+                    onDone={handleDone}
+                  />
+                ))}
+              </ul>
+            </div>
+          </details>
+        )}
+      </div>
+
+      {nextPrompt !== null && (
+        <div
+          ref={promptRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="engage-next-title"
+          tabIndex={-1}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && !busy) dismissPrompt();
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 focus:outline-none"
+        >
+          <div className="flex w-full max-w-md flex-col gap-4 rounded-[var(--radius-lg)] bg-surface-raised p-6 shadow-lg">
+            <h3
+              id="engage-next-title"
+              className="text-[length:var(--font-size-subheading)] font-semibold text-text-primary"
+            >
+              What&apos;s next for {nextPrompt.projectName}?
+            </h3>
+            {nextPrompt.available.length > 0 ? (
+              <>
+                <p className="text-text-secondary">
+                  Commit the next action to work on.
+                </p>
+                <ul className="flex flex-col gap-2">
+                  {nextPrompt.available.map((a) => (
+                    <li key={a.id}>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => handleCommitNext(a)}
+                        className="w-full rounded-[var(--radius-sm)] border border-border-strong px-3 py-2 text-left text-text-primary hover:border-primary hover:bg-primary-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
+                      >
+                        {a.text}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={dismissPrompt}
+                    className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-border-strong px-4 py-2 font-medium text-text-primary hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
+                  >
+                    Not now
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-text-secondary">
+                  No actions remain. Mark this project complete?
+                </p>
+                <div className="flex flex-wrap justify-end gap-3">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={dismissPrompt}
+                    className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-border-strong px-4 py-2 font-medium text-text-primary hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
+                  >
+                    Not now
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={handleCompleteProject}
+                    className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] bg-primary px-4 py-2 font-medium text-text-inverse hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
+                  >
+                    Mark project complete
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="rounded-[var(--radius-sm)] bg-destructive-subtle px-3 py-2 text-[length:var(--font-size-small)] text-destructive"
+        >
+          {error}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Header() {
+  return (
+    <h1 className="text-[length:var(--font-size-section)] font-bold text-text-primary">
+      Engage
+    </h1>
+  );
+}
+
+/**
+ * A stuck project's amber band + a "Commit one →" CTA that routes to the
+ * project detail's action list. Uses StuckIndicator's anchor fallback via a
+ * link wrapper so no behavior changes for existing callers.
+ */
+function StuckProjectBand({ id, name }: { id: string; name: string }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-[length:var(--font-size-small)] font-medium text-text-secondary">
+        {name}
+      </p>
+      <StuckIndicatorLink id={id} />
+    </div>
+  );
+}
+
+/**
+ * StuckIndicator wired to route to the project detail's #actions anchor. We
+ * pass an `onCommitNow` that navigates, keeping StuckIndicator itself untouched.
+ */
+function StuckIndicatorLink({ id }: { id: string }) {
+  const router = useRouter();
+  return (
+    <StuckIndicator
+      onCommitNow={() => router.push(`/app/projects/${id}#actions`)}
+    />
+  );
+}
+
+function filterChipClass(active: boolean): string {
+  const base =
+    "inline-flex min-h-[44px] items-center rounded-[var(--radius-full)] px-4 py-2 text-[length:var(--font-size-small)] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]";
+  return active
+    ? `${base} bg-primary text-text-inverse`
+    : `${base} border border-border-strong text-text-primary hover:bg-surface`;
+}
