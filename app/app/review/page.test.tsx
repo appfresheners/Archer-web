@@ -15,6 +15,12 @@ const priorSnapshotMaybeSingle = vi.fn();
 // query so a test can assert it targets the PRIOR ISO week, not the current one.
 const priorSnapshotEq: Array<[string, unknown]> = [];
 
+// Review-data reads (only when a session is resumable): each is a `.select(...)`
+// optionally `.neq(...)`, awaited directly. Rows come from `reviewDataRows` so
+// a test can drive buildReviewData through the loader with real data.
+const reviewDataSelect = vi.fn();
+const reviewDataRows: Record<string, unknown[]> = {};
+
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     from: (table: string) => {
@@ -29,6 +35,22 @@ vi.mock("@/lib/supabase/server", () => ({
           maybeSingle: () => priorSnapshotMaybeSingle(),
         };
         return chain;
+      }
+      if (
+        table === "inbox_items" ||
+        table === "projects" ||
+        table === "actions" ||
+        table === "goals"
+      ) {
+        // buildReviewData source reads: .select(...) or .select(...).neq(...),
+        // awaited directly → resolve to a thenable that also supports .neq().
+        // Per-table rows come from `reviewDataRows` so a test can supply data.
+        const result = { data: reviewDataRows[table] ?? [], error: null };
+        const thenable = {
+          neq: () => Promise.resolve(result),
+          then: (resolve: (v: typeof result) => unknown) => resolve(result),
+        };
+        return { select: () => (reviewDataSelect(table), thenable) };
       }
       // review_sessions: two chains distinguished by .eq (current) vs .not (last).
       return {
@@ -65,6 +87,7 @@ describe("ReviewPage", () => {
     lastCompletedMaybeSingle.mockResolvedValue({ data: null, error: null });
     priorSnapshotMaybeSingle.mockResolvedValue({ data: null, error: null });
     priorSnapshotEq.length = 0;
+    for (const k of Object.keys(reviewDataRows)) delete reviewDataRows[k];
   });
 
   it("queries the PRIOR ISO week for the closed-loop snapshot across a year boundary", async () => {
@@ -118,6 +141,42 @@ describe("ReviewPage", () => {
     expect(
       screen.queryByRole("button", { name: "Start weekly review" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("flows loaded review data through buildReviewData into the shell (Get Creative)", async () => {
+    currentMaybeSingle.mockResolvedValue({
+      data: {
+        id: "rev-1",
+        current_phase: "get_creative",
+        completed_at: null,
+        week_number: 40,
+        week_start_date: "2026-09-28",
+        week_end_date: "2026-10-04",
+        opening_retrospective: "moved a",
+        closing_intention: null,
+        closing_blocker: null,
+      },
+      error: null,
+    });
+    reviewDataRows.inbox_items = [
+      { id: "i1", raw_text: "learn to sail", processing_status: "someday" },
+    ];
+    reviewDataRows.projects = [
+      { id: "p1", name: "Fitness plan", status: "active", updated_at: "2026-09-01T00:00:00Z", goal_id: "g1" },
+    ];
+    reviewDataRows.actions = [];
+    reviewDataRows.goals = [
+      { id: "g1", goal_text: "Get fit", status: "active" },
+    ];
+
+    await renderPage();
+
+    // The 4 review-data reads ran, and buildReviewData output reached the shell:
+    // the someday item + goal-alignment (1 project, 1 stuck) render.
+    expect(reviewDataSelect).toHaveBeenCalledWith("inbox_items");
+    expect(reviewDataSelect).toHaveBeenCalledWith("projects");
+    expect(screen.getByText("learn to sail")).toBeInTheDocument();
+    expect(screen.getByText("Get fit")).toBeInTheDocument();
   });
 
   it("shows the last-review date on the landing", async () => {

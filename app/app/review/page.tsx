@@ -26,6 +26,14 @@ import type { PriorSnapshotDisplay } from "@/components/review/phase-panels/Snap
 import ReviewShell from "@/components/review/ReviewShell";
 import StartReview from "@/components/review/StartReview";
 import { isReviewShellPhase, type ReviewShellPhase } from "@/lib/review/phases";
+import {
+  buildReviewData,
+  type ReviewActionInput,
+  type ReviewData,
+  type ReviewGoalInput,
+  type ReviewInboxInput,
+  type ReviewProjectInput,
+} from "@/lib/review/reviewData";
 import { isoWeek } from "@/lib/review/week";
 import type { ReviewPhase } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
@@ -57,7 +65,16 @@ interface ReviewLanding {
   lastCompletedAt: string | null;
   /** The prior week's closing snapshot, or null. */
   priorSnapshot: PriorSnapshotDisplay | null;
+  /** Middle-phase data, loaded only when a session is resumable. */
+  reviewData: ReviewData;
 }
+
+const EMPTY_REVIEW_DATA: ReviewData = {
+  unprocessedCount: 0,
+  currentProjects: [],
+  somedayItems: [],
+  goalAlignment: [],
+};
 
 /**
  * Load the current-week session (if any) plus the most recent completed
@@ -68,6 +85,7 @@ async function loadReviewLanding(): Promise<ReviewLanding> {
     session: null,
     lastCompletedAt: null,
     priorSnapshot: null,
+    reviewData: EMPTY_REVIEW_DATA,
   };
   try {
     const supabase = await createClient();
@@ -107,12 +125,43 @@ async function loadReviewLanding(): Promise<ReviewLanding> {
 
     if (currentError) return empty;
 
+    const session = (current as CurrentWeekSession | null) ?? null;
+
+    // Load the middle-phase data ONLY for a resumable in-progress session, so
+    // the landing (no session / completed) never pays for these reads.
+    let reviewData: ReviewData = EMPTY_REVIEW_DATA;
+    const resumable =
+      session &&
+      session.completed_at === null &&
+      isReviewShellPhase(session.current_phase);
+    if (resumable) {
+      const [{ data: inbox }, { data: projects }, { data: actions }, { data: goals }] =
+        await Promise.all([
+          supabase
+            .from("inbox_items")
+            .select("id, raw_text, processing_status")
+            .neq("processing_status", "trashed"),
+          supabase
+            .from("projects")
+            .select("id, name, status, updated_at, goal_id"),
+          supabase.from("actions").select("id, project_id, text, status, sort_order"),
+          supabase.from("goals").select("id, goal_text, status"),
+        ]);
+      reviewData = buildReviewData(
+        (inbox ?? []) as ReviewInboxInput[],
+        (projects ?? []) as ReviewProjectInput[],
+        (actions ?? []) as ReviewActionInput[],
+        (goals ?? []) as ReviewGoalInput[],
+      );
+    }
+
     return {
-      session: (current as CurrentWeekSession | null) ?? null,
+      session,
       lastCompletedAt:
         (lastCompleted as { completed_at: string | null } | null)?.completed_at ??
         null,
       priorSnapshot: (priorSnapshotRow as PriorSnapshotDisplay | null) ?? null,
+      reviewData,
     };
   } catch {
     return empty;
@@ -162,7 +211,8 @@ function Landing({
 }
 
 export default async function ReviewPage() {
-  const { session, lastCompletedAt, priorSnapshot } = await loadReviewLanding();
+  const { session, lastCompletedAt, priorSnapshot, reviewData } =
+    await loadReviewLanding();
 
   // Resume only an in-progress session parked on a navigable beat (not the
   // terminal 'complete' phase and with no completed_at).
@@ -192,6 +242,7 @@ export default async function ReviewPage() {
             closing_intention: session.closing_intention ?? "",
             closing_blocker: session.closing_blocker ?? "",
           }}
+          reviewData={reviewData}
         />
       ) : (
         <Landing

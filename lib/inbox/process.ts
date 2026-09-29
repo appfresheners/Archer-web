@@ -1,13 +1,20 @@
 /**
- * Server-side validation for inbox processing (Story 5.2 — Clarify Wizard).
+ * Server-side validation for inbox processing (Story 5.2 — Clarify Wizard;
+ * extended in Story 5.6 with the reactivation path).
  *
  * Pure + unit-testable, reused by `PATCH /api/inbox/[id]`. The clarify flow
  * ends an item in exactly one terminal state; this sanitizer takes an
  * untrusted body and returns the bounded fields to persist, or `null` when the
  * body is not a usable process instruction.
  *
- * `unprocessed` is intentionally NOT accepted — this endpoint only ever moves
- * an item INTO a terminal state.
+ * Two distinct transitions are supported:
+ *   1. Clarify (5.2): move an UNPROCESSED item INTO a terminal state
+ *      (`processed`/`trashed`/`someday`/`reference`), optionally linking a
+ *      `resolved_project_id` when `processed`. The route stamps `processed_at`.
+ *   2. Reactivate (5.6): move a someday/reference item BACK to `unprocessed`
+ *      so it re-enters the inbox. This clears `processed_at` and
+ *      `resolved_project_id`. `resolved_project_id` is NOT accepted on this
+ *      path (a reactivated item carries no resolution).
  */
 
 import type { InboxItemUpdate, InboxProcessingStatus } from "@/lib/supabase/schema";
@@ -57,6 +64,20 @@ export function sanitizeInboxProcess(body: unknown): InboxItemUpdate | null {
     return null;
   }
   const obj = body as Record<string, unknown>;
+
+  // Reactivation path (5.6): someday/reference → unprocessed. This clears the
+  // resolution stamped by a prior clarify decision so the item is a clean
+  // inbox item again. `resolved_project_id` is not accepted here.
+  if (obj.status === "unprocessed") {
+    if ("resolved_project_id" in obj && obj.resolved_project_id != null) {
+      return null;
+    }
+    return {
+      processing_status: "unprocessed",
+      processed_at: null,
+      resolved_project_id: null,
+    };
+  }
 
   if (!isProcessedStatus(obj.status)) return null;
 

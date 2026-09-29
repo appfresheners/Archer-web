@@ -53,8 +53,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     );
   }
 
-  // The validator is pure; stamp the processing time on the server.
-  patch.processed_at = new Date().toISOString();
+  // Two transitions share this route (see `sanitizeInboxProcess`):
+  //   - Clarify: move an UNPROCESSED item to a terminal state; stamp
+  //     `processed_at=now()` and only allow an unprocessed source.
+  //   - Reactivate (5.6): move a someday/reference item back to `unprocessed`;
+  //     the sanitizer already set `processed_at=null` + `resolved_project_id=
+  //     null`, and the source is a terminal someday/reference item (NOT
+  //     unprocessed), so the guards differ.
+  const isReactivate = patch.processing_status === "unprocessed";
+  if (!isReactivate) {
+    // The validator is pure; stamp the processing time on the server.
+    patch.processed_at = new Date().toISOString();
+  }
 
   try {
     const supabase = await createClient();
@@ -85,18 +95,23 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     }
 
-    // Only an UNPROCESSED item may be moved to a terminal state — this both
-    // prevents re-processing (overwriting a prior outcome / creating duplicate
-    // actions from a stale tab) and makes the PATCH idempotent-safe. A terminal
-    // or unknown/non-owned id yields the 404 below.
-    const { data, error } = await supabase
+    // Source-status guard, scoped to the transition:
+    //   - Clarify: only an UNPROCESSED item may be moved to a terminal state —
+    //     this prevents re-processing (overwriting a prior outcome / creating
+    //     duplicate actions from a stale tab) and keeps the PATCH
+    //     idempotent-safe.
+    //   - Reactivate (5.6): only an owned someday/reference item may move to
+    //     `unprocessed`. This deliberately does NOT touch the clarify path.
+    // A terminal-mismatch or unknown/non-owned id yields the 404 below.
+    const baseQuery = supabase
       .from("inbox_items")
       .update(patch)
       .eq("id", id)
-      .eq("user_id", userId)
-      .eq("processing_status", "unprocessed")
-      .select("id")
-      .maybeSingle();
+      .eq("user_id", userId);
+    const scopedQuery = isReactivate
+      ? baseQuery.in("processing_status", ["someday", "reference"])
+      : baseQuery.eq("processing_status", "unprocessed");
+    const { data, error } = await scopedQuery.select("id").maybeSingle();
 
     if (error) {
       console.error("[api/inbox PATCH] update failed:", error.message);

@@ -36,7 +36,9 @@
  */
 
 import PhaseBar from "@/components/review/PhaseBar";
-import { MIDDLE_PHASE_PANELS } from "@/components/review/phase-panels";
+import GetClearPanel from "@/components/review/phase-panels/GetClearPanel";
+import GetCreativePanel from "@/components/review/phase-panels/GetCreativePanel";
+import GetCurrentPanel from "@/components/review/phase-panels/GetCurrentPanel";
 import SnapshotClosePanel from "@/components/review/phase-panels/SnapshotClosePanel";
 import SnapshotOpenPanel, {
   type PriorSnapshotDisplay,
@@ -49,6 +51,7 @@ import {
   prevPhase,
   type ReviewShellPhase,
 } from "@/lib/review/phases";
+import type { ReviewData } from "@/lib/review/reviewData";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -71,6 +74,8 @@ interface ReviewShellProps {
   priorSnapshot: PriorSnapshotDisplay | null;
   /** Snapshot field values persisted on the session (seed the editors). */
   initialSnapshot: ReviewShellSnapshotInput;
+  /** Middle-phase data (Get Clear/Current/Creative), from the page loader. */
+  reviewData: ReviewData;
 }
 
 export default function ReviewShell({
@@ -81,12 +86,28 @@ export default function ReviewShell({
   weekEndDate,
   priorSnapshot,
   initialSnapshot,
+  reviewData,
 }: ReviewShellProps) {
   const router = useRouter();
   const [phase, setPhase] = useState<ReviewShellPhase>(initialPhase);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [showClosingErrors, setShowClosingErrors] = useState(false);
+  // Client-side, per-session record of the active projects the user has
+  // reviewed (confirmed / committed / status-changed) during Get Current.
+  // Not persisted — leaving mid-phase resets it, which errs toward MORE review
+  // (safe). There is no durable per-project review-state store.
+  const [reviewedProjectIds, setReviewedProjectIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const markReviewed = (projectId: string) =>
+    setReviewedProjectIds((prev) => {
+      if (prev.has(projectId)) return prev;
+      const next = new Set(prev);
+      next.add(projectId);
+      return next;
+    });
+  const refresh = () => router.refresh();
 
   // Snapshot field editors. Seeded from `initialSnapshot`. If the session's
   // seed identity changes (e.g. the page re-seeds after a resume), reset the
@@ -104,8 +125,39 @@ export default function ReviewShell({
 
   const retrospectiveEmpty = snapshot.opening_retrospective.trim().length === 0;
   // Opening gate: block advancing out of snapshot_open until the retrospective
-  // is non-empty. Every other beat keeps the permissive 5.4 advance.
+  // is non-empty.
   const openingGateBlocks = phase === "snapshot_open" && retrospectiveEmpty;
+
+  // Get Clear gate: cannot advance until the inbox is at zero unprocessed items.
+  const getClearGateBlocks =
+    phase === "get_clear" && reviewData.unprocessedCount > 0;
+
+  // The "current projects satisfied" rule, shared by the Get Current advance
+  // gate AND the final completion gate: every active project must have a
+  // committed action (not stuck) OR have been reviewed (confirmed / committed /
+  // status-changed) this session.
+  const anyProjectUnresolved = reviewData.currentProjects.some(
+    (p) => p.isStuck && !reviewedProjectIds.has(p.id),
+  );
+
+  // Get Current gate: cannot advance while any active project is still stuck
+  // and unreviewed.
+  const getCurrentGateBlocks = phase === "get_current" && anyProjectUnresolved;
+
+  // Completion gate (AC): a review cannot be COMPLETED until all inbox items
+  // are processed AND every active project is resolved. Re-checked here (not
+  // only at Get Clear / Get Current) because Get Creative can re-inject inbox
+  // items (activate / "anything missing?") after those phases passed.
+  const completionBlocked =
+    reviewData.unprocessedCount > 0 || anyProjectUnresolved;
+  const completionBlockReason =
+    reviewData.unprocessedCount > 0
+      ? "Process every inbox item before completing the review."
+      : anyProjectUnresolved
+        ? "Give each stuck project a committed action or change its status before completing."
+        : "";
+
+  const gateBlocks = openingGateBlocks || getClearGateBlocks || getCurrentGateBlocks;
 
   /**
    * Persist a partial snapshot update (and/or a phase) for the session. Returns
@@ -160,10 +212,10 @@ export default function ReviewShell({
     setBusy(false);
   }
 
-  /** Next handler that respects the opening gate. */
+  /** Next handler that respects the active phase's gate. */
   async function handleNext() {
     if (!forward) return;
-    if (openingGateBlocks) return; // guarded by disabled button too
+    if (gateBlocks) return; // guarded by disabled button too
     if (busy) return;
     // On the opening advance, persist the retrospective ALONGSIDE the phase.
     // Blur-commit alone is not enough: keyboard/fast activation of "Start
@@ -194,6 +246,13 @@ export default function ReviewShell({
     const blocker = snapshot.closing_blocker.trim();
     if (intention.length === 0 || blocker.length === 0) {
       setShowClosingErrors(true);
+      return;
+    }
+    // Enforce the AC completion gate: block finishing while the inbox is
+    // non-empty or an active project is unresolved (e.g. items re-injected
+    // during Get Creative). Surface the specific reason.
+    if (completionBlocked) {
+      setError(completionBlockReason);
       return;
     }
     setError("");
@@ -254,7 +313,32 @@ export default function ReviewShell({
         />
       );
     }
-    return MIDDLE_PHASE_PANELS[phase];
+    if (phase === "get_clear") {
+      return (
+        <GetClearPanel
+          unprocessedCount={reviewData.unprocessedCount}
+          onRefresh={refresh}
+        />
+      );
+    }
+    if (phase === "get_current") {
+      return (
+        <GetCurrentPanel
+          projects={reviewData.currentProjects}
+          reviewedIds={reviewedProjectIds}
+          onReviewed={markReviewed}
+          onRefresh={refresh}
+        />
+      );
+    }
+    // get_creative
+    return (
+      <GetCreativePanel
+        somedayItems={reviewData.somedayItems}
+        goalAlignment={reviewData.goalAlignment}
+        onRefresh={refresh}
+      />
+    );
   }
 
   const isClosing = phase === "snapshot_close";
@@ -298,7 +382,7 @@ export default function ReviewShell({
           <button
             type="button"
             onClick={handleNext}
-            disabled={busy || forward === null || openingGateBlocks}
+            disabled={busy || forward === null || gateBlocks}
             className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] bg-primary px-4 py-2 font-medium text-text-inverse transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {phase === "snapshot_open" ? "Start review →" : "Next"}
@@ -306,9 +390,14 @@ export default function ReviewShell({
         )}
       </div>
 
-      {openingGateBlocks && (
+      {gateBlocks && (
         <p className="text-[length:var(--font-size-small)] text-text-muted">
-          Add a short retrospective to start the review.
+          {openingGateBlocks &&
+            "Add a short retrospective to start the review."}
+          {getClearGateBlocks &&
+            "Process every inbox item to reach inbox zero before continuing."}
+          {getCurrentGateBlocks &&
+            "Give each stuck project a committed action or change its status before continuing."}
         </p>
       )}
     </div>

@@ -76,7 +76,6 @@ describe("sanitizeInboxProcess", () => {
 
   it("rejects a missing/invalid status", () => {
     expect(sanitizeInboxProcess({})).toBeNull();
-    expect(sanitizeInboxProcess({ status: "unprocessed" })).toBeNull();
     expect(sanitizeInboxProcess({ status: "nope" })).toBeNull();
   });
 
@@ -84,5 +83,43 @@ describe("sanitizeInboxProcess", () => {
     expect(sanitizeInboxProcess(null)).toBeNull();
     expect(sanitizeInboxProcess("x")).toBeNull();
     expect(sanitizeInboxProcess([])).toBeNull();
+  });
+});
+
+// Story 5.6 — reactivation path (someday/reference → unprocessed).
+describe("sanitizeInboxProcess — reactivate (unprocessed)", () => {
+  it("accepts unprocessed and clears processed_at + resolved_project_id", () => {
+    expect(sanitizeInboxProcess({ status: "unprocessed" })).toEqual({
+      processing_status: "unprocessed",
+      processed_at: null,
+      resolved_project_id: null,
+    });
+  });
+
+  it("tolerates an explicit null resolved_project_id on the reactivate path", () => {
+    expect(
+      sanitizeInboxProcess({ status: "unprocessed", resolved_project_id: null }),
+    ).toEqual({
+      processing_status: "unprocessed",
+      processed_at: null,
+      resolved_project_id: null,
+    });
+  });
+
+  it("rejects a resolved_project_id paired with unprocessed (nonsensical)", () => {
+    const UUID = "11111111-1111-4111-8111-111111111111";
+    expect(
+      sanitizeInboxProcess({ status: "unprocessed", resolved_project_id: UUID }),
+    ).toBeNull();
+  });
+
+  it("still accepts the four terminal statuses unchanged (clarify path intact)", () => {
+    for (const s of ["processed", "trashed", "someday", "reference"] as const) {
+      const patch = sanitizeInboxProcess({ status: s });
+      expect(patch?.processing_status).toBe(s);
+      // Terminal statuses do NOT set processed_at here (route stamps it) and do
+      // NOT null out resolved_project_id.
+      expect(patch && "processed_at" in patch).toBe(false);
+    }
   });
 });

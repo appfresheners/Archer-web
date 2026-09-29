@@ -349,3 +349,17 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-5-5-weekly-snapshot-opening-closing-closed-loop.md`
   summary: The closed-loop "Last week you said:" keys off the ISO week exactly 7 days prior — if a user skips a week, no prior snapshot shows even though a more-recent one exists
   evidence: Review (blind) — matches the AC as written ("the previous week's closing snapshot"), so this is a deliberate literal reading, not a defect. Showing the most-recent snapshot instead (when the immediately-prior week was skipped) is a possible future enhancement; revisit if users report the gap.
+
+## Deferred from: code review of 5-6 (2026-09-28)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-5-6-weekly-review-phases-get-clear-current-creative.md`
+  summary: Re-enforce the weekly-review completion gate SERVER-SIDE in POST /api/review/[id]/complete (count unprocessed inbox items + verify no active project is stuck) in addition to the client gate
+  evidence: Review (all three layers) — the completion gate is now enforced client-side in ReviewShell.handleComplete (blocks on non-empty inbox / unresolved stuck project, covering items re-injected during Get Creative). The complete route still only validates the closing fields, so a crafted request could bypass the gate. Matches the app's client-gate + server-validate posture; the server re-check is a hardening follow-up (pairs with the epic-H integrity work).
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-5-6-weekly-review-phases-get-clear-current-creative.md`
+  summary: reviewedProjectIds is client-session state that can go stale — a project marked reviewed via commit can be re-stuck if its committed action changes elsewhere mid-review, and the gate still exempts it
+  evidence: Review (blind + edge-case) — within a single guided review this is a narrow window and the gate errs toward advancing after the user acted (safe). Durable per-project review state would need a schema addition (review_sessions has no such column and sanitizeReviewPatch won't persist one). Revisit if per-project review state becomes a requirement.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-5-6-weekly-review-phases-get-clear-current-creative.md`
+  summary: Add pending/aria-busy affordances to the Get Current / Get Creative in-flight buttons, and reconcile the duplicated en-US formatDate helper (GetCurrentPanel + review page) into a shared util
+  evidence: Review (blind) — buttons disable while busy but show no spinner/aria-busy; formatDate is duplicated verbatim. Minor polish; the locale-hardcoding is the same deferred cross-cutting concern as elsewhere (no user-tz/locale infra).

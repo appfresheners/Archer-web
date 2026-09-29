@@ -14,6 +14,8 @@ const updateSpy = vi.fn();
 // Record every .eq(col, val) applied to the inbox_items chain so the test can
 // assert the user-scope + unprocessed-guard boundary.
 const eqCalls: Array<[string, string]> = [];
+// Record the .in(col, values) source-status scope used by the reactivate path.
+const inCalls: Array<[string, unknown]> = [];
 // Project ownership guard: from("projects").select("id").eq(id).eq(user_id).maybeSingle()
 const projectOwnerMaybeSingle = vi.fn();
 const projectEqCalls: Array<[string, string]> = [];
@@ -49,6 +51,10 @@ vi.mock("@/lib/supabase/server", () => ({
           const chain = {
             eq: (col: string, val: string) => {
               eqCalls.push([col, val]);
+              return chain;
+            },
+            in: (col: string, values: unknown) => {
+              inCalls.push([col, values]);
               return chain;
             },
             select: () => ({ maybeSingle: () => updateMaybeSingle() }),
@@ -153,6 +159,7 @@ describe("/api/inbox/[id] PATCH (clarify outcome)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     eqCalls.length = 0;
+    inCalls.length = 0;
     projectEqCalls.length = 0;
     vi.spyOn(console, "error").mockImplementation(() => { });
     authed();
@@ -168,10 +175,32 @@ describe("/api/inbox/[id] PATCH (clarify outcome)", () => {
     expect(updateSpy).not.toHaveBeenCalled();
   });
 
-  it("400s on an invalid/rejected body (unprocessed is not terminal)", async () => {
-    const res = await callPatch("inbox-1", { status: "unprocessed" });
+  it("400s on an invalid/rejected body (unknown status)", async () => {
+    const res = await callPatch("inbox-1", { status: "nope" });
     expect(res.status).toBe(400);
     expect(updateSpy).not.toHaveBeenCalled();
+  });
+
+  // Story 5.6 reactivate: a someday/reference item → unprocessed. The update
+  // clears processed_at + resolved_project_id, is NOT stamped with a new
+  // processed_at, and is scoped to a someday/reference source (not unprocessed).
+  it("reactivates a someday/reference item to unprocessed (clears resolution, scoped source)", async () => {
+    const res = await callPatch("inbox-1", { status: "unprocessed" });
+    expect(res.status).toBe(200);
+    expect(res._body.id).toBe("inbox-1");
+    const patch = updateSpy.mock.calls[0][0] as Record<string, unknown>;
+    expect(patch.processing_status).toBe("unprocessed");
+    expect(patch.processed_at).toBeNull();
+    expect(patch.resolved_project_id).toBeNull();
+    // Scoped to the acting user AND a someday/reference source (not unprocessed).
+    expect(eqCalls).toContainEqual(["user_id", "user-123"]);
+    expect(inCalls).toContainEqual(["processing_status", ["someday", "reference"]]);
+  });
+
+  it("404s when reactivating an item that is not a someday/reference source", async () => {
+    updateMaybeSingle.mockResolvedValue({ data: null, error: null });
+    const res = await callPatch("inbox-1", { status: "unprocessed" });
+    expect(res.status).toBe(404);
   });
 
   // Matrix: Trash / Someday / Reference / Do-it(processed) all set status +

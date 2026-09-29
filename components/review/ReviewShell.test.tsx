@@ -1,9 +1,17 @@
 import type { ReviewShellPhase } from "@/lib/review/phases";
+import type { ReviewData } from "@/lib/review/reviewData";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PriorSnapshotDisplay } from "./phase-panels/SnapshotOpenPanel";
 import ReviewShell, { type ReviewShellSnapshotInput } from "./ReviewShell";
+
+const EMPTY_REVIEW_DATA: ReviewData = {
+  unprocessedCount: 0,
+  currentProjects: [],
+  somedayItems: [],
+  goalAlignment: [],
+};
 
 const refresh = vi.fn();
 const push = vi.fn();
@@ -34,6 +42,7 @@ function renderShell(
     initialPhase?: ReviewShellPhase;
     priorSnapshot?: PriorSnapshotDisplay | null;
     initialSnapshot?: Partial<ReviewShellSnapshotInput>;
+    reviewData?: Partial<ReviewData>;
   } = {},
 ) {
   return render(
@@ -45,6 +54,7 @@ function renderShell(
       weekEndDate="2026-10-04"
       priorSnapshot={overrides.priorSnapshot ?? null}
       initialSnapshot={{ ...EMPTY_SNAPSHOT, ...overrides.initialSnapshot }}
+      reviewData={{ ...EMPTY_REVIEW_DATA, ...overrides.reviewData }}
     />,
   );
 }
@@ -192,7 +202,7 @@ describe("ReviewShell", () => {
     ).toHaveValue("restored text");
   });
 
-  // --- Middle beats keep permissive navigation -----------------------------
+  // --- Middle beats: navigation + gates (5.6) ------------------------------
 
   it("Next persists the next phase (PATCH) and advances the bar", async () => {
     const user = userEvent.setup();
@@ -226,6 +236,213 @@ describe("ReviewShell", () => {
   it("disables Back on the first phase (no previous beat)", () => {
     renderShell({ initialPhase: "snapshot_open" });
     expect(screen.getByRole("button", { name: "Back" })).toBeDisabled();
+  });
+
+  it("Get Clear blocks advance until the inbox reaches zero", () => {
+    renderShell({
+      initialPhase: "get_clear",
+      reviewData: { unprocessedCount: 3 },
+    });
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+    expect(
+      screen.getByText(/reach inbox zero before continuing/i),
+    ).toBeInTheDocument();
+    // The panel surfaces the count (split across elements) + a process link.
+    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getByText(/items left to process/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Process inbox/i })).toHaveAttribute(
+      "href",
+      "/app/inbox",
+    );
+  });
+
+  it("Get Clear enables advance at inbox zero", () => {
+    renderShell({
+      initialPhase: "get_clear",
+      reviewData: { unprocessedCount: 0 },
+    });
+    expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
+    expect(screen.getByText(/Inbox zero/i)).toBeInTheDocument();
+  });
+
+  it("Get Current blocks advance while a stuck, unreviewed project remains", () => {
+    renderShell({
+      initialPhase: "get_current",
+      reviewData: {
+        currentProjects: [
+          {
+            id: "p1",
+            name: "Blog relaunch",
+            updatedAt: "2026-09-20T00:00:00Z",
+            committedActionText: null,
+            availableActions: [{ id: "a1", text: "Outline the intro" }],
+            isStuck: true,
+          },
+        ],
+      },
+    });
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+    expect(
+      screen.getByText(/committed action or change its status/i),
+    ).toBeInTheDocument();
+  });
+
+  it("Get Current: committing an available action clears the block and marks reviewed", async () => {
+    const user = userEvent.setup();
+    renderShell({
+      initialPhase: "get_current",
+      reviewData: {
+        currentProjects: [
+          {
+            id: "p1",
+            name: "Blog relaunch",
+            updatedAt: "2026-09-20T00:00:00Z",
+            committedActionText: null,
+            availableActions: [{ id: "a1", text: "Outline the intro" }],
+            isStuck: true,
+          },
+        ],
+      },
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: /Commit "Outline the intro"/ }),
+    );
+
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    const [url, init] = lastCall();
+    expect(url).toBe("/api/actions/a1/commit");
+    expect(init.method).toBe("POST");
+    // Reviewing (via commit) clears the gate even though the reloaded data
+    // still shows the project stuck (server refetch happens via router.refresh).
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Next" })).toBeEnabled(),
+    );
+  });
+
+  it("Get Current: changing a stuck project's status PATCHes it and clears the block", async () => {
+    const user = userEvent.setup();
+    renderShell({
+      initialPhase: "get_current",
+      reviewData: {
+        currentProjects: [
+          {
+            id: "p1",
+            name: "Blog relaunch",
+            updatedAt: "2026-09-20T00:00:00Z",
+            committedActionText: null,
+            availableActions: [],
+            isStuck: true,
+          },
+        ],
+      },
+    });
+
+    // Stuck project with no available actions → only path is a status change.
+    await user.click(screen.getByRole("button", { name: "Pause Blog relaunch" }));
+
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    const [url, init] = lastCall();
+    expect(url).toBe("/api/projects/p1");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body)).toEqual({ status: "paused" });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Next" })).toBeEnabled(),
+    );
+  });
+
+  it("Get Current: Confirm marks a non-stuck project reviewed without a mutation", async () => {
+    const user = userEvent.setup();
+    renderShell({
+      initialPhase: "get_current",
+      reviewData: {
+        currentProjects: [
+          {
+            id: "p1",
+            name: "Blog relaunch",
+            updatedAt: "2026-09-20T00:00:00Z",
+            committedActionText: "Draft the outline",
+            availableActions: [],
+            isStuck: false,
+          },
+        ],
+      },
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: /Confirm the next action for Blog relaunch/ }),
+    );
+
+    // No network call — confirming keeps the existing committed action.
+    expect(fetch).not.toHaveBeenCalled();
+    expect(screen.getByText(/· reviewed/)).toBeInTheDocument();
+  });
+
+  it("Get Current: an active project with a committed action does not block", () => {
+    renderShell({
+      initialPhase: "get_current",
+      reviewData: {
+        currentProjects: [
+          {
+            id: "p1",
+            name: "Blog relaunch",
+            updatedAt: "2026-09-20T00:00:00Z",
+            committedActionText: "Draft the outline",
+            availableActions: [],
+            isStuck: false,
+          },
+        ],
+      },
+    });
+    expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
+  });
+
+  it("Get Creative advances freely (its hard gate is the closing snapshot)", () => {
+    renderShell({
+      initialPhase: "get_creative",
+      reviewData: {
+        somedayItems: [{ id: "i1", raw_text: "learn to sail" }],
+        goalAlignment: [
+          { id: "g1", goalText: "Get fit", projectCount: 2, stuckCount: 1 },
+        ],
+      },
+    });
+    expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
+    expect(screen.getByText("learn to sail")).toBeInTheDocument();
+    expect(screen.getByText("Get fit")).toBeInTheDocument();
+  });
+
+  it("Get Creative: activating a someday item PATCHes it to unprocessed", async () => {
+    const user = userEvent.setup();
+    renderShell({
+      initialPhase: "get_creative",
+      reviewData: { somedayItems: [{ id: "i1", raw_text: "learn to sail" }] },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Activate" }));
+
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    const [url, init] = lastCall();
+    expect(url).toBe("/api/inbox/i1");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body)).toEqual({ status: "unprocessed" });
+  });
+
+  it("Get Creative: deleting a someday item DELETEs it", async () => {
+    const user = userEvent.setup();
+    renderShell({
+      initialPhase: "get_creative",
+      reviewData: { somedayItems: [{ id: "i1", raw_text: "learn to sail" }] },
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: /Delete someday item: learn to sail/ }),
+    );
+
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    const [url, init] = lastCall();
+    expect(url).toBe("/api/inbox/i1");
+    expect(init.method).toBe("DELETE");
   });
 
   // --- Closing snapshot + completion (5.5) ---------------------------------
@@ -294,6 +511,58 @@ describe("ReviewShell", () => {
       blocker: "scope creep",
     });
     await waitFor(() => expect(push).toHaveBeenCalledWith("/app/engage"));
+  });
+
+  it("blocks completion when the inbox is not empty (e.g. items added in Get Creative)", async () => {
+    const user = userEvent.setup();
+    renderShell({
+      initialPhase: "snapshot_close",
+      initialSnapshot: {
+        closing_intention: "ship v1",
+        closing_blocker: "scope creep",
+      },
+      reviewData: { unprocessedCount: 2 },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Complete review" }));
+
+    // The completion route is NOT called; an inline reason is shown.
+    expect(fetch).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText(/Process every inbox item before completing/i),
+    ).toBeInTheDocument();
+  });
+
+  it("blocks completion when an active project is still stuck and unreviewed", async () => {
+    const user = userEvent.setup();
+    renderShell({
+      initialPhase: "snapshot_close",
+      initialSnapshot: {
+        closing_intention: "ship v1",
+        closing_blocker: "scope creep",
+      },
+      reviewData: {
+        currentProjects: [
+          {
+            id: "p1",
+            name: "Blog",
+            updatedAt: "2026-09-20T00:00:00Z",
+            committedActionText: null,
+            availableActions: [],
+            isStuck: true,
+          },
+        ],
+      },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Complete review" }));
+
+    expect(fetch).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText(/committed action or change its status before completing/i),
+    ).toBeInTheDocument();
   });
 
   it("surfaces an inline error and stays put when completion fails", async () => {
