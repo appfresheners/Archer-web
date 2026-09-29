@@ -22,6 +22,7 @@
  * crashing. The `/app` layout already enforces auth.
  */
 
+import type { PriorSnapshotDisplay } from "@/components/review/phase-panels/SnapshotOpenPanel";
 import ReviewShell from "@/components/review/ReviewShell";
 import StartReview from "@/components/review/StartReview";
 import { isReviewShellPhase, type ReviewShellPhase } from "@/lib/review/phases";
@@ -34,10 +35,19 @@ export const metadata: Metadata = {
   title: "Weekly Review — Archer",
 };
 
+/** Milliseconds in one day (for computing the prior ISO week). */
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 interface CurrentWeekSession {
   id: string;
   current_phase: ReviewPhase;
   completed_at: string | null;
+  week_number: number;
+  week_start_date: string;
+  week_end_date: string;
+  opening_retrospective: string | null;
+  closing_intention: string | null;
+  closing_blocker: string | null;
 }
 
 interface ReviewLanding {
@@ -45,6 +55,8 @@ interface ReviewLanding {
   session: CurrentWeekSession | null;
   /** ISO timestamp of the most recently completed review, or null. */
   lastCompletedAt: string | null;
+  /** The prior week's closing snapshot, or null. */
+  priorSnapshot: PriorSnapshotDisplay | null;
 }
 
 /**
@@ -52,37 +64,58 @@ interface ReviewLanding {
  * review's timestamp. Returns a safe empty landing on any failure.
  */
 async function loadReviewLanding(): Promise<ReviewLanding> {
+  const empty: ReviewLanding = {
+    session: null,
+    lastCompletedAt: null,
+    priorSnapshot: null,
+  };
   try {
     const supabase = await createClient();
-    const { week_number, week_year } = isoWeek(new Date());
+    const now = new Date();
+    const { week_number, week_year } = isoWeek(now);
+    // The prior week's identity = the ISO week of seven days ago. This drives
+    // the "Last week you said:" read of `weekly_snapshots` (closed loop).
+    const prior = isoWeek(new Date(now.getTime() - 7 * DAY_MS));
 
-    const [{ data: current, error: currentError }, { data: lastCompleted }] =
-      await Promise.all([
-        supabase
-          .from("review_sessions")
-          .select("id, current_phase, completed_at")
-          .eq("week_number", week_number)
-          .eq("week_year", week_year)
-          .maybeSingle(),
-        supabase
-          .from("review_sessions")
-          .select("completed_at")
-          .not("completed_at", "is", null)
-          .order("completed_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-      ]);
+    const [
+      { data: current, error: currentError },
+      { data: lastCompleted },
+      { data: priorSnapshotRow },
+    ] = await Promise.all([
+      supabase
+        .from("review_sessions")
+        .select(
+          "id, current_phase, completed_at, week_number, week_start_date, week_end_date, opening_retrospective, closing_intention, closing_blocker",
+        )
+        .eq("week_number", week_number)
+        .eq("week_year", week_year)
+        .maybeSingle(),
+      supabase
+        .from("review_sessions")
+        .select("completed_at")
+        .not("completed_at", "is", null)
+        .order("completed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("weekly_snapshots")
+        .select("intention, blocker, opening_retrospective")
+        .eq("week_number", prior.week_number)
+        .eq("week_year", prior.week_year)
+        .maybeSingle(),
+    ]);
 
-    if (currentError) return { session: null, lastCompletedAt: null };
+    if (currentError) return empty;
 
     return {
       session: (current as CurrentWeekSession | null) ?? null,
       lastCompletedAt:
         (lastCompleted as { completed_at: string | null } | null)?.completed_at ??
         null,
+      priorSnapshot: (priorSnapshotRow as PriorSnapshotDisplay | null) ?? null,
     };
   } catch {
-    return { session: null, lastCompletedAt: null };
+    return empty;
   }
 }
 
@@ -129,7 +162,7 @@ function Landing({
 }
 
 export default async function ReviewPage() {
-  const { session, lastCompletedAt } = await loadReviewLanding();
+  const { session, lastCompletedAt, priorSnapshot } = await loadReviewLanding();
 
   // Resume only an in-progress session parked on a navigable beat (not the
   // terminal 'complete' phase and with no completed_at).
@@ -150,6 +183,15 @@ export default async function ReviewPage() {
         <ReviewShell
           sessionId={session.id}
           initialPhase={session.current_phase as ReviewShellPhase}
+          weekNumber={session.week_number}
+          weekStartDate={session.week_start_date}
+          weekEndDate={session.week_end_date}
+          priorSnapshot={priorSnapshot}
+          initialSnapshot={{
+            opening_retrospective: session.opening_retrospective ?? "",
+            closing_intention: session.closing_intention ?? "",
+            closing_blocker: session.closing_blocker ?? "",
+          }}
         />
       ) : (
         <Landing

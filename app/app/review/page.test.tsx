@@ -10,23 +10,40 @@ import ReviewPage from "./page";
 
 const currentMaybeSingle = vi.fn();
 const lastCompletedMaybeSingle = vi.fn();
+const priorSnapshotMaybeSingle = vi.fn();
+// Capture the (col, val) pairs applied to the prior-week weekly_snapshots
+// query so a test can assert it targets the PRIOR ISO week, not the current one.
+const priorSnapshotEq: Array<[string, unknown]> = [];
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
-    from: () => ({
-      select: () => ({
-        // current-week chain
-        eq: () => ({
-          eq: () => ({ maybeSingle: () => currentMaybeSingle() }),
-        }),
-        // last-completed chain
-        not: () => ({
-          order: () => ({
-            limit: () => ({ maybeSingle: () => lastCompletedMaybeSingle() }),
+    from: (table: string) => {
+      if (table === "weekly_snapshots") {
+        // prior-week snapshot chain: .select().eq().eq().maybeSingle()
+        const chain = {
+          select: () => chain,
+          eq: (col: string, val: unknown) => {
+            priorSnapshotEq.push([col, val]);
+            return chain;
+          },
+          maybeSingle: () => priorSnapshotMaybeSingle(),
+        };
+        return chain;
+      }
+      // review_sessions: two chains distinguished by .eq (current) vs .not (last).
+      return {
+        select: () => ({
+          eq: () => ({
+            eq: () => ({ maybeSingle: () => currentMaybeSingle() }),
+          }),
+          not: () => ({
+            order: () => ({
+              limit: () => ({ maybeSingle: () => lastCompletedMaybeSingle() }),
+            }),
           }),
         }),
-      }),
-    }),
+      };
+    },
   }),
 }));
 
@@ -46,6 +63,23 @@ describe("ReviewPage", () => {
     vi.clearAllMocks();
     currentMaybeSingle.mockResolvedValue({ data: null, error: null });
     lastCompletedMaybeSingle.mockResolvedValue({ data: null, error: null });
+    priorSnapshotMaybeSingle.mockResolvedValue({ data: null, error: null });
+    priorSnapshotEq.length = 0;
+  });
+
+  it("queries the PRIOR ISO week for the closed-loop snapshot across a year boundary", async () => {
+    // Freeze 'now' to 2026-01-01 (ISO week 1 of 2026). Seven days earlier is
+    // 2025-12-25 → ISO week 52 of 2025. The prior-week query must target that,
+    // not the current week — a regression to `now` would query week 1/2026.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T12:00:00Z"));
+    try {
+      await renderPage();
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(priorSnapshotEq).toContainEqual(["week_number", 52]);
+    expect(priorSnapshotEq).toContainEqual(["week_year", 2025]);
   });
 
   it("shows the Start control when there is no current-week session", async () => {
@@ -57,7 +91,17 @@ describe("ReviewPage", () => {
 
   it("renders the ReviewShell seeded at the session's phase for an in-progress session", async () => {
     currentMaybeSingle.mockResolvedValue({
-      data: { id: "rev-1", current_phase: "get_current", completed_at: null },
+      data: {
+        id: "rev-1",
+        current_phase: "get_current",
+        completed_at: null,
+        week_number: 40,
+        week_start_date: "2026-09-28",
+        week_end_date: "2026-10-04",
+        opening_retrospective: "moved a",
+        closing_intention: null,
+        closing_blocker: null,
+      },
       error: null,
     });
 
@@ -86,6 +130,38 @@ describe("ReviewPage", () => {
 
     expect(screen.getByText(/Last review completed/)).toBeInTheDocument();
     expect(screen.getByText(/Sep 20, 2026/)).toBeInTheDocument();
+  });
+
+  it("passes the prior week's snapshot to the shell (closed loop) when resuming at the opening", async () => {
+    currentMaybeSingle.mockResolvedValue({
+      data: {
+        id: "rev-1",
+        current_phase: "snapshot_open",
+        completed_at: null,
+        week_number: 40,
+        week_start_date: "2026-09-28",
+        week_end_date: "2026-10-04",
+        opening_retrospective: "",
+        closing_intention: null,
+        closing_blocker: null,
+      },
+      error: null,
+    });
+    priorSnapshotMaybeSingle.mockResolvedValue({
+      data: {
+        intention: "ship the beta",
+        blocker: "flaky CI",
+        opening_retrospective: null,
+      },
+      error: null,
+    });
+
+    await renderPage();
+
+    // The opening panel surfaces the prior week's closing snapshot read-only.
+    expect(screen.getByText("Last week you said:")).toBeInTheDocument();
+    expect(screen.getByText("ship the beta")).toBeInTheDocument();
+    expect(screen.getByText("flaky CI")).toBeInTheDocument();
   });
 
   it("does not reopen a completed current-week review (shows completed landing)", async () => {

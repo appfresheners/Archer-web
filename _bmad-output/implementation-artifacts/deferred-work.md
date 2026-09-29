@@ -339,3 +339,13 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-5-4-weekly-review-shell-phase-bar-persistence.md`
   summary: Move focus to the active phase panel's heading on phase change (in addition to the polite live-region announcement) once the panels carry real content
   evidence: Review (blind) — the phase name is announced via an aria-live region (AC satisfied), but focus is not moved to the new panel. The panels are placeholders in 5.4; the real Get Clear/Current/Creative content + snapshot fields land in 5.5/5.6, which is where focus-management belongs. Consistent with the shared focus-management debt tracked under epic-H (H-2).
+
+## Deferred from: code review of 5-5 (2026-09-28)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-5-5-weekly-snapshot-opening-closing-closed-loop.md`
+  summary: On a failed weekly-review completion (empty closing field), move focus to the first invalid field in addition to rendering the inline aria-invalid validation
+  evidence: Review (blind) — the empty-field completion now reveals inline `aria-required`/`aria-invalid` validation (AC satisfied) but does not move focus to the offending field. A focus-to-first-invalid pass belongs with the shared focus-management debt tracked under epic-H (H-2), alongside the auth/generation error-focus deferrals.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-5-5-weekly-snapshot-opening-closing-closed-loop.md`
+  summary: The closed-loop "Last week you said:" keys off the ISO week exactly 7 days prior — if a user skips a week, no prior snapshot shows even though a more-recent one exists
+  evidence: Review (blind) — matches the AC as written ("the previous week's closing snapshot"), so this is a deliberate literal reading, not a defect. Showing the most-recent snapshot instead (when the immediately-prior week was skipped) is a possible future enhancement; revisit if users report the gap.

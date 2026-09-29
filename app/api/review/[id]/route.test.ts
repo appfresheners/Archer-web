@@ -136,4 +136,55 @@ describe("/api/review/[id] PATCH", () => {
     const res = await call({ current_phase: "get_clear" });
     expect(res.status).toBe(500);
   });
+
+  // --- Story 5.5: snapshot field persistence -------------------------------
+
+  it("persists the opening retrospective field via the extended validator", async () => {
+    updateMaybeSingle.mockResolvedValue({
+      data: { id: "rev-1", current_phase: "snapshot_open" },
+      error: null,
+    });
+
+    const res = await call({ opening_retrospective: "moved a, missed b" });
+
+    expect(res.status).toBe(200);
+    expect(reviewUpdate).toHaveBeenCalledWith({
+      opening_retrospective: "moved a, missed b",
+    });
+    expect(secondEq).toHaveBeenCalledWith("user_id", "user-123");
+    expect(isCall).toHaveBeenCalledWith("completed_at", null);
+  });
+
+  it("persists the closing fields (intention/blocker), including empties for in-progress saves", async () => {
+    updateMaybeSingle.mockResolvedValue({
+      data: { id: "rev-1", current_phase: "snapshot_close" },
+      error: null,
+    });
+
+    const res = await call({ closing_intention: "focus", closing_blocker: "" });
+
+    expect(res.status).toBe(200);
+    expect(reviewUpdate).toHaveBeenCalledWith({
+      closing_intention: "focus",
+      closing_blocker: "",
+    });
+  });
+
+  it("persists a phase + snapshot field together in one PATCH", async () => {
+    updateMaybeSingle.mockResolvedValue({
+      data: { id: "rev-1", current_phase: "get_clear" },
+      error: null,
+    });
+
+    const res = await call({
+      current_phase: "get_clear",
+      opening_retrospective: "done",
+    });
+
+    expect(res.status).toBe(200);
+    expect(reviewUpdate).toHaveBeenCalledWith({
+      current_phase: "get_clear",
+      opening_retrospective: "done",
+    });
+  });
 });
