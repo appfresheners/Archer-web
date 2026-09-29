@@ -210,6 +210,27 @@ describe("NewProjectClient", () => {
     expect(screen.getByRole("textbox")).toHaveValue("Plan the offsite");
   });
 
+  it("sends the edited inbox text to AI as project-generation input", async () => {
+    searchParams = new URLSearchParams({
+      from_inbox: "item-1",
+      seed: "Plan the offsite",
+    });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "proj-1" }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "item-1" }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<NewProjectClient />);
+    typeAndSubmit("Successful team offsite completed");
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/app/projects/proj-1"));
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toEqual({
+      mode: "project",
+      input: "Successful team offsite completed",
+      depth: "minimal",
+    });
+  });
+
   it("links the inbox item (processed + resolved_project_id) after creating", async () => {
     searchParams = new URLSearchParams({
       from_inbox: "item-1",

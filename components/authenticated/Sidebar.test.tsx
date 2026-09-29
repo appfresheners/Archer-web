@@ -13,7 +13,7 @@ afterEach(() => {
 });
 
 describe("Sidebar", () => {
-  it("renders the primary nav inside a <nav> with the 4 destinations in order", () => {
+  it("renders the primary nav inside a <nav> with the destinations in order", () => {
     mockUsePathname.mockReturnValue("/app/engage");
     render(<Sidebar />);
 
@@ -21,7 +21,7 @@ describe("Sidebar", () => {
     const links = within(nav).getAllByRole("link");
     const labels = links.map((link) => link.getAttribute("title"));
 
-    expect(labels).toEqual(["Inbox", "Goals", "Engage", "Weekly Review"]);
+    expect(labels).toEqual(["Inbox", "Goals", "Projects", "Engage", "Weekly Review"]);
   });
 
   it("links each nav item to its /app/* route", () => {
@@ -36,6 +36,7 @@ describe("Sidebar", () => {
 
     expect(byTitle("Inbox")).toHaveAttribute("href", "/app/inbox");
     expect(byTitle("Goals")).toHaveAttribute("href", "/app/goals");
+    expect(byTitle("Projects")).toHaveAttribute("href", "/app/projects");
     expect(byTitle("Engage")).toHaveAttribute("href", "/app/engage");
     expect(byTitle("Weekly Review")).toHaveAttribute("href", "/app/review");
   });

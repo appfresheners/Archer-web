@@ -66,6 +66,16 @@ function GoalsIcon(): ReactNode {
   );
 }
 
+/** Projects — a checked-list glyph. */
+function ProjectsIcon(): ReactNode {
+  return createElement(
+    "svg",
+    iconProps,
+    createElement("path", { key: "list", d: "M9 6h11M9 12h11M9 18h11" }),
+    createElement("path", { key: "checks", d: "m3 6 1 1 2-2m-3 7 1 1 2-2m-3 7 1 1 2-2" }),
+  );
+}
+
 /** Engage — a lightning bolt (act now). */
 function EngageIcon(): ReactNode {
   return createElement(
@@ -99,8 +109,8 @@ function ReviewIcon(): ReactNode {
 }
 
 /**
- * Primary navigation, in the spec-mandated order:
- * Inbox → Goals → Engage → Weekly Review.
+ * Primary navigation, in the spec-mandated order with Projects alongside
+ * Inbox, Goals, Engage, and Weekly Review.
  */
 export const navItems: NavItem[] = [
   {
@@ -114,6 +124,12 @@ export const navItems: NavItem[] = [
     shortLabel: "Goals",
     href: "/app/goals",
     icon: GoalsIcon(),
+  },
+  {
+    label: "Projects",
+    shortLabel: "Projects",
+    href: "/app/projects",
+    icon: ProjectsIcon(),
   },
   {
     label: "Engage",

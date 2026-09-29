@@ -60,6 +60,7 @@ function fullModel(): EngageModel {
         availableByProject: { p3: [] },
       },
     ],
+    projectGroups: [],
     anytime: [
       {
         id: "s1",
@@ -97,6 +98,84 @@ describe("EngageBoard", () => {
     render(<EngageBoard model={fullModel()} />);
     expect(screen.getByText("Anytime / No project")).toBeInTheDocument();
     expect(screen.getByText("Call the bank")).toBeInTheDocument();
+  });
+
+  it("opens the Pomodoro controls from an Engage action", async () => {
+    const user = userEvent.setup();
+    render(<EngageBoard model={fullModel()} />);
+
+    await user.click(
+      screen.getByRole("button", { name: 'Open focus timer for "Write the intro"' }),
+    );
+
+    expect(screen.getByRole("region", { name: "Focus timer for Write the intro" })).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "Time available (minutes)" })).toHaveValue(25);
+  });
+
+  it("renders committed actions grouped under a goal-less project", () => {
+    const model: EngageModel = {
+      goalGroups: [],
+      projectGroups: [
+        {
+          projectId: "project-mode-1",
+          projectName: "Portfolio live",
+          committed: [
+            {
+              id: "project-action-1",
+              text: "Publish the portfolio",
+              context_tags: [],
+              projectId: "project-mode-1",
+              projectName: "Portfolio live",
+            },
+          ],
+          available: [],
+        },
+      ],
+      anytime: [],
+      isEmpty: false,
+    };
+
+    render(<EngageBoard model={model} />);
+
+    expect(screen.getAllByText("Portfolio live")).toHaveLength(2);
+    expect(screen.getByText("Publish the portfolio")).toBeInTheDocument();
+  });
+
+  it("keeps the next-action prompt working for a goal-less project", async () => {
+    const user = userEvent.setup();
+    const model: EngageModel = {
+      goalGroups: [],
+      projectGroups: [
+        {
+          projectId: "project-mode-1",
+          projectName: "Portfolio live",
+          committed: [
+            {
+              id: "project-action-1",
+              text: "Publish the portfolio",
+              context_tags: [],
+              projectId: "project-mode-1",
+              projectName: "Portfolio live",
+            },
+          ],
+          available: [{ id: "project-action-2", text: "Share the URL" }],
+        },
+      ],
+      anytime: [],
+      isEmpty: false,
+    };
+
+    render(<EngageBoard model={model} />);
+    await user.click(
+      screen.getByRole("button", { name: 'Mark "Publish the portfolio" done' }),
+    );
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("What's next for Portfolio live?")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Share the URL" }));
+
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    expect(lastCall()[0]).toBe("/api/actions/project-action-2/commit");
   });
 
   it("shows the amber stuck band at the bottom of a goal group", () => {
@@ -153,6 +232,7 @@ describe("EngageBoard", () => {
           availableByProject: { p1: [] },
         },
       ],
+      projectGroups: [],
       anytime: [],
       isEmpty: false,
     };
@@ -183,6 +263,7 @@ describe("EngageBoard", () => {
           availableByProject: { p1: [] },
         },
       ],
+      projectGroups: [],
       anytime: [],
       isEmpty: false,
     };
@@ -280,7 +361,9 @@ describe("EngageBoard", () => {
 
   it("renders the honest empty state with no confetti", () => {
     render(
-      <EngageBoard model={{ goalGroups: [], anytime: [], isEmpty: true }} />,
+      <EngageBoard
+        model={{ goalGroups: [], projectGroups: [], anytime: [], isEmpty: true }}
+      />,
     );
     expect(
       screen.getByText("No committed actions. Open a project and commit one."),

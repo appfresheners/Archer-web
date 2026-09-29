@@ -11,7 +11,8 @@
  *     project, is excluded.
  *   - Rows are grouped by goal (goal order preserved from the input). Each goal
  *     group also carries its `stuckProjects` (active + zero committed, via the
- *     shared `isProjectStuck`) at the bottom.
+ *     shared `isProjectStuck`) at the bottom. Goal-less active projects have
+ *     their own groups.
  *   - Standalone committed actions (`project_id === null`, Story 5.2) collect
  *     under a single "Anytime / No project" group.
  *   - `waiting` actions and actions whose `scheduled_for` is a FUTURE date are
@@ -98,8 +99,17 @@ export interface EngageGoalGroup {
   availableByProject: Record<string, EngageAvailableAction[]>;
 }
 
+/** A committed-action group for an active project without an active goal. */
+export interface EngageProjectGroup {
+  projectId: string;
+  projectName: string;
+  committed: EngageRow[];
+  available: EngageAvailableAction[];
+}
+
 export interface EngageModel {
   goalGroups: EngageGoalGroup[];
+  projectGroups: EngageProjectGroup[];
   /** Standalone committed rows (project_id === null). */
   anytime: EngageRow[];
   isEmpty: boolean;
@@ -170,11 +180,15 @@ export function buildEngageModel(
     else actionsByProject.set(action.project_id, [action]);
   }
 
-  // Active projects grouped by their parent goal.
+  const activeGoalIds = new Set(
+    goals.filter((goal) => goal.status === "active").map((goal) => goal.id),
+  );
+
+  // Active projects with active parent goals are grouped under those goals.
   const activeProjectsByGoal = new Map<string, ProjectLike[]>();
   for (const project of projects) {
     if (project.status !== "active") continue;
-    if (!project.goal_id) continue;
+    if (!project.goal_id || !activeGoalIds.has(project.goal_id)) continue;
     const list = activeProjectsByGoal.get(project.goal_id);
     if (list) list.push(project);
     else activeProjectsByGoal.set(project.goal_id, [project]);
@@ -223,6 +237,32 @@ export function buildEngageModel(
     });
   }
 
+  // Keep active projects without an active parent goal visible in their own
+  // group instead of dropping them between goal groups and standalone actions.
+  const projectGroups: EngageProjectGroup[] = [];
+  for (const project of projects) {
+    if (project.status !== "active") continue;
+    if (project.goal_id && activeGoalIds.has(project.goal_id)) continue;
+
+    const projectActions = actionsByProject.get(project.id) ?? [];
+    const committed = sortBySortOrder(
+      projectActions.filter(
+        (action) => action.status === "committed" && isDoNow(action, today),
+      ),
+    ).map((action) => toRow(action, project.id, project.name));
+
+    if (committed.length === 0) continue;
+
+    projectGroups.push({
+      projectId: project.id,
+      projectName: project.name,
+      committed,
+      available: sortBySortOrder(
+        projectActions.filter((action) => action.status === "available"),
+      ).map((action) => ({ id: action.id, text: action.text })),
+    });
+  }
+
   // Standalone committed do-now rows → the "Anytime / No project" group.
   const anytime = sortBySortOrder(
     standaloneActions.filter(
@@ -232,11 +272,13 @@ export function buildEngageModel(
 
   const hasCommitted =
     anytime.length > 0 ||
+    projectGroups.length > 0 ||
     goalGroups.some((group) => group.committed.length > 0);
   const hasStuck = goalGroups.some((group) => group.stuckProjects.length > 0);
 
   return {
     goalGroups,
+    projectGroups,
     anytime,
     isEmpty: !hasCommitted && !hasStuck,
   };

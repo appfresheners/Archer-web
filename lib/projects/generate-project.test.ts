@@ -95,6 +95,7 @@ describe("generateProject", () => {
         const [systemPrompt, userMessage] = generate.mock.calls[0];
         expect(systemPrompt).toContain("JSON");
         expect(systemPrompt).not.toContain("Natural Planning Model");
+        expect(systemPrompt).toContain("Treat the user's input as source material");
         expect(userMessage).toContain("Personal portfolio site");
     });
 
@@ -104,6 +105,7 @@ describe("generateProject", () => {
         expect(result.detail?.vision).toBeTruthy();
         const [systemPrompt] = generate.mock.calls[0];
         expect(systemPrompt).toContain("Natural Planning Model");
+        expect(systemPrompt).toContain("Treat the user's input as source material");
     });
 
     it("propagates a format error when the model returns non-JSON", async () => {

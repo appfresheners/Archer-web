@@ -37,6 +37,7 @@ export const metadata: Metadata = {
 
 const EMPTY_MODEL: EngageModel = {
   goalGroups: [],
+  projectGroups: [],
   anytime: [],
   isEmpty: true,
 };

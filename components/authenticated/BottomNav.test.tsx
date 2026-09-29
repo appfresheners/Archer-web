@@ -13,7 +13,7 @@ afterEach(() => {
 });
 
 describe("BottomNav", () => {
-  it("renders the 4 destinations in order using their short labels", () => {
+  it("renders the destinations in order using their short labels", () => {
     mockUsePathname.mockReturnValue("/app/engage");
     render(<BottomNav />);
 
@@ -22,7 +22,7 @@ describe("BottomNav", () => {
     const labels = links.map((link) => link.textContent?.trim());
 
     // "Weekly Review" collapses to "Review" in the bottom bar.
-    expect(labels).toEqual(["Inbox", "Goals", "Engage", "Review"]);
+    expect(labels).toEqual(["Inbox", "Goals", "Projects", "Engage", "Review"]);
   });
 
   it("links each destination to its /app/* route", () => {
@@ -37,6 +37,7 @@ describe("BottomNav", () => {
 
     expect(byText("Inbox")).toHaveAttribute("href", "/app/inbox");
     expect(byText("Goals")).toHaveAttribute("href", "/app/goals");
+    expect(byText("Projects")).toHaveAttribute("href", "/app/projects");
     expect(byText("Engage")).toHaveAttribute("href", "/app/engage");
     expect(byText("Review")).toHaveAttribute("href", "/app/review");
   });

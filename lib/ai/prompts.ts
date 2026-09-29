@@ -46,6 +46,7 @@ Rules for next_actions (EXACTLY 12, in logical sequence):
 - NEVER reference "Open Notion" — Archer itself holds the plan
 
 Hard rules:
+- Treat the user's input as source material, not as the final project name. Infer the desired result and write a concise name describing that completed outcome; do not merely repeat or lightly edit an activity-based input.
 - Output valid JSON only. No text before or after the JSON object.
 - Every string is specific to the user's actual project — no generic filler, no placeholders.
 - Produce EXACTLY 12 next_actions.`;
@@ -78,6 +79,7 @@ Rules for next_actions (EXACTLY 12, in logical sequence):
 - NEVER reference "Open Notion" — Archer itself holds the plan
 
 Hard rules:
+- Treat the user's input as source material, not as the final project name. Infer the desired result and write a concise name describing that completed outcome; do not merely repeat or lightly edit an activity-based input.
 - Output valid JSON only. No text before or after the JSON object.
 - Every string is specific to the user's actual project — no generic filler, no placeholders.
 - Produce EXACTLY 12 next_actions.`;

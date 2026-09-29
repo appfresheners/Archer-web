@@ -118,7 +118,8 @@ describe("buildEngageModel — active-only scoping", () => {
         TODAY,
       );
       expect(model.goalGroups).toHaveLength(0);
-      expect(model.isEmpty).toBe(true);
+      expect(model.projectGroups).toHaveLength(1);
+      expect(model.isEmpty).toBe(false);
     }
   });
 
@@ -133,6 +134,57 @@ describe("buildEngageModel — active-only scoping", () => {
       expect(model.goalGroups[0].committed).toHaveLength(0);
       expect(model.goalGroups[0].stuckProjects).toHaveLength(0);
     }
+  });
+
+  it("includes committed actions from active projects without a goal", () => {
+    const model = buildEngageModel(
+      [],
+      [project({ goal_id: null })],
+      [action({ project_id: "p1", status: "committed" })],
+      TODAY,
+    );
+
+    expect(model.projectGroups).toEqual([
+      {
+        projectId: "p1",
+        projectName: "Portfolio site live",
+        committed: [
+          {
+            id: "a1",
+            text: "Write the intro",
+            context_tags: [],
+            projectId: "p1",
+            projectName: "Portfolio site live",
+          },
+        ],
+        available: [],
+      },
+    ]);
+    expect(model.isEmpty).toBe(false);
+  });
+
+  it("includes an active project when its parent goal is inactive", () => {
+    const model = buildEngageModel(
+      [goal({ status: "paused" })],
+      [project()],
+      [action({ status: "committed" })],
+      TODAY,
+    );
+
+    expect(model.projectGroups.map((group) => group.projectId)).toEqual(["p1"]);
+    expect(model.projectGroups[0].committed.map((row) => row.id)).toEqual(["a1"]);
+  });
+
+  it("does not include goal-less projects that are not active", () => {
+    const model = buildEngageModel(
+      [],
+      [project({ goal_id: null, status: "paused" })],
+      [action({ project_id: "p1", status: "committed" })],
+      TODAY,
+    );
+
+    expect(model.projectGroups).toHaveLength(0);
+    expect(model.isEmpty).toBe(true);
   });
 });
 

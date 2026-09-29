@@ -5,8 +5,8 @@
 # external Traefik network so Traefik can route to it via the labels below.
 #
 # Setup:
-#   1. cp .env.example .env            # set DOMAIN
-#   2. cp archer/.env.example archer/.env   # set AI provider key
+#   1. cp .env.example .env                  # set DOMAIN (compose interpolation)
+#   2. cp archer/.env.example archer/.env.local   # set AI provider + Supabase keys
 #   3. docker compose up -d --build
 #
 # See DEPLOYMENT.md for full instructions.
@@ -17,10 +17,12 @@ services:
       context: ./archer
       dockerfile: Dockerfile
     restart: unless-stopped
-    # App runtime configuration (AI_PROVIDER, *_API_KEY, *_MODEL).
-    # Copy archer/.env.example to archer/.env and fill in your keys.
+    # App runtime configuration (AI_PROVIDER, *_API_KEY, *_MODEL, Supabase keys).
+    # Copy archer/.env.example to archer/.env.local and fill in your keys — this
+    # is the same file Next.js loads for local `dev`/`build`/`start`, so one file
+    # drives both local and containerized runs.
     env_file:
-      - ./archer/.env
+      - ./archer/.env.local
     expose:
       - "3000"
     networks:

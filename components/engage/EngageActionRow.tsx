@@ -11,6 +11,8 @@
  */
 
 import type { EngageRow } from "@/lib/engage/model";
+import { useState } from "react";
+import PomodoroTimer from "./PomodoroTimer";
 
 export interface EngageActionRowProps {
   row: EngageRow;
@@ -23,6 +25,8 @@ export default function EngageActionRow({
   disabled,
   onDone,
 }: EngageActionRowProps) {
+  const [focusOpen, setFocusOpen] = useState(false);
+
   return (
     <li className="flex flex-col gap-2 rounded-[var(--radius-md)] border border-border bg-surface-raised p-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -46,17 +50,32 @@ export default function EngageActionRow({
             {row.projectName}
           </span>
         )}
+
+        {focusOpen && <PomodoroTimer actionText={row.text} />}
       </div>
 
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => onDone(row)}
-        aria-label={`Mark "${row.text}" done`}
-        className="inline-flex min-h-[44px] w-fit shrink-0 items-center rounded-[var(--radius-sm)] border border-border-strong px-4 py-2 font-medium text-text-primary transition-colors hover:border-primary hover:bg-primary-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        Done
-      </button>
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={disabled}
+          aria-expanded={focusOpen}
+          onClick={() => setFocusOpen((open) => !open)}
+          aria-label={`${focusOpen ? "Close" : "Open"} focus timer for "${row.text}"`}
+          className="inline-flex min-h-[44px] w-fit items-center rounded-[var(--radius-sm)] border border-primary px-4 py-2 font-medium text-primary transition-colors hover:bg-primary-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Focus
+        </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onDone(row)}
+          aria-label={`Mark "${row.text}" done`}
+          className="inline-flex min-h-[44px] w-fit items-center rounded-[var(--radius-sm)] border border-border-strong px-4 py-2 font-medium text-text-primary transition-colors hover:border-primary hover:bg-primary-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Done
+        </button>
+      </div>
+
     </li>
   );
 }

@@ -7,8 +7,9 @@
  * credentials. This is the single source of required-var validation for
  * Supabase wiring (Story 1.3).
  *
- * `.env.example` is the canonical list of every required variable; keep the
- * names below in lockstep with it.
+ * `.env.example` is the canonical list of every required variable; copy it to
+ * `.env.local` (loaded by Next.js locally and by docker-compose `env_file`) and
+ * keep the names below in lockstep with it.
  */
 
 /**
@@ -16,9 +17,10 @@
  * naming the variable when it is missing or empty.
  */
 function requireEnv(name: string): string {
+  console.log()
   const value = process.env[name];
   if (!value || value.trim() === '') {
-    const message = `Missing required environment variable: ${name}. Add it to your .env (see .env.example for the full contract).`;
+    const message = `Missing required environment variable: ${name}. Add it to your .env.local (see .env.example for the full contract).`;
     // Loud failure — logged so the missing var is visible in server logs.
     console.error(message);
     throw new Error(message);
@@ -28,12 +30,12 @@ function requireEnv(name: string): string {
 
 /** Public Supabase project URL. Safe for browser + server. */
 export function getSupabaseUrl(): string {
-  return requireEnv('NEXT_PUBLIC_SUPABASE_URL');
+  return process.env.NEXT_PUBLIC_SUPABASE_URL!;
 }
 
 /** Public anon key. Safe for browser + server. */
 export function getSupabaseAnonKey(): string {
-  return requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 }
 
 /**
@@ -41,5 +43,5 @@ export function getSupabaseAnonKey(): string {
  * or middleware code. It bypasses RLS and must never reach the browser.
  */
 export function getServiceRoleKey(): string {
-  return requireEnv('SUPABASE_SERVICE_ROLE_KEY');
+  return process.env.SUPABASE_SERVICE_ROLE_KEY!;
 }

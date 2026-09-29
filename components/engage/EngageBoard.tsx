@@ -65,6 +65,11 @@ export default function EngageBoard({ model }: { model: EngageModel }) {
         for (const tag of row.context_tags) tags.add(tag);
       }
     }
+    for (const group of model.projectGroups) {
+      for (const row of group.committed) {
+        for (const tag of row.context_tags) tags.add(tag);
+      }
+    }
     for (const row of model.anytime) {
       for (const tag of row.context_tags) tags.add(tag);
     }
@@ -133,7 +138,12 @@ export default function EngageBoard({ model }: { model: EngageModel }) {
     const group = model.goalGroups.find((g) =>
       g.committed.some((r) => r.id === row.id),
     );
-    const available = group?.availableByProject[row.projectId] ?? [];
+    const projectGroup = model.projectGroups.find((g) =>
+      g.committed.some((r) => r.id === row.id),
+    );
+    const available = row.projectId
+      ? group?.availableByProject[row.projectId] ?? projectGroup?.available ?? []
+      : [];
     setNextPrompt({
       projectId: row.projectId,
       projectName: row.projectName ?? "this project",
@@ -252,6 +262,34 @@ export default function EngageBoard({ model }: { model: EngageModel }) {
                 {group.stuckProjects.map((sp) => (
                   <StuckProjectBand key={sp.id} id={sp.id} name={sp.name} />
                 ))}
+              </div>
+            </details>
+          );
+        })}
+
+        {model.projectGroups.map((group) => {
+          const visible = group.committed.filter(rowMatchesFilter);
+          if (visible.length === 0) return null;
+          return (
+            <details
+              key={group.projectId}
+              open
+              className="rounded-[var(--radius-md)] border border-border bg-surface"
+            >
+              <summary className="cursor-pointer rounded-[var(--radius-md)] px-[var(--spacing-card-p)] py-3 text-[length:var(--font-size-subheading)] font-semibold text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]">
+                {group.projectName}
+              </summary>
+              <div className="px-[var(--spacing-card-p)] pb-[var(--spacing-card-p)] pt-1">
+                <ul className="flex flex-col gap-2">
+                  {visible.map((row) => (
+                    <EngageActionRow
+                      key={row.id}
+                      row={row}
+                      disabled={busy}
+                      onDone={handleDone}
+                    />
+                  ))}
+                </ul>
               </div>
             </details>
           );
