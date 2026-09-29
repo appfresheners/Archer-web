@@ -329,3 +329,13 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-5-3-engage-view-committed-actions-next-action-prompting.md`
   summary: A COMMITTED action with a future scheduled_for makes its project show neither a do-now row (excluded by isDoNow) nor a stuck band (isProjectStuck sees it as committed) — the project silently disappears from Engage until the date arrives
   evidence: Review (blind + edge-case) — an unusual combination (clarify creates scheduled actions as `available`, not `committed`), and arguably correct GTD behaviour (a committed action on the calendar is "handled"). Documented as a known corner; revisit only if committed+scheduled becomes a common path.
+
+## Deferred from: code review of 5-4 (2026-09-28)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-5-4-weekly-review-shell-phase-bar-persistence.md`
+  summary: The weekly-review week identity is computed from the server's UTC instant (new Date() → isoWeek/weekBounds), not the user's local week — so which ISO week a review belongs to is server-timezone dependent near the week boundary
+  evidence: Review (edge-case + blind, consensus) — same root cause and posture as the Engage `today` deferral (5.3): the app has no per-user timezone plumbing, and week identity is a bare ISO week. A fully-correct user-local week needs tz infrastructure (profile tz or a client-computed week passed to POST). Low impact for single-timezone users; tracked with the broader user-timezone work.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-5-4-weekly-review-shell-phase-bar-persistence.md`
+  summary: Move focus to the active phase panel's heading on phase change (in addition to the polite live-region announcement) once the panels carry real content
+  evidence: Review (blind) — the phase name is announced via an aria-live region (AC satisfied), but focus is not moved to the new panel. The panels are placeholders in 5.4; the real Get Clear/Current/Creative content + snapshot fields land in 5.5/5.6, which is where focus-management belongs. Consistent with the shared focus-management debt tracked under epic-H (H-2).
