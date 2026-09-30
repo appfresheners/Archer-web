@@ -229,7 +229,7 @@ describe("EngageBoard", () => {
               id: "a1",
               text: "Tagged A",
               energy: null,
-              context_tags: ["@tool:laptop"],
+              context_tags: ["@location:office"],
               time_available_minutes: 25,
               projectId: "p1",
               projectName: "P1",
@@ -256,13 +256,12 @@ describe("EngageBoard", () => {
 
     await user.selectOptions(
       screen.getByRole("combobox", { name: "Filter by context" }),
-      "@tool:laptop",
+      "@location:office",
     );
     expect(screen.getByText("Tagged A")).toBeInTheDocument();
     expect(screen.queryByText("Tagged B")).not.toBeInTheDocument();
 
-    // Simulate a post-mutation refresh where the @tool:laptop row is gone. The
-    // active filter (@tool:laptop) now matches no remaining row.
+    // Simulate a refresh where the @location:office row is gone.
     const noMatch: EngageModel = {
       goalGroups: [
         {
@@ -288,9 +287,8 @@ describe("EngageBoard", () => {
       isEmpty: false,
     };
     rerender(<EngageBoard model={noMatch} />);
-    // The stale @tool:laptop filter no longer exists in the data, so it is
-    // cleared automatically rather than stranding the user on a "No match"
-    // view; the remaining row becomes visible and "All" is active again.
+    // The stale office filter no longer exists in the data, so it clears
+    // instead of stranding the user on a no-match view.
     expect(screen.getByText("Tagged B")).toBeInTheDocument();
     expect(
       screen.queryByText("No committed actions match this filter."),
@@ -328,7 +326,7 @@ describe("EngageBoard", () => {
               id: "a3",
               text: "Wrong context",
               energy: "high",
-              context_tags: ["@tool:phone"],
+              context_tags: ["@location:home-office"],
               time_available_minutes: 5,
               projectId: "p1",
               projectName: "P1",

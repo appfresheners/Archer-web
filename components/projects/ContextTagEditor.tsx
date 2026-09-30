@@ -1,14 +1,17 @@
 "use client";
 
 /**
- * ContextTagEditor — add/remove optional `@energy` / `@location` / `@tool`
- * context tags on an action. Tags are `@key:value`; the key is chosen from a
- * small select and the value typed in an adjacent field. Tagging is optional —
- * an action with no tags is valid.
+ * ContextTagEditor — add/remove fixed location and energy context tags.
+ * Values are selected from the GTD options in `lib/actions/tags`; there is no
+ * free-text tag entry.
  */
 
-import { CONTEXT_TAG_KEYS, type ContextTagKey } from "@/lib/actions/tags";
-import { useState } from "react";
+import {
+  ENERGY_OPTIONS,
+  LOCATION_OPTIONS,
+  type ContextTagKey,
+} from "@/lib/actions/tags";
+import { useId, useState } from "react";
 
 export interface ContextTagEditorProps {
   tags: string[];
@@ -21,14 +24,23 @@ export default function ContextTagEditor({
   onChange,
   disabled,
 }: ContextTagEditorProps) {
-  const [key, setKey] = useState<ContextTagKey>("energy");
+  const [key, setKey] = useState<ContextTagKey>("location");
   const [value, setValue] = useState("");
+  const keyId = useId();
+  const valueId = useId();
+  const options = key === "energy" ? ENERGY_OPTIONS : LOCATION_OPTIONS;
 
   function addTag() {
-    const trimmed = value.trim();
-    if (trimmed === "") return;
-    const tag = `@${key}:${trimmed}`;
-    if (!tags.includes(tag)) onChange([...tags, tag]);
+    if (value === "") return;
+    const tag = `@${key}:${value}`;
+    if (tags.includes(tag)) {
+      setValue("");
+      return;
+    }
+    const next = key === "energy"
+      ? tags.filter((existing) => !existing.startsWith("@energy:"))
+      : tags;
+    onChange([...next, tag]);
     setValue("");
   }
 
@@ -59,43 +71,43 @@ export default function ContextTagEditor({
         </ul>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <label className="sr-only" htmlFor="tag-key">
-          Context tag type
+        <label className="sr-only" htmlFor={keyId}>
+          Tag category
         </label>
         <select
-          id="tag-key"
+          id={keyId}
           value={key}
           disabled={disabled}
-          onChange={(e) => setKey(e.target.value as ContextTagKey)}
+          onChange={(e) => {
+            setKey(e.target.value as ContextTagKey);
+            setValue("");
+          }}
           className="min-h-[44px] rounded-[var(--radius-sm)] border border-border-strong bg-surface-raised px-2 py-1 text-[length:var(--font-size-small)] text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
         >
-          {CONTEXT_TAG_KEYS.map((k) => (
-            <option key={k} value={k}>
-              @{k}
+          <option value="location">Location</option>
+          <option value="energy">Energy</option>
+        </select>
+        <label className="sr-only" htmlFor={valueId}>
+          Select {key}
+        </label>
+        <select
+          id={valueId}
+          value={value}
+          disabled={disabled}
+          onChange={(e) => setValue(e.target.value)}
+          className="min-h-[44px] flex-1 rounded-[var(--radius-sm)] border border-border-strong bg-surface-raised px-2 py-1 text-[length:var(--font-size-small)] text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
+        >
+          <option value="">Choose {key}</option>
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
             </option>
           ))}
         </select>
-        <label className="sr-only" htmlFor="tag-value">
-          Context tag value
-        </label>
-        <input
-          id="tag-value"
-          value={value}
-          disabled={disabled}
-          placeholder="value"
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              addTag();
-            }
-          }}
-          className="min-h-[44px] flex-1 rounded-[var(--radius-sm)] border border-border-strong bg-surface-raised px-2 py-1 text-[length:var(--font-size-small)] text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
-        />
         <button
           type="button"
           onClick={addTag}
-          disabled={disabled || value.trim() === ""}
+          disabled={disabled || value === ""}
           className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-border-strong px-3 py-1 text-[length:var(--font-size-small)] font-medium text-text-primary hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           Add tag

@@ -3,6 +3,7 @@ import { DELETE, PATCH } from "./route";
 
 const getUser = vi.fn();
 const actionUpdate = vi.fn();
+const actionReadMaybeSingle = vi.fn();
 const updateMaybeSingle = vi.fn();
 const deleteMaybeSingle = vi.fn();
 
@@ -10,6 +11,9 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser },
     from: () => ({
+      select: () => ({
+        eq: () => ({ eq: () => ({ maybeSingle: () => actionReadMaybeSingle() }) }),
+      }),
       update: (patch: unknown) => {
         actionUpdate(patch);
         return {
@@ -39,6 +43,10 @@ describe("PATCH /api/actions/[id]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getUser.mockResolvedValue({ data: { user: { id: "u1" } } });
+    actionReadMaybeSingle.mockResolvedValue({
+      data: { context_tags: [] },
+      error: null,
+    });
   });
 
   it("401s when unauthenticated", async () => {
@@ -64,6 +72,33 @@ describe("PATCH /api/actions/[id]", () => {
     expect(actionUpdate).toHaveBeenCalledWith({
       text: "Renamed",
       context_tags: ["@energy:low"],
+    });
+  });
+
+  it("rejects a new free-text context value", async () => {
+    const res = await PATCH(
+      patchReq({ context_tags: ["@location:my-office"] }) as never,
+      ctx(),
+    );
+    expect(res.status).toBe(400);
+    expect(actionUpdate).not.toHaveBeenCalled();
+  });
+
+  it("allows an existing legacy tag to remain while adding a fixed option", async () => {
+    actionReadMaybeSingle.mockResolvedValue({
+      data: { context_tags: ["@tool:laptop"] },
+      error: null,
+    });
+    updateMaybeSingle.mockResolvedValue({ data: { id: "a1" }, error: null });
+
+    const res = await PATCH(
+      patchReq({ context_tags: ["@tool:laptop", "@location:office"] }) as never,
+      ctx(),
+    );
+
+    expect(res.status).toBe(200);
+    expect(actionUpdate).toHaveBeenCalledWith({
+      context_tags: ["@tool:laptop", "@location:office"],
     });
   });
 

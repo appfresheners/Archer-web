@@ -44,16 +44,45 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const patch = sanitizeActionPatch(body);
-  if (!patch) {
-    return NextResponse.json(
-      { error: "No valid action fields to update." },
-      { status: 400 },
-    );
-  }
-
   try {
     const supabase = await createClient();
+    let legacyTags: string[] = [];
+    if (
+      typeof body === "object" &&
+      body !== null &&
+      !Array.isArray(body) &&
+      "context_tags" in body
+    ) {
+      const { data: existing, error: readError } = await supabase
+        .from("actions")
+        .select("context_tags")
+        .eq("id", id)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (readError) {
+        console.error("[api/actions PATCH] current tags read failed:", readError.message);
+        return NextResponse.json(
+          { error: "Failed to update the action. Please try again." },
+          { status: 500 },
+        );
+      }
+      if (!existing) {
+        return NextResponse.json({ error: "Action not found." }, { status: 404 });
+      }
+      legacyTags = Array.isArray(existing.context_tags)
+        ? existing.context_tags.filter((tag): tag is string => typeof tag === "string")
+        : [];
+    }
+
+    const patch = sanitizeActionPatch(body, legacyTags);
+    if (!patch) {
+      return NextResponse.json(
+        { error: "No valid action fields to update." },
+        { status: 400 },
+      );
+    }
+
     const { data, error } = await supabase
       .from("actions")
       .update(patch)

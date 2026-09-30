@@ -7,16 +7,34 @@
  * action mutation routes and the tag editor UI.
  */
 
-/** The context-tag keys in scope for v1. */
-export const CONTEXT_TAG_KEYS = ["energy", "location", "tool"] as const;
+/** Fixed energy choices; GTD leaves the exact energy taxonomy to the user. */
+export const ENERGY_OPTIONS = [
+  { value: "high", label: "High focus" },
+  { value: "medium", label: "Medium focus" },
+  { value: "low", label: "Low focus" },
+] as const;
+
+/** Common GTD location contexts. */
+export const LOCATION_OPTIONS = [
+  { value: "home", label: "Home" },
+  { value: "home-office", label: "Home office" },
+  { value: "office", label: "Office" },
+  { value: "mall", label: "Mall / shopping" },
+  { value: "grocery-store", label: "Grocery store" },
+  { value: "errands", label: "Errands" },
+  { value: "outdoors", label: "Outdoors" },
+  { value: "anywhere", label: "Anywhere" },
+] as const;
+
+/** Only GTD location and energy dimensions are offered as tags. */
+export const CONTEXT_TAG_KEYS = ["location", "energy"] as const;
 export type ContextTagKey = (typeof CONTEXT_TAG_KEYS)[number];
 
 /** Max length of a single tag string (defensive cap). */
 const MAX_TAG_LENGTH = 60;
 
 /**
- * A valid context tag is `@key:value` where key ∈ CONTEXT_TAG_KEYS and value is
- * a non-empty string with no whitespace-only content.
+ * A valid new context tag must use one of the fixed location or energy values.
  */
 export function isValidContextTag(tag: unknown): tag is string {
   if (typeof tag !== "string") return false;
@@ -24,10 +42,13 @@ export function isValidContextTag(tag: unknown): tag is string {
   const match = /^@([a-z]+):(.+)$/.exec(tag);
   if (!match) return false;
   const [, key, value] = match;
-  return (
-    (CONTEXT_TAG_KEYS as readonly string[]).includes(key) &&
-    value.trim().length > 0
-  );
+  if (key === "energy") {
+    return ENERGY_OPTIONS.some((option) => option.value === value.toLowerCase());
+  }
+  if (key === "location") {
+    return LOCATION_OPTIONS.some((option) => option.value === value.toLowerCase());
+  }
+  return false;
 }
 
 /**
@@ -36,7 +57,10 @@ export function isValidContextTag(tag: unknown): tag is string {
  * `null` if any entry is malformed or an unknown key. An empty array in →
  * empty array out (untagged is valid).
  */
-export function sanitizeContextTags(value: unknown): string[] | null {
+export function sanitizeContextTags(
+  value: unknown,
+  legacyTags: readonly string[] = [],
+): string[] | null {
   if (value === null || value === undefined) return [];
   if (!Array.isArray(value)) return null;
 
@@ -48,13 +72,17 @@ export function sanitizeContextTags(value: unknown): string[] | null {
     if (!match) return null;
     const key = match[1].toLowerCase();
     const val = match[2].trim();
-    if (!(CONTEXT_TAG_KEYS as readonly string[]).includes(key)) return null;
     if (val === "") return null;
     const normalized = `@${key}:${val}`;
-    if (normalized.length > MAX_TAG_LENGTH) return null;
-    if (!seen.has(normalized)) {
-      seen.add(normalized);
-      out.push(normalized);
+    const fixedTag = `@${key}:${val.toLowerCase()}`;
+    if (!isValidContextTag(fixedTag) && !legacyTags.includes(normalized)) {
+      return null;
+    }
+    const acceptedTag = isValidContextTag(fixedTag) ? fixedTag : normalized;
+    if (acceptedTag.length > MAX_TAG_LENGTH) return null;
+    if (!seen.has(acceptedTag)) {
+      seen.add(acceptedTag);
+      out.push(acceptedTag);
     }
   }
   return out;

@@ -40,7 +40,10 @@ export function sanitizeActionText(value: unknown): string | null {
  * relies on the `fn_commit_action` DB trigger to decommit siblings). Returns
  * null for an invalid or empty patch.
  */
-export function sanitizeActionPatch(body: unknown): ActionUpdate | null {
+export function sanitizeActionPatch(
+  body: unknown,
+  legacyTags: readonly string[] = [],
+): ActionUpdate | null {
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
     return null;
   }
@@ -54,7 +57,7 @@ export function sanitizeActionPatch(body: unknown): ActionUpdate | null {
   }
 
   if ("context_tags" in obj) {
-    const tags = sanitizeContextTags(obj.context_tags);
+    const tags = sanitizeContextTags(obj.context_tags, legacyTags);
     if (tags === null) return null;
     patch.context_tags = tags;
   }

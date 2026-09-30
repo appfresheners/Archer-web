@@ -1,46 +1,55 @@
-# Docker Compose deployment for the archer app.
-#
-# Traefik is NOT defined here — it runs separately (managed locally by you).
-# This compose file only runs the archer app and attaches it to your existing
-# external Traefik network so Traefik can route to it via the labels below.
-#
-# Setup:
-#   1. cp .env.example .env                  # set DOMAIN (compose interpolation)
-#   2. cp archer/.env.example archer/.env.local   # set AI provider + Supabase keys
-#   3. docker compose up -d --build
-#
-# See DEPLOYMENT.md for full instructions.
-
 services:
   archer:
-    build:
-      context: ./archer
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    # App runtime configuration (AI_PROVIDER, *_API_KEY, *_MODEL, Supabase keys).
-    # Copy archer/.env.example to archer/.env.local and fill in your keys — this
-    # is the same file Next.js loads for local `dev`/`build`/`start`, so one file
-    # drives both local and containerized runs.
-    env_file:
-      - ./archer/.env.local
-    expose:
-      - "3000"
-    networks:
-      - web
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    #   args:
+    #     NEXT_PUBLIC_SERVER_URL: ${NEXT_PUBLIC_SERVER_URL}
+    #     NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+    #     PAYLOAD_SECRET: ${PAYLOAD_SECRET}
+    #     DATABASE_URI: ${DATABASE_URI}
+    image: ghcr.io/appfresheners/archer:latest
+    environment:
+      AI_PROVIDER: ${AI_PROVIDER}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
     labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=web"
-      # HTTPS router — assumes your Traefik has a "websecure" entrypoint and a
-      # cert resolver named "le". Adjust to match your Traefik configuration.
-      - "traefik.http.routers.archer.rule=Host(`${DOMAIN:-localhost}`)"
-      - "traefik.http.routers.archer.entrypoints=websecure"
-      - "traefik.http.routers.archer.tls=true"
-      - "traefik.http.routers.archer.tls.certresolver=le"
-      # Upstream port inside the container
-      - "traefik.http.services.archer.loadbalancer.server.port=3000"
-
-networks:
-  # Your existing Traefik network, created and owned by your Traefik stack.
-  # Change the name to match your setup if it isn't "web".
-  web:
-    external: true
+      - traefik.enable=true
+      - 'traefik.http.routers.archer.rule=Host(`archer.co.za`)'
+      - traefik.http.routers.archer.service=archer
+      - traefik.http.services.archer.loadbalancer.server.port=3000
+      - traefik.http.routers.archer.entrypoints=https
+      - traefik.http.routers.archer.tls=true
+      - traefik.http.routers.archer.tls.certresolver=letsencrypt
+      # HTTP → HTTPS redirect
+      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+      - traefik.http.routers.http-catchall.entrypoints=http
+      - 'traefik.http.routers.http-catchall.rule=HostRegexp(`{any:.+}`)'
+      - traefik.http.routers.http-catchall.middlewares=redirect-to-https
+    # Security hardening
+    read_only: true
+    tmpfs:
+      - /tmp
+        - /app/.next/cache:uid=1001,gid=1001
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: '1536M'
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3000']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      start_interval: 5s

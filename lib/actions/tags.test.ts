@@ -5,7 +5,11 @@ describe("isValidContextTag", () => {
   it("accepts valid @key:value tags for known keys", () => {
     expect(isValidContextTag("@energy:high")).toBe(true);
     expect(isValidContextTag("@location:home")).toBe(true);
-    expect(isValidContextTag("@tool:laptop")).toBe(true);
+    expect(isValidContextTag("@location:home-office")).toBe(true);
+    expect(isValidContextTag("@energy:medium")).toBe(true);
+    expect(isValidContextTag("@tool:laptop")).toBe(false);
+    expect(isValidContextTag("@location:my-custom-place")).toBe(false);
+    expect(isValidContextTag("@energy:very-high")).toBe(false);
   });
 
   it("rejects unknown keys, malformed, or non-string tags", () => {
@@ -26,19 +30,35 @@ describe("sanitizeContextTags", () => {
 
   it("normalizes case, trims value, and dedupes", () => {
     expect(
-      sanitizeContextTags(["@Energy:High", "@energy:High", " @location:home "]),
-    ).toEqual(["@energy:High", "@location:home"]);
+      sanitizeContextTags(["@Energy:High", "@energy:high", " @location:home "]),
+    ).toEqual(["@energy:high", "@location:home"]);
   });
 
   it("accepts entries with or without the leading @", () => {
-    expect(sanitizeContextTags(["tool:laptop"])).toEqual(["@tool:laptop"]);
+    expect(sanitizeContextTags(["location:home-office"])).toEqual([
+      "@location:home-office",
+    ]);
   });
 
   it("returns null when any entry is malformed or an unknown key", () => {
     expect(sanitizeContextTags(["@mood:great"])).toBeNull();
+    expect(sanitizeContextTags(["@tool:laptop"])).toBeNull();
+    expect(sanitizeContextTags(["@location:custom-place"])).toBeNull();
+    expect(sanitizeContextTags(["@energy:very-high"])).toBeNull();
     expect(sanitizeContextTags(["@energy:"])).toBeNull();
     expect(sanitizeContextTags(["not a tag"])).toBeNull();
     expect(sanitizeContextTags([123])).toBeNull();
     expect(sanitizeContextTags("nope")).toBeNull();
+  });
+
+  it("allows an unlisted tag only when retaining it from an existing action", () => {
+    expect(sanitizeContextTags(["@tool:laptop"])).toBeNull();
+    expect(
+      sanitizeContextTags(
+        ["@tool:laptop", "@location:office"],
+        ["@tool:laptop"],
+      ),
+    ).toEqual(["@tool:laptop", "@location:office"]);
+    expect(sanitizeContextTags(["@tool:phone"], ["@tool:laptop"])).toBeNull();
   });
 });
