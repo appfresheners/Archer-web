@@ -23,6 +23,7 @@ export interface ActionItemData {
   text: string;
   status: ActionStatus;
   context_tags: string[] | null;
+  time_available_minutes: number;
   sort_order: number;
 }
 
@@ -34,6 +35,7 @@ export interface ActionItemProps {
   onToggleDone: (action: ActionItemData) => void;
   onSaveText: (action: ActionItemData, text: string) => void;
   onSaveTags: (action: ActionItemData, tags: string[]) => void;
+  onSaveTimeAvailable: (action: ActionItemData, minutes: number) => void;
   onDelete: (action: ActionItemData) => void;
   onMove: (action: ActionItemData, direction: "up" | "down") => void;
   /** Commit this action as the project's single next action (Story 4.5). */
@@ -60,6 +62,7 @@ export default function ActionItem({
   onToggleDone,
   onSaveText,
   onSaveTags,
+  onSaveTimeAvailable,
   onDelete,
   onMove,
   onCommit,
@@ -67,8 +70,12 @@ export default function ActionItem({
   const [editing, setEditing] = useState(false);
   const [taggingOpen, setTaggingOpen] = useState(false);
   const [draft, setDraft] = useState(action.text);
+  const [timeDraft, setTimeDraft] = useState(String(action.time_available_minutes));
   const done = action.status === "done";
   const tags = action.context_tags ?? [];
+  const parsedTimeDraft = Number(timeDraft);
+  const validTimeDraft =
+    Number.isInteger(parsedTimeDraft) && parsedTimeDraft >= 1 && parsedTimeDraft <= 120;
 
   function saveText() {
     // Guard against a double-fire when Enter (which exits edit mode) is quickly
@@ -79,6 +86,13 @@ export default function ActionItem({
       onSaveText(action, trimmed);
     }
     setEditing(false);
+  }
+
+  function saveTimeAvailable(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (validTimeDraft && parsedTimeDraft !== action.time_available_minutes) {
+      onSaveTimeAvailable(action, parsedTimeDraft);
+    }
   }
 
   return (
@@ -138,6 +152,33 @@ export default function ActionItem({
               ))}
             </ul>
           )}
+
+          <form
+            key={action.time_available_minutes}
+            onSubmit={saveTimeAvailable}
+            className="flex flex-wrap items-end gap-2 pt-1"
+          >
+            <label className="flex flex-col gap-1 text-[length:var(--font-size-caption)] text-text-secondary">
+              Time available (minutes)
+              <input
+                type="number"
+                min={1}
+                max={120}
+                step={1}
+                value={timeDraft}
+                disabled={disabled}
+                onChange={(event) => setTimeDraft(event.target.value)}
+                className="min-h-[40px] w-24 rounded-[var(--radius-sm)] border border-border-strong bg-surface-raised px-2 text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={disabled || !validTimeDraft || parsedTimeDraft === action.time_available_minutes}
+              className="inline-flex min-h-[40px] items-center rounded-[var(--radius-sm)] border border-border-strong px-3 py-2 text-[length:var(--font-size-small)] font-medium text-text-primary hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Save time
+            </button>
+          </form>
 
           {taggingOpen && (
             <ContextTagEditor

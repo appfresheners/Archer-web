@@ -12,7 +12,7 @@
  *     barriers, and the if–then plan. Each section has an "Edit" link that
  *     returns to the relevant step via `ctx.goToStep`.
  *   - "Generate my breakdown": a Pattern C POST to `/api/generate`
- *     `{ mode:'goal', step:'generate', goal, framework, drivers,
+ *     `{ mode:'goal', step:'generate', goal, why, framework, drivers,
  *     barriers, ifThen }`. While in flight the button shows "Generating your
  *     GTD breakdown…" under the endpoint's 30-second timeout. On a 200 `{ id }`
  *     it navigates to `/app/goals/{id}` (the row is already saved server-side,
@@ -49,7 +49,7 @@ interface WizardStep4Props {
 
 export default function WizardStep4({ ctx }: WizardStep4Props) {
   const { state, goToStep, headingRef } = ctx;
-  const { goalText, framework, drivers, barriers, ifThen } = state;
+  const { goalText, why, framework, drivers, barriers, ifThen } = state;
 
   const router = useRouter();
   const [inFlight, setInFlight] = useState(false);
@@ -68,6 +68,7 @@ export default function WizardStep4({ ctx }: WizardStep4Props) {
           mode: "goal",
           step: "generate",
           goal: goalText.trim(),
+          why: why.trim(),
           // `framework` carries each item's `user_rating` inline and is the
           // single source of truth for ratings — the server reads them off
           // `framework`, so no separate `ratings` field is sent.
@@ -125,6 +126,14 @@ export default function WizardStep4({ ctx }: WizardStep4Props) {
         editLabel="Edit goal"
       >
         <p className="text-text-primary">{goalText}</p>
+      </ReviewSection>
+
+      <ReviewSection
+        title="Why it matters"
+        onEdit={() => goToStep(STEP_GOAL)}
+        editLabel="Edit why"
+      >
+        <p className="text-text-primary">{why}</p>
       </ReviewSection>
 
       {/* Skill framework + ratings */}

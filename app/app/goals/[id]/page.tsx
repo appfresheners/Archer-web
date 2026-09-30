@@ -34,6 +34,7 @@ interface GoalDetailPageProps {
 export interface LoadedGoal {
   id: string;
   goal_text: string;
+  why: string | null;
   status: GoalStatus;
   target_date: string;
   skill_framework: SkillFrameworkItem[] | null;
@@ -61,7 +62,7 @@ async function loadGoalDetail(id: string): Promise<LoadResult | null> {
     const { data: goal, error } = await supabase
       .from("goals")
       .select(
-        "id, goal_text, status, target_date, skill_framework, drivers, barriers, if_then_plan",
+        "id, goal_text, why, status, target_date, skill_framework, drivers, barriers, if_then_plan",
       )
       .eq("id", id)
       .maybeSingle();
@@ -295,6 +296,15 @@ export default async function GoalDetailPage({ params }: GoalDetailPageProps) {
   return (
     <article className="flex flex-col gap-[var(--spacing-section-y)]">
       <GoalDetailClient goal={goal} />
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-[length:var(--font-size-subheading)] font-semibold text-text-primary">
+          Why this goal matters
+        </h2>
+        <p className="whitespace-pre-wrap text-text-primary">
+          {goal.why || "No reason was recorded for this goal."}
+        </p>
+      </section>
 
       <GapAnalysis goal={goal} />
 

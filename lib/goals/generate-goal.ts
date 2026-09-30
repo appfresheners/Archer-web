@@ -53,6 +53,7 @@ export interface GeneratedGoal {
  */
 export interface GenerateGoalPayload {
   goal: string;
+  why: string;
   framework: SkillFrameworkItem[];
   drivers: string[];
   barriers: string[];
@@ -73,7 +74,7 @@ class GenerationFormatError extends Error {
  * and the if–then plan are included verbatim as context.
  */
 export function buildUserMessage(payload: GenerateGoalPayload): string {
-  const { goal, framework, drivers, barriers, ifThen } = payload;
+  const { goal, why, framework, drivers, barriers, ifThen } = payload;
 
   const frameworkLines = framework
     .map((item) => {
@@ -87,6 +88,7 @@ export function buildUserMessage(payload: GenerateGoalPayload): string {
 
   return [
     `My goal: ${goal}`,
+      `Why this goal matters to me: ${why}`,
     "",
     "My skill framework (required level, my current level, and the gap):",
     frameworkLines,

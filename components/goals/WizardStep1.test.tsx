@@ -20,6 +20,10 @@ function goalInput() {
   return screen.getByLabelText("Describe your goal") as HTMLInputElement;
 }
 
+function whyInput() {
+  return screen.getByLabelText("Why does this goal matter to you?") as HTMLTextAreaElement;
+}
+
 function continueButton() {
   return screen.getByRole("button", { name: "Continue" });
 }
@@ -48,6 +52,9 @@ function mockFrameworkFetch(framework = THREE_ITEM_FRAMEWORK) {
 /** Type a goal and click Continue; awaits the framework list rendering. */
 async function fetchFramework(goal = "Become a confident public speaker") {
   fireEvent.change(goalInput(), { target: { value: goal } });
+  fireEvent.change(whyInput(), {
+    target: { value: "This goal will support an important personal direction." },
+  });
   fireEvent.click(continueButton());
   await screen.findByRole("heading", { name: "Your skill framework" });
 }
@@ -79,9 +86,13 @@ describe("WizardStep1", () => {
   });
 
   describe("Typing + counter", () => {
-    it("enables Continue once the goal is non-empty", () => {
+    it("keeps Continue disabled until the required why is non-empty", () => {
       render(<GoalWizard />);
       fireEvent.change(goalInput(), { target: { value: "Learn to swim" } });
+      expect(continueButton()).toBeDisabled();
+      fireEvent.change(whyInput(), {
+        target: { value: "I want to feel confident and safe in the water." },
+      });
       expect(continueButton()).not.toBeDisabled();
     });
 
@@ -129,6 +140,7 @@ describe("WizardStep1", () => {
 
       render(<GoalWizard />);
       fireEvent.change(goalInput(), { target: { value: "Speak in public" } });
+      fireEvent.change(whyInput(), { target: { value: "This matters to me." } });
       fireEvent.click(continueButton());
 
       expect(
@@ -160,6 +172,7 @@ describe("WizardStep1", () => {
             mode: "goal",
             step: "framework",
             goal: "Speak in public",
+            why: "This goal will support an important personal direction.",
           }),
         }),
       );
@@ -284,6 +297,7 @@ describe("WizardStep1", () => {
       ]);
       render(<GoalWizard />);
       fireEvent.change(goalInput(), { target: { value: "Speak in public" } });
+      fireEvent.change(whyInput(), { target: { value: "This matters to me." } });
       fireEvent.click(continueButton());
       // No framework renders; an inline error is shown instead.
       expect(await screen.findByRole("alert")).toBeInTheDocument();
@@ -312,6 +326,7 @@ describe("WizardStep1", () => {
 
       render(<GoalWizard />);
       fireEvent.change(goalInput(), { target: { value: "Speak in public" } });
+      fireEvent.change(whyInput(), { target: { value: "I want to share ideas clearly." } });
       fireEvent.click(continueButton());
 
       await waitFor(() =>
@@ -337,6 +352,7 @@ describe("WizardStep1", () => {
             mode: "goal",
             step: "framework",
             goal: "Speak in public",
+            why: "I want to share ideas clearly.",
           }),
         }),
       );
@@ -348,6 +364,7 @@ describe("WizardStep1", () => {
 
       render(<GoalWizard />);
       fireEvent.change(goalInput(), { target: { value: "Speak in public" } });
+      fireEvent.change(whyInput(), { target: { value: "I want to share ideas clearly." } });
       fireEvent.click(continueButton());
 
       await waitFor(() =>

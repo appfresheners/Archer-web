@@ -64,6 +64,9 @@ function nextButton() {
 async function goToStep4() {
   // Step 1: goal + framework fetch.
   fireEvent.change(goalInput(), { target: { value: "Become a speaker" } });
+  fireEvent.change(screen.getByLabelText("Why does this goal matter to you?"), {
+    target: { value: "I want to communicate ideas that matter to my community." },
+  });
   fireEvent.click(screen.getByRole("button", { name: "Continue" }));
   await screen.findByRole("heading", { name: "Your skill framework" });
   fireEvent.click(nextButton()); // → Step 2
@@ -115,6 +118,7 @@ describe("WizardStep4", () => {
 
       // Goal text.
       expect(screen.getByText("Become a speaker")).toBeInTheDocument();
+      expect(screen.getByText("I want to communicate ideas that matter to my community.")).toBeInTheDocument();
 
       // Framework rows — required + user rating (seeded 5) + gap.
       const frameworkSection = screen
@@ -198,6 +202,7 @@ describe("WizardStep4", () => {
         mode: "goal",
         step: "generate",
         goal: "Become a speaker",
+        why: "I want to communicate ideas that matter to my community.",
         ifThen: "If it is 7am, then I will practise for 10 minutes",
       });
       expect(body.framework).toHaveLength(3);

@@ -78,7 +78,7 @@ async function loadProject(id: string): Promise<LoadedProject | null> {
 
         const { data: actions } = await supabase
             .from("actions")
-            .select("id, text, status, context_tags, sort_order")
+            .select("id, text, status, context_tags, time_available_minutes, sort_order")
             .eq("project_id", id)
             .order("sort_order", { ascending: true });
 

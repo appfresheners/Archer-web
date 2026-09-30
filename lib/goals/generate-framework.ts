@@ -63,9 +63,13 @@ class GenerationFormatError extends Error {
  *         shape-invalid JSON.
  */
 export async function generateFramework(
-  goal: string
+  goal: string,
+  why: string,
 ): Promise<GeneratedFramework> {
-  const raw = await generate(GOAL_FRAMEWORK_SYSTEM_PROMPT, `My goal: ${goal}`);
+  const raw = await generate(
+    GOAL_FRAMEWORK_SYSTEM_PROMPT,
+    `My goal: ${goal}\n\nWhy this goal matters to me: ${why}`,
+  );
   const parsed = parseJson(raw);
   return validate(parsed);
 }

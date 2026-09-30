@@ -132,13 +132,14 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    const { mode, input, depth, step, goal, framework, drivers, barriers, ifThen } =
+    const { mode, input, depth, step, goal, why, framework, drivers, barriers, ifThen } =
         (body ?? {}) as {
             mode?: unknown;
             input?: unknown;
             depth?: unknown;
             step?: unknown;
             goal?: unknown;
+            why?: unknown;
             framework?: unknown;
             drivers?: unknown;
             barriers?: unknown;
@@ -159,6 +160,7 @@ export async function POST(request: NextRequest) {
         return handleGoal(userId, {
             step,
             goal,
+            why,
             framework,
             drivers,
             barriers,
@@ -302,6 +304,7 @@ export async function POST(request: NextRequest) {
 interface GoalRequestFields {
     step: unknown;
     goal: unknown;
+    why: unknown;
     framework: unknown;
     drivers: unknown;
     barriers: unknown;
@@ -312,7 +315,7 @@ async function handleGoal(
     userId: string,
     fields: GoalRequestFields
 ): Promise<NextResponse> {
-    const { step, goal } = fields;
+    const { step, goal, why } = fields;
 
     if (!isKnownGoalStep(step)) {
         return NextResponse.json(
@@ -332,9 +335,23 @@ async function handleGoal(
         );
     }
 
+    if (typeof why !== "string" || why.trim() === "") {
+        return NextResponse.json(
+            { error: "Why is required for every goal." },
+            { status: 400 }
+        );
+    }
+
+    if (why.length > MAX_INPUT_LENGTH) {
+        return NextResponse.json(
+            { error: `Why must be ${MAX_INPUT_LENGTH} characters or fewer.` },
+            { status: 400 }
+        );
+    }
+
     if (step === "framework") {
         try {
-            const { framework } = await generateFramework(goal.trim());
+            const { framework } = await generateFramework(goal.trim(), why.trim());
             return NextResponse.json({ framework });
         } catch (error) {
             return mapGenerateError(error);
@@ -343,7 +360,7 @@ async function handleGoal(
 
     // Pattern C (`generate`) — validate the full payload, generate the
     // breakdown, then persist goals→projects→actions with rollback.
-    return handleGoalGenerate(userId, goal.trim(), fields);
+    return handleGoalGenerate(userId, goal.trim(), why.trim(), fields);
 }
 
 /**
@@ -361,6 +378,7 @@ async function handleGoal(
 async function handleGoalGenerate(
     userId: string,
     goal: string,
+    why: string,
     fields: GoalRequestFields
 ): Promise<NextResponse> {
     const { framework, drivers, barriers, ifThen } = fields;
@@ -407,6 +425,7 @@ async function handleGoalGenerate(
     try {
         generated = await generateGoal({
             goal,
+            why,
             framework: validFramework,
             drivers: drivers.map((d) => d.trim()),
             barriers: barriers.map((b) => b.trim()),
@@ -417,7 +436,16 @@ async function handleGoalGenerate(
     }
 
     // Save-before-return: goals → projects → actions, all owned by the user.
-    return saveGoalBreakdown(userId, goal, validFramework, drivers, barriers, ifThen, generated);
+    return saveGoalBreakdown(
+        userId,
+        goal,
+        why,
+        validFramework,
+        drivers,
+        barriers,
+        ifThen,
+        generated,
+    );
 }
 
 /**
@@ -428,6 +456,7 @@ async function handleGoalGenerate(
 async function saveGoalBreakdown(
     userId: string,
     goal: string,
+    why: string,
     framework: SkillFrameworkItem[],
     drivers: string[],
     barriers: string[],
@@ -439,6 +468,7 @@ async function saveGoalBreakdown(
     const goalRow: GoalInsert = {
         user_id: userId,
         goal_text: goal,
+        why,
         target_date: targetDate,
         skill_framework: framework,
         drivers: drivers.map((d) => d.trim()),

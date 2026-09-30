@@ -6,7 +6,7 @@ import EngagePage from "./page";
 // The page issues three parallel reads, each `.from(table).select(...)` awaited:
 //   goals.select("id, goal_text, status")
 //   projects.select("id, goal_id, name, status")
-//   actions.select("id, project_id, text, status, context_tags, scheduled_for, sort_order")
+//   actions.select("id, project_id, text, status, context_tags, time_available_minutes, scheduled_for, sort_order")
 // EngageBoard is a client component that uses next/navigation; mock it so the
 // server-page render doesn't require a router.
 
@@ -74,6 +74,7 @@ describe("EngagePage (loader)", () => {
           text: "Book a running coach",
           status: "committed",
           context_tags: [],
+          time_available_minutes: 25,
           scheduled_for: null,
           sort_order: 0,
         },

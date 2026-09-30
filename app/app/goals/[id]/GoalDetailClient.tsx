@@ -5,7 +5,7 @@
  *
  * Owns three interactions, all backed by `PATCH`/`DELETE /api/goals/[id]`:
  *   1. Status change — a `<select>` that PATCHes `{ status }` immediately.
- *   2. Edit — a view/edit toggle over goal_text, target_date, drivers,
+ *   2. Edit — a view/edit toggle over goal_text, why, target_date, drivers,
  *      barriers, and if_then_plan; Save PATCHes the changed fields. Editing
  *      never regenerates projects (a separate explicit action, Story 4.3).
  *   3. Delete — a confirmation dialog; on confirm, DELETE soft-archives the
@@ -45,6 +45,7 @@ export default function GoalDetailClient({ goal }: { goal: LoadedGoal }) {
 
   // Edit form state (seeded from the server-provided goal).
   const [goalText, setGoalText] = useState(goal.goal_text);
+  const [why, setWhy] = useState(goal.why ?? "");
   const [targetDate, setTargetDate] = useState(goal.target_date);
   const [drivers, setDrivers] = useState(toListText(goal.drivers));
   const [barriers, setBarriers] = useState(toListText(goal.barriers));
@@ -107,10 +108,15 @@ export default function GoalDetailClient({ goal }: { goal: LoadedGoal }) {
 
   async function handleSave() {
     if (busy) return;
+    if (why.trim() === "") {
+      setError("Why is required for every goal.");
+      return;
+    }
     // A required date: don't send an empty value (it would be rejected). Fall
     // back to the current target date so a cleared field is a no-op, not a 400.
     const body: Record<string, unknown> = {
       goal_text: goalText,
+      why,
       target_date: targetDate.trim() === "" ? goal.target_date : targetDate,
       drivers: fromListText(drivers),
       barriers: fromListText(barriers),
@@ -128,6 +134,7 @@ export default function GoalDetailClient({ goal }: { goal: LoadedGoal }) {
 
   function handleCancel() {
     setGoalText(goal.goal_text);
+    setWhy(goal.why ?? "");
     setTargetDate(goal.target_date);
     setDrivers(toListText(goal.drivers));
     setBarriers(toListText(goal.barriers));
@@ -219,6 +226,20 @@ export default function GoalDetailClient({ goal }: { goal: LoadedGoal }) {
               maxLength={500}
               rows={3}
               onChange={(e) => setGoalText(e.target.value)}
+              className={fieldClass}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="goal-why" className="font-medium text-text-primary">
+              Why does this goal matter to you?
+            </label>
+            <textarea
+              id="goal-why"
+              value={why}
+              maxLength={2000}
+              rows={4}
+              required
+              onChange={(e) => setWhy(e.target.value)}
               className={fieldClass}
             />
           </div>

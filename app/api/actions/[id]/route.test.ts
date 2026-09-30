@@ -67,6 +67,16 @@ describe("PATCH /api/actions/[id]", () => {
     });
   });
 
+  it("updates the available minutes through the owned action PATCH", async () => {
+    updateMaybeSingle.mockResolvedValue({ data: { id: "a1" }, error: null });
+    const res = await PATCH(
+      patchReq({ time_available_minutes: 15 }) as never,
+      ctx(),
+    );
+    expect(res.status).toBe(200);
+    expect(actionUpdate).toHaveBeenCalledWith({ time_available_minutes: 15 });
+  });
+
   it("toggles completion via status", async () => {
     updateMaybeSingle.mockResolvedValue({ data: { id: "a1" }, error: null });
     const res = await PATCH(patchReq({ status: "done" }) as never, ctx());

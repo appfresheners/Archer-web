@@ -6,7 +6,7 @@
  * it owns navigation, gating, and transient state, but no step-content logic.
  *
  * What it owns:
- *   - `WizardState`: all step data as optional fields (goalText, framework,
+ *   - `WizardState`: all step data as optional fields (goalText, why, framework,
  *     drivers, barriers, ifThen). Self-assessment ratings live inline on each
  *     framework item as `user_rating` (Step 2), so there is no separate ratings
  *     map. Later stories populate their slices.
@@ -56,6 +56,7 @@ export interface SkillFrameworkItem {
  */
 export interface WizardState {
   goalText: string;
+  why: string;
   framework: SkillFrameworkItem[] | null;
   drivers: string[];
   barriers: string[];
@@ -67,6 +68,8 @@ export interface StepContext {
   state: WizardState;
   /** Update Step 1 goal text; clears the framework when the text changes. */
   setGoalText: (text: string) => void;
+  /** Update the user's reason for pursuing the goal; invalidates its framework. */
+  setGoalWhy: (why: string) => void;
   /**
    * Generic state patcher for a step to write its own slice (e.g. Step 1 sets
    * `framework` after a successful Pattern B fetch). Goal text must still go
@@ -101,6 +104,7 @@ export interface WizardStep {
 
 const INITIAL_STATE: WizardState = {
   goalText: "",
+  why: "",
   framework: null,
   drivers: [],
   barriers: [],
@@ -131,6 +135,12 @@ export function applyGoalText(prev: WizardState, text: string): WizardState {
   return { ...prev, goalText: text, framework: null };
 }
 
+export function applyGoalWhy(prev: WizardState, why: string): WizardState {
+  if (prev.why === why) return prev;
+  if (prev.framework === null) return { ...prev, why };
+  return { ...prev, why, framework: null };
+}
+
 /**
  * Step configuration. Step 1's gate is the one stable rule from epics.md:
  * non-empty trimmed goal text. Steps 2–4 use a neutral placeholder gate
@@ -145,7 +155,9 @@ const STEPS: WizardStep[] = [
     // returned with at least 3 items remaining (per epics.md / EXPERIENCE.md).
     // The framework must be fetched (Pattern B) before Step 2 is reachable.
     isComplete: (s) =>
-      s.goalText.trim().length > 0 && (s.framework?.length ?? 0) >= 3,
+      s.goalText.trim().length > 0 &&
+      s.why.trim().length > 0 &&
+      (s.framework?.length ?? 0) >= 3,
     nextLabel: "Next: Rate yourself →",
     render: (ctx) => <WizardStep1 ctx={ctx} />,
   },
@@ -217,6 +229,11 @@ export default function GoalWizard() {
     setState((prev) => applyGoalText(prev, text));
     // Any prior completion is reset when the goal changes: the wizard collapses
     // back to Step 1's own gate. Cheap no-op when nothing was completed.
+    setCompleted((prev) => (prev.length === 0 ? prev : []));
+  }, []);
+
+  const setGoalWhy = useCallback((why: string) => {
+    setState((prev) => applyGoalWhy(prev, why));
     setCompleted((prev) => (prev.length === 0 ? prev : []));
   }, []);
 
@@ -310,6 +327,7 @@ export default function GoalWizard() {
         {currentStep.render({
           state,
           setGoalText,
+          setGoalWhy,
           patchState,
           goToStep,
           headingRef,

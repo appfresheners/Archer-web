@@ -57,6 +57,7 @@ describe("GoalDetailPage", () => {
       data: {
         id: "g1",
         goal_text: "Run a marathon",
+        why: "I want to build confidence and endurance.",
         status: "active",
         target_date: "2026-12-31",
         skill_framework: [
@@ -80,6 +81,7 @@ describe("GoalDetailPage", () => {
     await renderPage("g1");
 
     expect(screen.getByTestId("goal-client")).toHaveTextContent("Run a marathon");
+    expect(screen.getByText("I want to build confidence and endurance.")).toBeInTheDocument();
     expect(screen.getByText("Gap analysis")).toBeInTheDocument();
     expect(screen.getByText("Pacing")).toBeInTheDocument();
     // required 9, rating 5, gap = 4 (unique among the row's cells)

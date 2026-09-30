@@ -39,6 +39,7 @@ function goalJson(projectCount = 5) {
 function payload(): GenerateGoalPayload {
     return {
         goal: "Become a confident public speaker",
+        why: "I want to share ideas clearly with my community.",
         framework: [
             { name: "Stage confidence", required_level: 9, description: "Calm.", user_rating: 3 },
             { name: "Vocal projection", required_level: 8, description: "Fills a room.", user_rating: 5 },
@@ -140,9 +141,10 @@ describe("validate", () => {
 // --- buildUserMessage ------------------------------------------------------
 
 describe("buildUserMessage", () => {
-    it("includes the goal, gaps, drivers, barriers, and if–then", () => {
+    it("includes the goal, why, gaps, drivers, barriers, and if–then", () => {
         const msg = buildUserMessage(payload());
         expect(msg).toContain("Become a confident public speaker");
+        expect(msg).toContain("Why this goal matters to me: I want to share ideas clearly with my community.");
         // Stage confidence: required 9, current 3, gap 6.
         expect(msg).toContain("Stage confidence: required 9, current 3, gap 6");
         expect(msg).toContain("I love a challenge");

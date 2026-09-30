@@ -11,9 +11,9 @@ vi.mock("next/navigation", () => ({
 
 function actions(): ActionItemData[] {
   return [
-    { id: "a1", text: "Draft outline", status: "available", context_tags: ["@energy:high"], sort_order: 0 },
-    { id: "a2", text: "Write intro", status: "committed", context_tags: [], sort_order: 1 },
-    { id: "a3", text: "Publish", status: "done", context_tags: null, sort_order: 2 },
+    { id: "a1", text: "Draft outline", status: "available", context_tags: ["@energy:high"], time_available_minutes: 25, sort_order: 0 },
+    { id: "a2", text: "Write intro", status: "committed", context_tags: [], time_available_minutes: 25, sort_order: 1 },
+    { id: "a3", text: "Publish", status: "done", context_tags: null, time_available_minutes: 25, sort_order: 2 },
   ];
 }
 
@@ -128,6 +128,22 @@ describe("ActionList", () => {
     expect(JSON.parse(init.body)).toEqual({ text: "Draft the full outline" });
   });
 
+  it("saves time available for an action using the action PATCH route", async () => {
+    const user = userEvent.setup();
+    render(<ActionList projectId="p1" actions={actions()} />);
+
+    const timeInput = screen.getAllByLabelText("Time available (minutes)")[0];
+    await user.clear(timeInput);
+    await user.type(timeInput, "15");
+    await user.click(screen.getAllByRole("button", { name: "Save time" })[0]);
+
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    const [url, init] = lastCall();
+    expect(url).toBe("/api/actions/a1");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body)).toEqual({ time_available_minutes: 15 });
+  });
+
   it("reorders by moving an action up", async () => {
     const user = userEvent.setup();
     render(<ActionList projectId="p1" actions={actions()} />);
@@ -191,8 +207,8 @@ describe("ActionList", () => {
     const user = userEvent.setup();
     // Only a committed action + a done one: completing the committed leaves none available.
     const noneRemaining: ActionItemData[] = [
-      { id: "c1", text: "The one", status: "committed", context_tags: [], sort_order: 0 },
-      { id: "d1", text: "Already done", status: "done", context_tags: [], sort_order: 1 },
+      { id: "c1", text: "The one", status: "committed", context_tags: [], time_available_minutes: 25, sort_order: 0 },
+      { id: "d1", text: "Already done", status: "done", context_tags: [], time_available_minutes: 25, sort_order: 1 },
     ];
     render(<ActionList projectId="p1" actions={noneRemaining} />);
 

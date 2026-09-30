@@ -7,6 +7,8 @@ import type { ActionStatus, ActionUpdate } from "@/lib/supabase/schema";
 import { sanitizeContextTags } from "./tags";
 
 export const MAX_ACTION_TEXT = 500;
+export const MIN_TIME_AVAILABLE_MINUTES = 1;
+export const MAX_TIME_AVAILABLE_MINUTES = 120;
 
 const ACTION_STATUSES: readonly ActionStatus[] = [
   "available",
@@ -55,6 +57,19 @@ export function sanitizeActionPatch(body: unknown): ActionUpdate | null {
     const tags = sanitizeContextTags(obj.context_tags);
     if (tags === null) return null;
     patch.context_tags = tags;
+  }
+
+  if ("time_available_minutes" in obj) {
+    const minutes = obj.time_available_minutes;
+    if (
+      typeof minutes !== "number" ||
+      !Number.isInteger(minutes) ||
+      minutes < MIN_TIME_AVAILABLE_MINUTES ||
+      minutes > MAX_TIME_AVAILABLE_MINUTES
+    ) {
+      return null;
+    }
+    patch.time_available_minutes = minutes;
   }
 
   if ("status" in obj) {

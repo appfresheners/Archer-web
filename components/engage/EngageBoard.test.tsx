@@ -33,7 +33,9 @@ function fullModel(): EngageModel {
           {
             id: "a1",
             text: "Write the intro",
+            energy: null,
             context_tags: ["@location:home"],
+            time_available_minutes: 25,
             projectId: "p1",
             projectName: "Portfolio site",
           },
@@ -51,7 +53,9 @@ function fullModel(): EngageModel {
           {
             id: "b1",
             text: "Book a trainer",
-            context_tags: ["@energy:high"],
+            energy: "high",
+            context_tags: [],
+            time_available_minutes: 25,
             projectId: "p3",
             projectName: "Gym plan",
           },
@@ -65,7 +69,9 @@ function fullModel(): EngageModel {
       {
         id: "s1",
         text: "Call the bank",
+        energy: null,
         context_tags: ["@location:home"],
+        time_available_minutes: 25,
         projectId: null,
         projectName: null,
       },
@@ -109,7 +115,7 @@ describe("EngageBoard", () => {
     );
 
     expect(screen.getByRole("region", { name: "Focus timer for Write the intro" })).toBeInTheDocument();
-    expect(screen.getByRole("spinbutton", { name: "Time available (minutes)" })).toHaveValue(25);
+    expect(screen.getByText(/25 minutes available/)).toBeInTheDocument();
   });
 
   it("renders committed actions grouped under a goal-less project", () => {
@@ -123,7 +129,9 @@ describe("EngageBoard", () => {
             {
               id: "project-action-1",
               text: "Publish the portfolio",
+              energy: null,
               context_tags: [],
+              time_available_minutes: 25,
               projectId: "project-mode-1",
               projectName: "Portfolio live",
             },
@@ -153,7 +161,9 @@ describe("EngageBoard", () => {
             {
               id: "project-action-1",
               text: "Publish the portfolio",
+              energy: null,
               context_tags: [],
+              time_available_minutes: 25,
               projectId: "project-mode-1",
               projectName: "Portfolio live",
             },
@@ -193,12 +203,14 @@ describe("EngageBoard", () => {
     expect(push).toHaveBeenCalledWith("/app/projects/p2#actions");
   });
 
-  it("narrows visible rows with the context-tag filter", async () => {
+  it("narrows visible rows with the energy filter", async () => {
     const user = userEvent.setup();
     render(<EngageBoard model={fullModel()} />);
 
-    // Filtering to @energy:high keeps only the "Book a trainer" row.
-    await user.click(screen.getByRole("button", { name: "@energy:high" }));
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Filter by energy" }),
+      "high",
+    );
     expect(screen.getByText("Book a trainer")).toBeInTheDocument();
     expect(screen.queryByText("Write the intro")).not.toBeInTheDocument();
     expect(screen.queryByText("Call the bank")).not.toBeInTheDocument();
@@ -206,7 +218,7 @@ describe("EngageBoard", () => {
 
   it("clears a stale filter after a refresh removes the filtered tag (no dead-end)", async () => {
     const user = userEvent.setup();
-    // Two rows with distinct tags; the tag bar offers @tool:laptop + @energy:low.
+    // Two rows with distinct contexts and energy values.
     const twoTags: EngageModel = {
       goalGroups: [
         {
@@ -216,14 +228,18 @@ describe("EngageBoard", () => {
             {
               id: "a1",
               text: "Tagged A",
+              energy: null,
               context_tags: ["@tool:laptop"],
+              time_available_minutes: 25,
               projectId: "p1",
               projectName: "P1",
             },
             {
               id: "a2",
               text: "Tagged B",
-              context_tags: ["@energy:low"],
+              energy: "low",
+              context_tags: [],
+              time_available_minutes: 25,
               projectId: "p1",
               projectName: "P1",
             },
@@ -238,8 +254,10 @@ describe("EngageBoard", () => {
     };
     const { rerender } = render(<EngageBoard model={twoTags} />);
 
-    // Filter to @tool:laptop → only "Tagged A" visible.
-    await user.click(screen.getByRole("button", { name: "@tool:laptop" }));
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Filter by context" }),
+      "@tool:laptop",
+    );
     expect(screen.getByText("Tagged A")).toBeInTheDocument();
     expect(screen.queryByText("Tagged B")).not.toBeInTheDocument();
 
@@ -254,7 +272,9 @@ describe("EngageBoard", () => {
             {
               id: "a2",
               text: "Tagged B",
-              context_tags: ["@energy:low"],
+              energy: "low",
+              context_tags: [],
+              time_available_minutes: 25,
               projectId: "p1",
               projectName: "P1",
             },
@@ -275,10 +295,81 @@ describe("EngageBoard", () => {
     expect(
       screen.queryByText("No committed actions match this filter."),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "All" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
+    expect(screen.getByRole("combobox", { name: "Filter by context" })).toHaveValue("");
+  });
+
+  it("combines context, energy, and maximum time filters", async () => {
+    const user = userEvent.setup();
+    const model: EngageModel = {
+      goalGroups: [
+        {
+          goalId: "g1",
+          goalText: "Focus",
+          committed: [
+            {
+              id: "a1",
+              text: "Matching action",
+              energy: "high",
+              context_tags: ["@location:home"],
+              time_available_minutes: 10,
+              projectId: "p1",
+              projectName: "P1",
+            },
+            {
+              id: "a2",
+              text: "Too much time",
+              energy: "high",
+              context_tags: ["@location:home"],
+              time_available_minutes: 25,
+              projectId: "p1",
+              projectName: "P1",
+            },
+            {
+              id: "a3",
+              text: "Wrong context",
+              energy: "high",
+              context_tags: ["@tool:phone"],
+              time_available_minutes: 5,
+              projectId: "p1",
+              projectName: "P1",
+            },
+            {
+              id: "a4",
+              text: "Wrong energy",
+              energy: "low",
+              context_tags: ["@location:home"],
+              time_available_minutes: 5,
+              projectId: "p1",
+              projectName: "P1",
+            },
+          ],
+          stuckProjects: [],
+          availableByProject: { p1: [] },
+        },
+      ],
+      projectGroups: [],
+      anytime: [],
+      isEmpty: false,
+    };
+
+    render(<EngageBoard model={model} />);
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Filter by context" }),
+      "@location:home",
     );
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Filter by energy" }),
+      "high",
+    );
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Filter by time available" }),
+      "10",
+    );
+
+    expect(screen.getByText("Matching action")).toBeInTheDocument();
+    expect(screen.queryByText("Too much time")).not.toBeInTheDocument();
+    expect(screen.queryByText("Wrong context")).not.toBeInTheDocument();
+    expect(screen.queryByText("Wrong energy")).not.toBeInTheDocument();
   });
 
   it("Done on a project row PATCHes status=done and opens the next-action prompt", async () => {

@@ -24,6 +24,7 @@ const GOAL_STATUSES: readonly GoalStatus[] = [
 ];
 
 export const MAX_GOAL_TEXT = 500;
+export const MAX_GOAL_WHY = 2000;
 export const MAX_IF_THEN = 2000;
 const MIN_LEVEL = 1;
 const MAX_LEVEL = 10;
@@ -97,6 +98,13 @@ export function sanitizeGoalPatch(body: unknown): GoalUpdate | null {
     const trimmed = t.trim();
     if (trimmed.length < 1 || trimmed.length > MAX_GOAL_TEXT) return null;
     patch.goal_text = trimmed;
+  }
+
+  if ("why" in obj) {
+    if (typeof obj.why !== "string") return null;
+    const trimmed = obj.why.trim();
+    if (trimmed.length < 1 || trimmed.length > MAX_GOAL_WHY) return null;
+    patch.why = trimmed;
   }
 
   if ("target_date" in obj) {

@@ -55,6 +55,7 @@ const twelveActions = Array.from({ length: 12 }, (_, i) => ({
   // One committed action → the project is NOT stuck by default.
   status: i === 0 ? "committed" : "available",
   context_tags: [],
+  time_available_minutes: 25,
   sort_order: i,
 }));
 
@@ -144,7 +145,7 @@ describe("ProjectDetailPage", () => {
     // Actions exist but none are committed → stuck.
     actionsOrder.mockResolvedValue({
       data: [
-        { id: "a0", text: "A", status: "available", context_tags: [], sort_order: 0 },
+        { id: "a0", text: "A", status: "available", context_tags: [], time_available_minutes: 25, sort_order: 0 },
       ],
       error: null,
     });
@@ -195,7 +196,7 @@ describe("ProjectDetailPage", () => {
     });
     actionsOrder.mockResolvedValue({
       data: [
-        { id: "a0", text: "A", status: "available", context_tags: [], sort_order: 0 },
+        { id: "a0", text: "A", status: "available", context_tags: [], time_available_minutes: 25, sort_order: 0 },
       ],
       error: null,
     });

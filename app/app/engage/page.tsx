@@ -62,7 +62,7 @@ async function loadEngageModel(): Promise<EngageModel> {
         supabase
           .from("actions")
           .select(
-            "id, project_id, text, status, context_tags, scheduled_for, sort_order",
+            "id, project_id, text, status, context_tags, time_available_minutes, scheduled_for, sort_order",
           ),
       ]);
 

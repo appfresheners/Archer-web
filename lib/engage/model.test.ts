@@ -36,6 +36,7 @@ function action(overrides: Partial<EngageActionInput> = {}): EngageActionInput {
     text: "Write the intro",
     status: "committed",
     context_tags: null,
+    time_available_minutes: 25,
     scheduled_for: null,
     sort_order: 0,
     ...overrides,
@@ -61,12 +62,34 @@ describe("buildEngageModel — render committed actions", () => {
       {
         id: "a1",
         text: "Write the intro",
+        energy: null,
         context_tags: ["@location:home"],
+        time_available_minutes: 25,
         projectId: "p1",
         projectName: "Portfolio site live",
       },
     ]);
     expect(model.isEmpty).toBe(false);
+  });
+
+  it("separates energy from other context tags and carries available minutes", () => {
+    const model = buildEngageModel(
+      [goal()],
+      [project()],
+      [
+        action({
+          context_tags: ["@energy:high", "@location:home"],
+          time_available_minutes: 15,
+        }),
+      ],
+      TODAY,
+    );
+
+    expect(model.goalGroups[0].committed[0]).toMatchObject({
+      energy: "high",
+      context_tags: ["@location:home"],
+      time_available_minutes: 15,
+    });
   });
 
   it("shows ONLY committed actions — available/done are excluded from rows", () => {
@@ -152,7 +175,9 @@ describe("buildEngageModel — active-only scoping", () => {
           {
             id: "a1",
             text: "Write the intro",
+            energy: null,
             context_tags: [],
+            time_available_minutes: 25,
             projectId: "p1",
             projectName: "Portfolio site live",
           },
@@ -279,7 +304,9 @@ describe("buildEngageModel — standalone actions (Anytime / No project)", () =>
       {
         id: "s1",
         text: "Call the bank",
+        energy: null,
         context_tags: [],
+        time_available_minutes: 25,
         projectId: null,
         projectName: null,
       },

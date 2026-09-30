@@ -13,6 +13,7 @@ vi.mock("next/navigation", () => ({
 const goal: LoadedGoal = {
   id: "g1",
   goal_text: "Run a marathon",
+  why: "I want to build confidence and endurance.",
   status: "active",
   target_date: "2026-12-31",
   skill_framework: [
@@ -70,6 +71,7 @@ describe("GoalDetailClient", () => {
     const sent = JSON.parse(init.body);
     expect(init.method).toBe("PATCH");
     expect(sent.goal_text).toBe("Run a marathon");
+    expect(sent.why).toBe("I want to build confidence and endurance.");
     expect(sent.drivers).toEqual(["health"]);
     expect(sent.skill_framework[0].user_rating).toBe(7);
     await waitFor(() => expect(refresh).toHaveBeenCalled());

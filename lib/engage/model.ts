@@ -59,6 +59,7 @@ export interface EngageActionInput {
   text: string;
   status: ActionStatus;
   context_tags: string[] | null;
+  time_available_minutes: number;
   scheduled_for: string | null;
   sort_order: number;
 }
@@ -67,7 +68,9 @@ export interface EngageActionInput {
 export interface EngageRow {
   id: string;
   text: string;
+  energy: string | null;
   context_tags: string[];
+  time_available_minutes: number;
   /** Parent project id, or null for a standalone "Anytime" row. */
   projectId: string | null;
   /** Parent project name, or null for a standalone "Anytime" row. */
@@ -118,7 +121,14 @@ export interface EngageModel {
 /** Type guard: is this a schema `Action` (accepts the minimal subset too). */
 type ActionLike = Pick<
   Action,
-  "id" | "project_id" | "text" | "status" | "context_tags" | "scheduled_for" | "sort_order"
+  | "id"
+  | "project_id"
+  | "text"
+  | "status"
+  | "context_tags"
+  | "time_available_minutes"
+  | "scheduled_for"
+  | "sort_order"
 >;
 type ProjectLike = Pick<Project, "id" | "goal_id" | "name" | "status">;
 type GoalLike = Pick<Goal, "id" | "goal_text" | "status">;
@@ -139,10 +149,13 @@ function toRow(
   projectId: string | null,
   projectName: string | null,
 ): EngageRow {
+  const tags = action.context_tags ?? [];
   return {
     id: action.id,
     text: action.text,
-    context_tags: action.context_tags ?? [],
+    energy: tags.find((tag) => tag.startsWith("@energy:"))?.slice(8) ?? null,
+    context_tags: tags.filter((tag) => !tag.startsWith("@energy:")),
+    time_available_minutes: action.time_available_minutes,
     projectId,
     projectName,
   };

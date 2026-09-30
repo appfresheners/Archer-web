@@ -45,13 +45,24 @@ export default function EngageActionRow({
           </ul>
         )}
 
+        <span className="text-[length:var(--font-size-small)] text-text-secondary">
+          {row.energy ? `${row.energy} energy` : "Energy not set"}
+          {" · "}
+          {row.time_available_minutes} min available
+        </span>
+
         {row.projectName && (
           <span className="text-[length:var(--font-size-small)] text-text-secondary">
             {row.projectName}
           </span>
         )}
 
-        {focusOpen && <PomodoroTimer actionText={row.text} />}
+        {focusOpen && (
+          <PomodoroTimer
+            actionText={row.text}
+            timeAvailableMinutes={row.time_available_minutes}
+          />
+        )}
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-2">

@@ -151,6 +151,17 @@ export default function ActionList({
     );
   }
 
+  async function handleSaveTimeAvailable(
+    action: ActionItemData,
+    minutes: number,
+  ) {
+    await refreshOn(
+      await call(`/api/actions/${action.id}`, "PATCH", {
+        time_available_minutes: minutes,
+      }),
+    );
+  }
+
   async function handleDelete(action: ActionItemData) {
     await refreshOn(await call(`/api/actions/${action.id}`, "DELETE"));
   }
@@ -181,7 +192,7 @@ export default function ActionList({
         <ul className="flex flex-col gap-2">
           {actions.map((action, i) => (
             <ActionItem
-              key={action.id}
+              key={`${action.id}-${action.time_available_minutes}`}
               action={action}
               disabled={busy}
               isFirst={i === 0}
@@ -189,6 +200,7 @@ export default function ActionList({
               onToggleDone={handleToggleDone}
               onSaveText={handleSaveText}
               onSaveTags={handleSaveTags}
+              onSaveTimeAvailable={handleSaveTimeAvailable}
               onDelete={handleDelete}
               onMove={handleMove}
               onCommit={handleCommit}

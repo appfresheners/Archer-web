@@ -83,6 +83,7 @@ export interface Database {
           id: string;
           user_id: string;
           goal_text: string;
+          why: string | null;
           target_date: string;
           status: GoalStatus;
           skill_framework: SkillFrameworkItem[] | null;
@@ -97,6 +98,7 @@ export interface Database {
           id?: string;
           user_id: string;
           goal_text: string;
+          why?: string | null;
           target_date: string;
           status?: GoalStatus;
           skill_framework?: SkillFrameworkItem[] | null;
@@ -111,6 +113,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           goal_text?: string;
+          why?: string | null;
           target_date?: string;
           status?: GoalStatus;
           skill_framework?: SkillFrameworkItem[] | null;
@@ -177,6 +180,7 @@ export interface Database {
           text: string;
           status: ActionStatus;
           context_tags: string[] | null;
+          time_available_minutes: number;
           // 0003: who a `waiting` action is waiting on; NULL otherwise.
           delegated_to: string | null;
           // 0003: calendar date a deferred action is tied to; NULL otherwise.
@@ -192,6 +196,7 @@ export interface Database {
           text: string;
           status?: ActionStatus;
           context_tags?: string[] | null;
+          time_available_minutes?: number;
           delegated_to?: string | null;
           scheduled_for?: string | null;
           sort_order?: number;
@@ -205,6 +210,7 @@ export interface Database {
           text?: string;
           status?: ActionStatus;
           context_tags?: string[] | null;
+          time_available_minutes?: number;
           delegated_to?: string | null;
           scheduled_for?: string | null;
           sort_order?: number;

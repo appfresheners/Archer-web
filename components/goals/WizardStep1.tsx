@@ -6,6 +6,8 @@
  * Step 1 content; navigation and the advance gate stay with the shell.
  *
  * What it owns:
+ *   - Goal and why inputs: associated labels, live character counters, and
+ *     inline validation; both are required before framework generation.
  *   - The goal input: an associated label, a live character counter that
  *     appears once the text passes a threshold (mirrors `ProjectModeInput`),
  *     `maxLength={500}`, and inline validation that blocks an empty/whitespace
@@ -27,8 +29,7 @@
  *     collected in Step 2 (Story 3.4).
  *
  * The advance control ("Next") lives in the shell and is gated on
- * `goalText non-empty && framework?.length >= 3`, so this component never needs
- * its own advance button.
+ * `goalText non-empty && why non-empty && framework?.length >= 3`.
  */
 
 import type { SkillFrameworkItem, StepContext } from "@/app/app/goals/new/GoalWizard";
@@ -38,6 +39,8 @@ import { useId, useState } from "react";
 const PLACEHOLDER = "e.g., Become a confident public speaker";
 const MAX_LENGTH = 500;
 const COUNTER_THRESHOLD = 400;
+const MAX_WHY_LENGTH = 2000;
+const WHY_COUNTER_THRESHOLD = 1900;
 
 /**
  * Neutral default required level for a user-added item. The AI proposes levels
@@ -58,8 +61,8 @@ interface WizardStep1Props {
 }
 
 export default function WizardStep1({ ctx }: WizardStep1Props) {
-  const { state, setGoalText, patchState, headingRef } = ctx;
-  const { goalText, framework } = state;
+  const { state, setGoalText, setGoalWhy, patchState, headingRef } = ctx;
+  const { goalText, why, framework } = state;
 
   const [validationError, setValidationError] = useState("");
   const [inFlight, setInFlight] = useState(false);
@@ -69,12 +72,18 @@ export default function WizardStep1({ ctx }: WizardStep1Props) {
   const goalInputId = useId();
   const goalCounterId = useId();
   const goalErrorId = useId();
+  const whyInputId = useId();
+  const whyCounterId = useId();
+  const whyErrorId = useId();
   const addItemInputId = useId();
 
   const trimmedGoal = goalText.trim();
+  const trimmedWhy = why.trim();
   const isEmptyGoal = trimmedGoal === "";
+  const isEmptyWhy = trimmedWhy === "";
   const showCounter = goalText.length > COUNTER_THRESHOLD;
-  const continueDisabled = isEmptyGoal || inFlight;
+  const showWhyCounter = why.length > WHY_COUNTER_THRESHOLD;
+  const continueDisabled = isEmptyGoal || isEmptyWhy || inFlight;
 
   const handleGoalChange = (value: string) => {
     if (validationError) setValidationError("");
@@ -83,14 +92,19 @@ export default function WizardStep1({ ctx }: WizardStep1Props) {
     setGoalText(value);
   };
 
-  const runFetch = async (goal: string) => {
+  const handleWhyChange = (value: string) => {
+    if (validationError) setValidationError("");
+    setGoalWhy(value);
+  };
+
+  const runFetch = async (goal: string, whyText: string) => {
     setFetchError("");
     setInFlight(true);
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "goal", step: "framework", goal }),
+        body: JSON.stringify({ mode: "goal", step: "framework", goal, why: whyText }),
       });
 
       const payload = (await res.json().catch(() => null)) as {
@@ -139,8 +153,12 @@ export default function WizardStep1({ ctx }: WizardStep1Props) {
       setValidationError("Enter a goal first");
       return;
     }
+    if (isEmptyWhy) {
+      setValidationError("Explain why this goal matters to you");
+      return;
+    }
     if (inFlight) return;
-    void runFetch(trimmedGoal);
+    void runFetch(trimmedGoal, trimmedWhy);
   };
 
   const handleGoalKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -151,8 +169,8 @@ export default function WizardStep1({ ctx }: WizardStep1Props) {
   };
 
   const handleRetry = () => {
-    if (isEmptyGoal || inFlight) return;
-    void runFetch(trimmedGoal);
+    if (isEmptyGoal || isEmptyWhy || inFlight) return;
+    void runFetch(trimmedGoal, trimmedWhy);
   };
 
   const handleRemoveItem = (index: number) => {
@@ -237,6 +255,40 @@ export default function WizardStep1({ ctx }: WizardStep1Props) {
           )}
         </div>
 
+        <div>
+          <label
+            htmlFor={whyInputId}
+            className="mb-1 block font-medium text-text-primary"
+          >
+            Why does this goal matter to you?
+          </label>
+          <textarea
+            id={whyInputId}
+            value={why}
+            onChange={(e) => handleWhyChange(e.target.value)}
+            placeholder="Describe what achieving this goal will make possible or change for you."
+            maxLength={MAX_WHY_LENGTH}
+            rows={4}
+            disabled={inFlight}
+            aria-describedby={
+              [showWhyCounter ? whyCounterId : null, validationError ? whyErrorId : null]
+                .filter(Boolean)
+                .join(" ") || undefined
+            }
+            className="w-full rounded-[var(--radius-sm)] border border-border bg-background px-4 py-3 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+          />
+          {showWhyCounter && (
+            <p id={whyCounterId} aria-live="polite" className="mt-1 text-right text-[length:var(--font-size-small)] text-text-secondary">
+              {why.length} / {MAX_WHY_LENGTH}
+            </p>
+          )}
+          {validationError && isEmptyWhy && !isEmptyGoal && (
+            <p id={whyErrorId} role="alert" className="mt-1 text-[length:var(--font-size-small)] text-destructive">
+              {validationError}
+            </p>
+          )}
+        </div>
+
         <button
           type="button"
           onClick={handleContinue}
@@ -270,7 +322,7 @@ export default function WizardStep1({ ctx }: WizardStep1Props) {
             <button
               type="button"
               onClick={handleRetry}
-              disabled={inFlight || isEmptyGoal}
+              disabled={inFlight || isEmptyGoal || isEmptyWhy}
               className="min-h-[44px] shrink-0 rounded-[var(--radius-sm)] border border-destructive px-4 py-2 font-medium text-destructive hover:bg-destructive/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               Try again

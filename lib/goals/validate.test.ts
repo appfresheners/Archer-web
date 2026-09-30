@@ -71,6 +71,7 @@ describe("sanitizeGoalPatch", () => {
   it("keeps only valid editable fields", () => {
     const patch = sanitizeGoalPatch({
       goal_text: "  Run a marathon  ",
+      why: " It matters to my health. ",
       target_date: "2026-12-31",
       status: "paused",
       drivers: ["health", "  ", "pride"],
@@ -80,6 +81,7 @@ describe("sanitizeGoalPatch", () => {
     });
     expect(patch).toEqual({
       goal_text: "Run a marathon",
+      why: "It matters to my health.",
       target_date: "2026-12-31",
       status: "paused",
       drivers: ["health", "pride"],
@@ -97,6 +99,14 @@ describe("sanitizeGoalPatch", () => {
   it("rejects an out-of-bounds goal_text", () => {
     expect(sanitizeGoalPatch({ goal_text: "" })).toBeNull();
     expect(sanitizeGoalPatch({ goal_text: "x".repeat(501) })).toBeNull();
+  });
+
+  it("requires a non-empty why within its character limit when patched", () => {
+    expect(sanitizeGoalPatch({ why: "  " })).toBeNull();
+    expect(sanitizeGoalPatch({ why: "x".repeat(2001) })).toBeNull();
+    expect(sanitizeGoalPatch({ why: "  It matters to me.  " })).toEqual({
+      why: "It matters to me.",
+    });
   });
 
   it("rejects an invalid target_date", () => {

@@ -36,6 +36,24 @@ describe("sanitizeActionPatch", () => {
     ).toEqual({ text: "Call Sam", context_tags: ["@energy:low"] });
   });
 
+  it("accepts bounded integer time availability", () => {
+    expect(sanitizeActionPatch({ time_available_minutes: 15 })).toEqual({
+      time_available_minutes: 15,
+    });
+    expect(sanitizeActionPatch({ time_available_minutes: 1 })).toEqual({
+      time_available_minutes: 1,
+    });
+    expect(sanitizeActionPatch({ time_available_minutes: 120 })).toEqual({
+      time_available_minutes: 120,
+    });
+  });
+
+  it("rejects non-integer or out-of-range time availability", () => {
+    for (const value of [0, 121, 2.5, "15", null]) {
+      expect(sanitizeActionPatch({ time_available_minutes: value })).toBeNull();
+    }
+  });
+
   it("permits a completion toggle to available/done but never committed", () => {
     expect(sanitizeActionPatch({ status: "done" })).toEqual({ status: "done" });
     expect(sanitizeActionPatch({ status: "available" })).toEqual({

@@ -1,3 +1,4 @@
+
 /**
  * Centralized generation system prompts for the AI layer.
  *
@@ -104,6 +105,8 @@ Hard rules:
  */
 export const GOAL_FRAMEWORK_SYSTEM_PROMPT = `You are an expert in the Reverse Goal Setting method (Justin Sung) combined with GTD (Getting Things Done). Given a user's goal, propose the Target Profile: the skills, attributes, and habits that someone who achieves this goal easily has.
 
+Use the user's stated reason for pursuing the goal to make the framework personally relevant and aligned with what matters to them.
+
 Return ONLY a single JSON object — no markdown, no code fences, no commentary. The JSON MUST match exactly this shape:
 
 {
@@ -160,6 +163,8 @@ Hard rules:
  * `lib/goals/generate-goal.ts`).
  */
 export const GOAL_GENERATE_SYSTEM_PROMPT = `You are an expert in the Reverse Goal Setting method (Justin Sung) combined with GTD (Getting Things Done). Given a user's goal and their self-assessment, produce a COMPLETE 3-month goal breakdown.
+
+Use the user's stated reason for pursuing the goal to keep the success criteria, projects, and actions aligned with why the goal matters to them.
 
 Return ONLY a single JSON object — no markdown, no code fences, no commentary. The JSON MUST match exactly this shape:
 

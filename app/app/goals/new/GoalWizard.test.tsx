@@ -34,6 +34,9 @@ function mockFrameworkFetch(framework = THREE_ITEM_FRAMEWORK) {
 /** Type a goal, click Continue, and wait for the framework list to render. */
 async function typeGoalAndFetch(goal: string) {
   fireEvent.change(goalInput(), { target: { value: goal } });
+  fireEvent.change(screen.getByLabelText("Why does this goal matter to you?"), {
+    target: { value: "This matters because it supports a meaningful life direction." },
+  });
   fireEvent.click(continueButton());
   await screen.findByRole("heading", { name: "Your skill framework" });
 }
@@ -139,6 +142,20 @@ describe("GoalWizard", () => {
         screen.getByLabelText(/Step 1 of 4: Goal & Skill Framework, completed/),
       ).toBeInTheDocument();
     });
+  });
+
+  it("keeps framework generation and Next blocked until a why is entered", () => {
+    const fetchMock = mockFrameworkFetch();
+    render(<GoalWizard />);
+    fireEvent.change(goalInput(), { target: { value: "Learn to swim" } });
+    expect(continueButton()).toBeDisabled();
+    expect(nextButton()).toBeDisabled();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText("Why does this goal matter to you?"), {
+      target: { value: "I want to feel confident and safe in the water." },
+    });
+    expect(continueButton()).not.toBeDisabled();
   });
 
   describe("Step 3 gate + label", () => {
@@ -348,6 +365,7 @@ describe("GoalWizard", () => {
   describe("applyGoalText (framework invalidation contract)", () => {
     const withFramework: WizardState = {
       goalText: "Learn guitar",
+      why: "I want to make music with friends.",
       framework: [
         { name: "Chords", required_level: 7, description: "…", user_rating: 4 },
       ],

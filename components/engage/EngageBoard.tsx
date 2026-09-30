@@ -5,7 +5,7 @@
  *
  * Renders the committed next actions grouped by goal (collapsible), a per-goal
  * amber stuck band at the bottom of each group, a final "Anytime / No project"
- * group for standalone committed actions, an optional context-tag filter bar,
+ * group for standalone committed actions, composable context/energy/time filters,
  * and the honest empty state. It owns the Done → "What's next for [project]?"
  * flow, adapted from `components/projects/ActionList.tsx`:
  *
@@ -19,8 +19,7 @@
  * All reads are done server-side; every mutation calls `router.refresh()` so the
  * board re-renders from the database. Errors render inline as `role="alert"`.
  *
- * The context filter is client-side over the already-loaded rows: the bar shows
- * the distinct tags present, and selecting one keeps rows carrying that tag.
+ * Filters are client-side over the already-loaded rows and can be combined.
  */
 
 import EngageActionRow from "@/components/engage/EngageActionRow";
@@ -34,6 +33,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const GENERIC_ERROR = "Something went wrong. Please try again.";
+const TIME_FILTERS = [5, 10, 15, 25, 30, 45, 60, 90, 120];
 
 /** State for the open "What's next for [project]?" prompt. */
 interface NextPromptState {
@@ -46,7 +46,9 @@ export default function EngageBoard({ model }: { model: EngageModel }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [activeContext, setActiveContext] = useState("");
+  const [activeEnergy, setActiveEnergy] = useState("");
+  const [maxAvailableMinutes, setMaxAvailableMinutes] = useState("");
   const [nextPrompt, setNextPrompt] = useState<NextPromptState | null>(null);
   const promptRef = useRef<HTMLDivElement>(null);
 
@@ -56,37 +58,47 @@ export default function EngageBoard({ model }: { model: EngageModel }) {
     if (nextPrompt !== null) promptRef.current?.focus();
   }, [nextPrompt]);
 
-  // Distinct context tags across all loaded committed rows (goal groups +
-  // anytime), for the filter bar. Derived — no state, so it stays pure.
-  const allTags = useMemo(() => {
-    const tags = new Set<string>();
-    for (const group of model.goalGroups) {
-      for (const row of group.committed) {
-        for (const tag of row.context_tags) tags.add(tag);
-      }
-    }
-    for (const group of model.projectGroups) {
-      for (const row of group.committed) {
-        for (const tag of row.context_tags) tags.add(tag);
-      }
-    }
-    for (const row of model.anytime) {
-      for (const tag of row.context_tags) tags.add(tag);
-    }
-    return [...tags].sort();
-  }, [model]);
+  const committedRows = useMemo(() => [
+    ...model.goalGroups.flatMap((group) => group.committed),
+    ...model.projectGroups.flatMap((group) => group.committed),
+    ...model.anytime,
+  ], [model]);
 
-  // Reconcile a stale filter selection during render (not in an effect, to
-  // satisfy react-hooks/set-state-in-effect): after a refresh the selected tag
-  // may no longer exist in the data — clear it so the user isn't stranded on a
-  // "No match" view with a tag that has no chip.
-  if (activeTag !== null && !allTags.includes(activeTag)) {
-    setActiveTag(null);
+  const allContexts = useMemo(() => {
+    const contexts = new Set<string>();
+    for (const row of committedRows) {
+      for (const tag of row.context_tags) contexts.add(tag);
+    }
+    return [...contexts].sort();
+  }, [committedRows]);
+
+  const allEnergies = useMemo(() => {
+    const energies = new Set<string>();
+    for (const row of committedRows) {
+      if (row.energy) energies.add(row.energy);
+    }
+    return [...energies].sort();
+  }, [committedRows]);
+
+  if (activeContext !== "" && !allContexts.includes(activeContext)) {
+    setActiveContext("");
+  }
+  if (activeEnergy !== "" && !allEnergies.includes(activeEnergy)) {
+    setActiveEnergy("");
   }
 
   function rowMatchesFilter(row: EngageRow): boolean {
-    if (activeTag === null) return true;
-    return row.context_tags.includes(activeTag);
+    if (activeContext !== "" && !row.context_tags.includes(activeContext)) {
+      return false;
+    }
+    if (activeEnergy !== "" && row.energy !== activeEnergy) return false;
+    if (
+      maxAvailableMinutes !== "" &&
+      row.time_available_minutes > Number(maxAvailableMinutes)
+    ) {
+      return false;
+    }
+    return true;
   }
 
   async function call(
@@ -197,40 +209,80 @@ export default function EngageBoard({ model }: { model: EngageModel }) {
     visible: group.committed.filter(rowMatchesFilter),
   }));
   const anytimeVisible = model.anytime.filter(rowMatchesFilter);
+  const visibleCount =
+    groupsForRender.reduce((total, group) => total + group.visible.length, 0) +
+    model.projectGroups.reduce(
+      (total, group) => total + group.committed.filter(rowMatchesFilter).length,
+      0,
+    ) +
+    anytimeVisible.length;
 
   return (
     <div className="flex flex-col gap-[var(--spacing-section-y)]">
       <Header />
 
-      {allTags.length > 0 && (
-        <div
-          role="group"
-          aria-label="Filter by context tag"
-          className="flex flex-wrap items-center gap-2"
-        >
+      <section aria-label="Action filters" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <label className="flex flex-col gap-1 text-[length:var(--font-size-small)] font-medium text-text-secondary">
+          Context
+          <select
+            aria-label="Filter by context"
+            value={activeContext}
+            onChange={(event) => setActiveContext(event.target.value)}
+            className="min-h-[44px] rounded-[var(--radius-sm)] border border-border-strong bg-surface-raised px-3 text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+          >
+            <option value="">Any context</option>
+            {allContexts.map((context) => (
+              <option key={context} value={context}>{context}</option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-[length:var(--font-size-small)] font-medium text-text-secondary">
+          Energy
+          <select
+            aria-label="Filter by energy"
+            value={activeEnergy}
+            onChange={(event) => setActiveEnergy(event.target.value)}
+            className="min-h-[44px] rounded-[var(--radius-sm)] border border-border-strong bg-surface-raised px-3 text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+          >
+            <option value="">Any energy</option>
+            {allEnergies.map((energy) => (
+              <option key={energy} value={energy}>{energy}</option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-[length:var(--font-size-small)] font-medium text-text-secondary">
+          Time available
+          <select
+            aria-label="Filter by time available"
+            value={maxAvailableMinutes}
+            onChange={(event) => setMaxAvailableMinutes(event.target.value)}
+            className="min-h-[44px] rounded-[var(--radius-sm)] border border-border-strong bg-surface-raised px-3 text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+          >
+            <option value="">Any amount</option>
+            {TIME_FILTERS.map((minutes) => (
+              <option key={minutes} value={minutes}>{minutes} min or less</option>
+            ))}
+          </select>
+        </label>
+        {(activeContext !== "" || activeEnergy !== "" || maxAvailableMinutes !== "") && (
           <button
             type="button"
-            aria-pressed={activeTag === null}
-            onClick={() => setActiveTag(null)}
-            className={filterChipClass(activeTag === null)}
+            onClick={() => {
+              setActiveContext("");
+              setActiveEnergy("");
+              setMaxAvailableMinutes("");
+            }}
+            className="min-h-[44px] w-fit self-end rounded-[var(--radius-sm)] border border-border-strong px-4 py-2 font-medium text-text-primary hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
           >
-            All
+            Clear filters
           </button>
-          {allTags.map((tag) => (
-            <button
-              key={tag}
-              type="button"
-              aria-pressed={activeTag === tag}
-              onClick={() => setActiveTag((cur) => (cur === tag ? null : tag))}
-              className={filterChipClass(activeTag === tag)}
-            >
-              {tag}
-            </button>
-          ))}
-        </div>
-      )}
+        )}
+      </section>
 
       <div className="flex flex-col gap-4">
+        {visibleCount === 0 && (
+          <p className="text-text-secondary">No committed actions match these filters.</p>
+        )}
         {groupsForRender.map((group) => {
           // A goal group renders when it has any visible row OR a stuck
           // project to surface (stuck bands are not tag-filtered).
@@ -445,12 +497,4 @@ function StuckIndicatorLink({ id }: { id: string }) {
       onCommitNow={() => router.push(`/app/projects/${id}#actions`)}
     />
   );
-}
-
-function filterChipClass(active: boolean): string {
-  const base =
-    "inline-flex min-h-[44px] items-center rounded-[var(--radius-full)] px-4 py-2 text-[length:var(--font-size-small)] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]";
-  return active
-    ? `${base} bg-primary text-text-inverse`
-    : `${base} border border-border-strong text-text-primary hover:bg-surface`;
 }

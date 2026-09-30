@@ -147,18 +147,22 @@ describe("generateFramework", () => {
 
     it("passes the framework prompt + goal and returns the validated structure", async () => {
         generate.mockResolvedValue(JSON.stringify(frameworkJson(6)));
-        const result = await generateFramework("Become a confident public speaker");
+        const result = await generateFramework(
+            "Become a confident public speaker",
+            "I want to share ideas clearly with my community.",
+        );
         expect(result.framework).toHaveLength(6);
 
         const [systemPrompt, userMessage] = generate.mock.calls[0];
         expect(systemPrompt).toContain("required_level");
         expect(systemPrompt).toContain("Reverse Goal Setting");
         expect(userMessage).toContain("Become a confident public speaker");
+        expect(userMessage).toContain("Why this goal matters to me");
     });
 
     it("propagates a format error when the model returns non-JSON", async () => {
         generate.mockResolvedValue("Sorry, I cannot do that.");
-        await expect(generateFramework("x")).rejects.toThrow(/JSON/i);
+        await expect(generateFramework("x", "reason")).rejects.toThrow(/JSON/i);
     });
 
     it("propagates a format error for an out-of-range level", async () => {
@@ -167,6 +171,6 @@ describe("generateFramework", () => {
                 framework: [item({ required_level: 99 }), item(), item()],
             })
         );
-        await expect(generateFramework("x")).rejects.toThrow(/required_level/);
+        await expect(generateFramework("x", "reason")).rejects.toThrow(/required_level/);
     });
 });
