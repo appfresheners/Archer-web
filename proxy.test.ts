@@ -134,10 +134,19 @@ describe('supabase env accessor (fail-loud contract)', () => {
   });
 
   it('returns the value when the variable is present', async () => {
+    delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-abc';
     const { getSupabaseAnonKey } = await import('./lib/supabase/env');
 
     expect(getSupabaseAnonKey()).toBe('anon-abc');
+  });
+
+  it('prefers the publishable key when both public keys are present', async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'publishable-abc';
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-abc';
+    const { getSupabaseAnonKey } = await import('./lib/supabase/env');
+
+    expect(getSupabaseAnonKey()).toBe('publishable-abc');
   });
 
   it('treats an empty/whitespace value as missing', async () => {

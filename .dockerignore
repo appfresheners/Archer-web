@@ -17,6 +17,8 @@ build
 coverage
 *.test.ts
 *.test.tsx
+**/*.test.ts
+**/*.test.tsx
 vitest.config.ts
 vitest.setup.ts
 eslint.config.mjs

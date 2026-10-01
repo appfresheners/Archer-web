@@ -50,7 +50,7 @@ context: []
 
 - [ ] `archer/next.config.ts` -- add `output: "standalone"` to `nextConfig` -- produces the minimal standalone server bundle for the runtime image.
 - [ ] `archer/Dockerfile` -- create multi-stage build (deps → build → runner): stage 1 installs deps with `npm ci`, stage 2 runs `npm run build`, stage 3 uses a slim Node LTS image, copies `.next/standalone`, `.next/static`, and `public`, runs as non-root `node` user, `EXPOSE 3000`, `CMD ["node", "server.js"]` -- containerizes production runtime without dev deps or source.
-- [ ] `archer/.dockerignore` -- exclude `node_modules`, `.next`, `out`, `.env*`, tests, and VCS files -- keeps build context small and secrets out of the image.
+- [x] `archer/.dockerignore` -- exclude `node_modules`, `.next`, `out`, `.env*`, tests recursively, and VCS files -- keeps build context small and secrets out of the image.
 - [ ] `docker-compose.yml` (repo root) -- define ONLY the `archer` service (built from `./archer`, `env_file: ./archer/.env`, restart policy, Traefik routing labels using `${DOMAIN}` host rule) attached to an `external: true` network (`web`) owned by the user's separately-managed Traefik -- app deployment that plugs into an existing reverse proxy.
 - [ ] `.env.example` (repo root) -- document `DOMAIN` for compose -- gives the user a template to copy to `.env` without committing secrets.
 - [ ] `archer/.env.example` -- template of app runtime vars (`AI_PROVIDER`, `GEMINI_API_KEY`, etc.) copied to `archer/.env` for the container -- keeps real keys out of version control.
@@ -62,6 +62,12 @@ context: []
 - Given a request to generate content with a valid provider key configured, when the user submits the form, then `/api/generate` responds successfully from inside the container.
 - Given the built image, when its contents are inspected, then no `.env` file or API key value is present in any layer.
 - Given the external `web` network does not exist, when `docker compose up` runs, then compose fails fast with a network-not-found error (documented remedy in DEPLOYMENT.md).
+
+## Implementation Notes
+
+- Added recursive `**/*.test.ts` and `**/*.test.tsx` exclusions. Before this, Docker excluded root test files but included nested tests such as `components/review/ReviewShell.test.tsx`, while also excluding `vitest.setup.ts`; `next build` therefore typechecked nested matcher assertions without jest-dom type augmentation.
+- Verified with a no-cache Docker build through the TypeScript check and runner image export.
+- Updated the deploy script's Coolify preflight to use the unauthenticated `/api/v1/health` endpoint. `/api/v1/teams/current` returned 403 for the configured deploy-scoped token; Coolify documents deploy tokens as lacking general read permissions while remaining valid for deploy webhooks.
 
 ## Spec Change Log
 
@@ -93,6 +99,7 @@ The network is declared `external: true` so compose joins the user's existing Tr
 - `cd archer && npm run build` -- expected: build succeeds and emits `.next/standalone/server.js`.
 - `docker compose config` -- expected: compose file parses with no errors and variables resolve.
 - `docker compose build` -- expected: image builds successfully through all stages.
+- `docker build --no-cache --progress=plain -t archer-ignore-check .` -- verified: image builds through TypeScript and runner export.
 
 **Manual checks (if no CLI):**
 

@@ -16,9 +16,7 @@
  * Read a required environment variable, throwing (and logging) a clear error
  * naming the variable when it is missing or empty.
  */
-function requireEnv(name: string): string {
-  console.log()
-  const value = process.env[name];
+function requireEnv(value: string | undefined, name: string): string {
   if (!value || value.trim() === '') {
     const message = `Missing required environment variable: ${name}. Add it to your .env.local (see .env.example for the full contract).`;
     // Loud failure — logged so the missing var is visible in server logs.
@@ -30,12 +28,18 @@ function requireEnv(name: string): string {
 
 /** Public Supabase project URL. Safe for browser + server. */
 export function getSupabaseUrl(): string {
-  return process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  return requireEnv(process.env.NEXT_PUBLIC_SUPABASE_URL, 'NEXT_PUBLIC_SUPABASE_URL');
 }
 
-/** Public anon key. Safe for browser + server. */
+/** Public publishable key, with legacy anon-key compatibility. */
 export function getSupabaseAnonKey(): string {
-  return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const key =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  return requireEnv(
+    key,
+    'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY',
+  );
 }
 
 /**
@@ -43,5 +47,5 @@ export function getSupabaseAnonKey(): string {
  * or middleware code. It bypasses RLS and must never reach the browser.
  */
 export function getServiceRoleKey(): string {
-  return process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  return requireEnv(process.env.SUPABASE_SERVICE_ROLE_KEY, 'SUPABASE_SERVICE_ROLE_KEY');
 }
