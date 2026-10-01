@@ -13,12 +13,15 @@ Epic 4 turns the AI-generated breakdowns produced in Epics 2–3 into a living, 
 - Story 4.3: Project Detail, Edit & Regeneration
 - Story 4.4: Action Management & Context Tags
 - Story 4.5: Commit a Single Next Action & Stuck Detection
+- Story 4.6: Project-Goal Linking and Project Filtering
 
 ## Requirements & Constraints
 
 Users must be able to create, view, edit, and delete goals. Editing goal fields must never auto-regenerate projects — regeneration is always a separate, explicit, confirmed action. Deleting a goal is a soft delete: linked projects and actions are archived and retained (still present in exports), never hard-deleted. Goals carry seven statuses (Active, Paused, Not now, Someday, Completed, Archived); setting a goal to Paused must remove its linked projects from the Engage view without deleting them.
 
 Projects expose their name, parent-goal breadcrumb, purpose, and successful outcome, and a narrower status set (Active, Paused, Completed, Archived). Completing all of a project's actions must not auto-complete the project — completion is always explicit. Regenerating a project must show a confirmation modal before overwriting and, on confirm, replace only that one project's AI content while leaving sibling projects untouched.
+
+Project-goal relationships are user-manageable from both project detail (set/change/clear the parent) and goal detail (attach an existing project). A project has at most one parent goal; moving between goals requires confirmation. The Projects index filters by all projects, a selected goal, or no-goal projects. Any server-side `goal_id` mutation must verify goal ownership in addition to project ownership.
 
 Actions have text, a status (available / committed / done), and optional context tags. Users can add (inline), edit, delete, and reorder actions within a project. Context tags are optional `@energy` / `@location` / `@tool` values; an untagged action is valid.
 
@@ -53,3 +56,5 @@ Stuck Indicator: an amber warning band at the top of a project card (or inline i
 ## Cross-Story Dependencies
 
 4.1 (goals list) needs the status-badge treatment and the stuck-count derivation that 4.5 formalizes; build the shared StatusBadge and the "stuck = Active + zero committed" helper early since 4.1, 4.3, and 4.5 all consume them. 4.2 (goal detail) hosts the project cards that 4.3 (project detail/edit/regen) drills into, and its Paused-goal rule ("remove linked projects from Engage") is consumed by Epic 5's Engage view. 4.4 (action management) establishes the ActionItem row and context-tag shape that 4.5 (commit/stuck) and Epic 5 (Engage, filtering by context tag) both reuse — the `context_tags` shape must stay aligned with Epic 5. 4.5's commit behavior depends on the database trigger being relied upon rather than reimplemented, and its stuck indicator must be reused verbatim by Epic 5's Engage view.
+
+Story 4.6 extends the 4.2/4.3 surfaces and reuses the existing project PATCH `goal_id` contract. The goal selector, attach flow, and list filter must preserve single-parent semantics and owner checks; no schema change is expected.

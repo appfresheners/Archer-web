@@ -44,6 +44,7 @@ The experimental vault is an independent client-side layer (AES-GCM + PBKDF2, `l
 - **Binds:** The three-level hierarchy is enforced by the data model. An action must have a parent project; a project must have a parent goal. Supabase FK constraints encode this. UI navigation mirrors it at every level.
 - **Prevents:** Standalone action creation without a project; project creation without a goal (Project Mode creates a project linked to the signed-in user but not to a goal — this is the one permitted exception, explicitly modelled in the schema); flat task-list behaviour
 - **Rule:** The Engage view shows committed actions only — never the raw action list. The weekly review surfaces projects, not actions directly.
+- Project Mode may create a manual project without AI. A selected `goal_id` must belong to the signed-in user; a project has at most one parent goal and may be unlinked.
 
 ### AD-10: Single Committed Next Action Per Project [ADOPTED]
 
@@ -456,8 +457,10 @@ create trigger commit_action_trigger
 ```
 app/
 ├── api/
-│   └── generate/
-│       └── route.ts          # AI generation — Pattern A (built), B+C (to build); auth-checked
+│   ├── generate/
+│   │   └── route.ts          # AI generation — Pattern A (built), B+C (to build); auth-checked
+│   └── projects/
+│       └── route.ts          # Authenticated manual project creation; validates parent-goal ownership
 ├── layout.tsx                # Root layout — redirects / to /app/engage or /sign-in
 ├── globals.css               # Tailwind v4 @theme directives + design tokens
 ├── sign-in/
@@ -571,6 +574,10 @@ graph LR
     H --> I[Return project_id]
     I --> J[Navigate to /app/goals/id/projects/pid]
 ```
+
+### Project Mode — manual creation
+
+`/app/projects/new` offers a manual path alongside the existing AI path. Manual submission calls authenticated `POST /api/projects`, validates any selected goal belongs to the signed-in user, saves the structured project row, and navigates to its detail view without calling an AI provider. The schema is unchanged; `goal_id` remains nullable.
 
 ### Goal Creation Wizard
 

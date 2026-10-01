@@ -170,6 +170,8 @@ Capture → Clarify → Organize → Reflect → Engage
 
 **FR31:** On successful generation, the project breakdown SHALL be saved automatically to Supabase as a new `projects` row linked to the signed-in user. No copy or download action is shown.
 
+**FR93:** Project Mode SHALL offer AI generation (the default) or manual project creation. Manual creation SHALL persist a project without making an AI request and navigate to its detail view.
+
 ### FR-Group: AI Provider
 
 **FR32:** The app SHALL support three AI providers selected via `AI_PROVIDER` environment variable: `gemini` (default), `groq`, `openai`.
@@ -221,6 +223,10 @@ Capture → Clarify → Organize → Reflect → Engage
 **FR51:** A user SHALL be able to regenerate the AI output for a specific project without affecting other projects in the same goal. Regeneration replaces only the explicitly regenerated project.
 
 **FR52:** Completing all actions in a project does not automatically mark the project complete — the user confirms completion explicitly.
+
+**FR94:** A user SHALL be able to set, change, or clear a project's parent goal from project detail, and attach an existing project from goal detail. Each project has at most one parent goal.
+
+**FR95:** The Projects view SHALL support filtering by all projects, a selected goal, or projects with no goal.
 
 ### FR-Group: Action Management [NOT YET BUILT]
 

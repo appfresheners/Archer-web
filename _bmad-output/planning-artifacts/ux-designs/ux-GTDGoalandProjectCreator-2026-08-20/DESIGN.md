@@ -120,6 +120,11 @@ components:
       opacity: "0.4"
       cursor: "not-allowed"
 
+  interactive-affordance:
+    enabled-cursor: "pointer"
+    disabled-cursor: "not-allowed"
+    note: "Cursor shape supplements semantic controls and visible focus/hover states; it is never the only interaction signal."
+
   input:
     bg: "{colors.background}"
     border: "{colors.border}"

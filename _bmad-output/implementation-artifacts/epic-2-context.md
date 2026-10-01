@@ -14,6 +14,7 @@ This epic delivers the first end-to-end AI generation flow: a signed-in user typ
 - Story 2.4: Loading, Timeout & Provider Error Handling
 - Story 2.5: REMOVED — obsolete markdown/Notion rendering story; the detail view (2.3) renders from structured rows.
 - Story 2.6: Remove Dead Copy/Download Code
+- Story 2.7: Manual Project Creation
 
 ## Requirements & Constraints
 
@@ -27,6 +28,7 @@ This epic delivers the first end-to-end AI generation flow: a signed-in user typ
 - Timeout is 30 seconds. On timeout, a user-facing error with a retry option appears and the user's input is preserved. Provider errors surface a clear, actionable message, including API-key misconfiguration guidance (e.g. add the provider key to `.env.local`).
 - While a request is in flight the submit button shows a spinner and "Generating…" and the input is disabled.
 - The project detail view renders every field from the stored structured data — scalar columns, the `planning_detail` JSON sections, and the `actions` rows as a checklist. There is no markdown renderer and no same-page output panel (the flow navigates to a dedicated detail page).
+- Project creation offers "Generate with AI" (default, unchanged) and "Create manually". Manual mode requires a project name, accepts optional purpose/outcome/parent goal, saves via authenticated `POST /api/projects`, and never calls the AI provider. Any selected goal must be owned by the signed-in user. Inbox-originated manual creation preserves the existing clarify completion/link behavior.
 
 ## Technical Decisions
 
@@ -41,6 +43,7 @@ This epic delivers the first end-to-end AI generation flow: a signed-in user typ
 ## UX & Interaction Patterns
 
 - Project Mode surface (`/app/projects/new`): a single text input with placeholder "e.g., Personal portfolio website deployed online", the Minimal/Full-GTD depth control, and a "Break it down" button.
+- The same surface offers a manual mode without disrupting the zero-friction AI default; manual saves navigate directly to project detail, where the existing ActionList can add actions.
 - The depth control meets the same accessibility bar as every other control: keyboard-operable, exposes ARIA state, ≥ 44×44px touch target, and ≥ 4.5:1 contrast.
 - On success, auto-save to Supabase then navigate to the Project detail view — the flow never leaves the user on a transient, unsaved result. The detail view renders the structured breakdown (purpose, outcome, Full-GTD sections, and a next-actions checklist).
 

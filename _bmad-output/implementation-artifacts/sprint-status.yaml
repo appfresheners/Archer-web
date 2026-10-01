@@ -38,7 +38,7 @@
 # and has been preserved as sprint-status-superseded-mvp1.yaml. None of the new
 # 35 stories have been started under the current plan, so all are 'backlog'.
 generated: 09-27-2026 16:30
-last_updated: 10-01-2026 (Epic 5 in progress; Story 5.7 in review)
+last_updated: 10-01-2026 (approved course correction; Stories 2.7, 4.6, H-4 ready-for-dev)
 
 project: GTDGoalandProjectCreator
 project_key: NOKEY
@@ -55,7 +55,7 @@ development_status:
   1-7-ai-provider-configuration-layer: done
   epic-1-retrospective: optional
 
-  epic-2: done
+  epic-2: in-progress
   2-1-single-generation-endpoint-with-auth-provider-path-pattern-a: review
   2-2-project-mode-input-with-depth-control-validation: review
   2-3-project-mode-generation-save-navigation: review
@@ -64,6 +64,7 @@ development_status:
   # obsolete: generation returns structured JSON persisted as Supabase rows;
   # the project detail view (2.3) renders from structured data, not markdown.
   2-6-remove-dead-copy-download-code: review
+  2-7-manual-project-creation: ready-for-dev
   epic-2-retrospective: optional
 
   epic-3: in-progress
@@ -81,6 +82,7 @@ development_status:
   4-3-project-detail-edit-regeneration: review
   4-4-action-management-context-tags: review
   4-5-commit-single-next-action-stuck-detection: review
+  4-6-project-goal-linking-filtering: ready-for-dev
   epic-4-retrospective: optional
 
   epic-5: in-progress
@@ -133,4 +135,5 @@ development_status:
   #   2.3 / 4.1 (distinguish transient backend error from 404 / empty state)
   #   3.6 (friendly mapping for GenerationFormatError)
   H-3-provider-resilience-and-error-observability: backlog
+  H-4-app-wide-clickable-cursor-affordance: ready-for-dev
   epic-H-retrospective: optional

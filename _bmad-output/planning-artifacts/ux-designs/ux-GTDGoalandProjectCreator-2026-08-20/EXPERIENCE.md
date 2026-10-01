@@ -198,11 +198,19 @@ Four sequential steps. Cannot skip forward. Can navigate back (prior inputs pres
 - Empty state: "No goals yet. [Start one →]"
 - FAB / "New goal" button in top-right opens wizard.
 
+## Projects List
+
+- Show all projects by default, with a goal filter offering All projects, each available goal, and No goal.
+- Selecting a goal filters to projects linked to that goal; No goal filters to projects whose `goal_id` is null.
+- Each row shows the project name, status, and parent goal when linked; the filter is keyboard-operable and preserves the selected value in the URL.
+- The "New project" control opens the AI/manual creation choice.
+
 ## Goal Detail
 
 - Header: goal text + status badge + target date + "Edit" menu.
 - Gap analysis section: collapsed by default, expandable — shows priority gaps, framework tables.
 - Projects section: list of project cards (see Project Card below).
+- Provide an "Attach existing project" control. Selecting a project links it to this goal; if it already belongs to another goal, the user confirms moving the single association.
 - Monthly Goal Check section at bottom (collapsed).
 - "Regenerate" on a specific project opens confirmation modal before overwriting that project's content.
 
@@ -215,6 +223,7 @@ Four sequential steps. Cannot skip forward. Can navigate back (prior inputs pres
 ## Project Detail
 
 - Header: project name + parent goal breadcrumb + status badge.
+- Provide a parent-goal selector that lists the user's goals and a "No goal" option; changes persist immediately and refresh the breadcrumb. A project can link to only one goal.
 - Purpose and Successful Outcome sections (collapsible).
 - Action list: all actions with status (available / committed / done).
 - "Commit" button on each available action sets it as committed (decommits any previous committed action on this project).
@@ -342,6 +351,10 @@ Completes per-goal, not as a batch. No "completion" event — it's a review, not
 | **Saved**      | Navigate to new Project detail view                    | — (generation complete)                 |
 | **Error**      | Error toast + "Try again" button                       | Try again → Generating; Dismiss → Ready |
 
+## Manual project creation states
+
+The project creator offers two explicit paths: "Generate with AI" (selected by default) and "Create manually". Manual mode requires a project name and accepts optional purpose, successful outcome, and parent goal. Saving creates the project without an AI request and navigates to project detail; the user can add and commit actions there. If arriving from Inbox Clarify, manual save also links the new project to the inbox item and marks the item processed, using the same completion behavior as AI creation.
+
 ## Wizard states
 
 | State                        | Description                                   |
@@ -393,6 +406,9 @@ Active · Paused · Not now · Someday · Completed · Archived — same display
 | Wizard abandon           | Navigate away                    | Partial state discarded; no goal created                          |
 | Vault unlock             | Submit passphrase                | Decrypt; show vault view                                          |
 | Portable identity reveal | Click reveal (behind warning)    | Show URL + QR; scrub URL from history                             |
+| Filter projects          | Select All, a goal, or No goal   | Update the Projects list to the selected parent-goal scope        |
+| Change project goal      | Select a goal or No goal         | Persist the single parent-goal association and refresh breadcrumb |
+| Attach project to goal   | Choose an existing project      | Link it to the goal, moving it from any prior goal                |
 
 Scroll behavior: when output renders (Project Mode generation), smooth-scroll so the top of the output panel lands in view before navigation to Project detail. When wizard advances to Step 4, scroll to top of wizard container.
 
@@ -416,6 +432,7 @@ Scroll behavior: when output renders (Project Mode generation), smooth-scroll so
 - **Motion:** Respect `prefers-reduced-motion` — disable all fade-in, slide, and transition animations. Functional state changes (loading spinner) remain.
 - **Contrast:** All text WCAG 2.1 AA minimum (4.5:1 body, 3:1 large text). Visual contrast specs in `DESIGN.md`.
 - **Touch targets:** Minimum 44×44px for all interactive elements — buttons, sliders, toggle segments, action row checkboxes, nav items.
+- **Pointer affordance:** Enabled links, buttons, selects, checkboxes/radios, disclosure summaries, and custom button-like controls use a pointer cursor; disabled controls use `not-allowed`. Cursor shape supplements, and never replaces, semantic controls, visible focus, and hover/state cues.
 - **Error states:** Inline validation messages linked to their input via `aria-describedby`. Never color-only — always paired with text or icon.
 
 ---

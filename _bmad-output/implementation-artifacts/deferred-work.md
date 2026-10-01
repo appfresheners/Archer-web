@@ -311,6 +311,8 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-5-2-inbox-processing-clarify.md`
   summary: Consider a full goal↔project linking UI (attach existing projects to a goal from the goal side; change a project's goal from project detail) — this story added the goal_id PATCH capability but no dedicated management surface
   evidence: Review (blind-hunter) — sanitizeProjectPatch now accepts goal_id (link/clear) and is route-exposed + tested, satisfying the linking mechanism the amendment required. A discoverable UI (goal detail "attach projects", project detail "change goal") is a usability follow-up beyond this story's clarify flow; revisit alongside Epic 4 goal/project detail polish.
+  tracking: Added to approved Story 4.6 (`spec-4-6-project-goal-linking-filtering.md`), ready-for-dev on 2026-10-01; remains unresolved until implementation is complete.
+  tracking: Added to approved Story 4.6 (`spec-4-6-project-goal-linking-filtering.md`), ready-for-dev on 2026-10-01; remains unresolved until implementation is complete.
 
 ## Deferred from: code review of 5-3 (2026-09-28)
 
