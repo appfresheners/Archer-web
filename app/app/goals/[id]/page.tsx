@@ -37,6 +37,7 @@ export interface LoadedGoal {
   why: string | null;
   status: GoalStatus;
   target_date: string;
+  last_checked_at: string | null;
   skill_framework: SkillFrameworkItem[] | null;
   drivers: string[] | null;
   barriers: string[] | null;
@@ -62,7 +63,7 @@ async function loadGoalDetail(id: string): Promise<LoadResult | null> {
     const { data: goal, error } = await supabase
       .from("goals")
       .select(
-        "id, goal_text, why, status, target_date, skill_framework, drivers, barriers, if_then_plan",
+        "id, goal_text, why, status, target_date, last_checked_at, skill_framework, drivers, barriers, if_then_plan",
       )
       .eq("id", id)
       .maybeSingle();
@@ -312,8 +313,14 @@ export default async function GoalDetailPage({ params }: GoalDetailPageProps) {
 
       <Collapsible title="Monthly Goal Check">
         <p className="text-text-secondary">
-          Your monthly goal check will appear here. This is coming soon.
+          Last checked: {goal.last_checked_at ? new Date(goal.last_checked_at).toLocaleDateString() : "Never"}
         </p>
+        <Link
+          href={`/app/review/monthly/${goal.id}`}
+          className="inline-flex min-h-[44px] w-fit items-center rounded-[var(--radius-sm)] bg-primary px-4 py-2 font-medium text-text-inverse transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+        >
+          Start monthly goal check
+        </Link>
       </Collapsible>
     </article>
   );

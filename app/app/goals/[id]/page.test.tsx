@@ -60,6 +60,7 @@ describe("GoalDetailPage", () => {
         why: "I want to build confidence and endurance.",
         status: "active",
         target_date: "2026-12-31",
+        last_checked_at: null,
         skill_framework: [
           { name: "Pacing", required_level: 9, user_rating: 5, description: "" },
         ],
@@ -92,6 +93,11 @@ describe("GoalDetailPage", () => {
       screen.getByText("No committed next action — this project is stuck."),
     ).toBeInTheDocument();
     expect(screen.getByText("Monthly Goal Check")).toBeInTheDocument();
+    expect(screen.getByText("Last checked: Never")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Start monthly goal check" })).toHaveAttribute(
+      "href",
+      "/app/review/monthly/g1",
+    );
   });
 
   it("calls notFound() when the goal is absent", async () => {

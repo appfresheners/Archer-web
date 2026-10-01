@@ -18,7 +18,11 @@
 
 import BottomNav from "@/components/authenticated/BottomNav";
 import FloatingCapture from "@/components/authenticated/FloatingCapture";
+import MonthlyGoalCheckPrompt, {
+  type MonthlyGoalCheckPromptGoal,
+} from "@/components/authenticated/MonthlyGoalCheckPrompt";
 import Sidebar from "@/components/authenticated/Sidebar";
+import { getMonthlyGoalCheckCutoff } from "@/lib/goals/monthlyCheck";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
@@ -33,16 +37,33 @@ export default async function AppLayout({
   // Supabase call is isolated in its own try/catch so it never swallows the
   // NEXT_REDIRECT control-flow signal that `redirect()` throws.
   let user = null;
+  let supabase: Awaited<ReturnType<typeof createClient>> | null = null;
   try {
-    const supabase = await createClient();
+    supabase = await createClient();
     const result = await supabase.auth.getUser();
     user = result.data.user;
   } catch {
     user = null;
   }
 
-  if (!user) {
+  if (!user || !supabase) {
     redirect("/sign-in");
+  }
+
+  let dueGoals: MonthlyGoalCheckPromptGoal[] = [];
+  try {
+    const cutoff = getMonthlyGoalCheckCutoff();
+    const { data, error } = await supabase
+      .from("goals")
+      .select("id, goal_text")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .or(
+        `last_checked_at.lte.${cutoff},and(last_checked_at.is.null,created_at.lte.${cutoff})`,
+      );
+    if (!error) dueGoals = (data ?? []) as MonthlyGoalCheckPromptGoal[];
+  } catch {
+    dueGoals = [];
   }
 
   return (
@@ -53,6 +74,7 @@ export default async function AppLayout({
           keeps content clear of the fixed bottom nav bar. */}
       <main className="flex-1 overflow-x-hidden px-[var(--spacing-page-x)] pb-24 pt-[var(--spacing-section-y)] md:px-[var(--spacing-page-x-lg)] md:pb-[var(--spacing-section-y)]">
         <div className="mx-auto w-full max-w-[var(--spacing-content-max)]">
+          <MonthlyGoalCheckPrompt goals={dueGoals} />
           {children}
         </div>
       </main>

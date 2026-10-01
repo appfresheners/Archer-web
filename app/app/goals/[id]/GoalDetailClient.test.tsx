@@ -16,6 +16,7 @@ const goal: LoadedGoal = {
   why: "I want to build confidence and endurance.",
   status: "active",
   target_date: "2026-12-31",
+  last_checked_at: null,
   skill_framework: [
     { name: "Pacing", required_level: 8, user_rating: 4, description: "" },
   ],
