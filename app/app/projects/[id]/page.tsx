@@ -184,10 +184,10 @@ export default async function ProjectDetailPage({
                         </Link>
                     ) : (
                         <Link
-                            href="/app/goals"
+                            href="/app/projects"
                             className="hover:text-text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
                         >
-                            ← Goals
+                            ← Projects
                         </Link>
                     )}
                 </nav>
