@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { isProjectStatus, sanitizeProjectPatch } from "./validate";
+import {
+  isProjectStatus,
+  MAX_PROJECT_TEXT,
+  sanitizeProjectPatch,
+} from "./validate";
 
 describe("isProjectStatus", () => {
   it("accepts the four project statuses", () => {
@@ -57,6 +61,17 @@ describe("sanitizeProjectPatch", () => {
   it("rejects an out-of-bounds name", () => {
     expect(sanitizeProjectPatch({ name: "" })).toBeNull();
     expect(sanitizeProjectPatch({ name: "x".repeat(201) })).toBeNull();
+  });
+
+  it("rejects over-long purpose or successful outcome", () => {
+    expect(
+      sanitizeProjectPatch({ purpose: "x".repeat(MAX_PROJECT_TEXT + 1) }),
+    ).toBeNull();
+    expect(
+      sanitizeProjectPatch({
+        successful_outcome: "x".repeat(MAX_PROJECT_TEXT + 1),
+      }),
+    ).toBeNull();
   });
 
   it("rejects an invalid status", () => {

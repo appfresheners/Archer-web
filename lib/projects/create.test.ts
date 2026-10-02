@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { validateManualProject } from "./create";
+import { MAX_PROJECT_TEXT } from "./validate";
 
 const UUID = "66666666-6666-4666-8666-666666666666";
 
@@ -77,6 +78,18 @@ describe("validateManualProject", () => {
   it("rejects non-string optional text fields", () => {
     expect(validateManualProject({ name: "X", purpose: 5 })).toBeNull();
     expect(validateManualProject({ name: "X", successful_outcome: [] })).toBeNull();
+  });
+
+  it("rejects over-long optional text fields", () => {
+    expect(
+      validateManualProject({ name: "X", purpose: "x".repeat(MAX_PROJECT_TEXT + 1) }),
+    ).toBeNull();
+    expect(
+      validateManualProject({
+        name: "X",
+        successful_outcome: "x".repeat(MAX_PROJECT_TEXT + 1),
+      }),
+    ).toBeNull();
   });
 
   it("rejects non-object bodies", () => {

@@ -18,6 +18,9 @@ const PROJECT_STATUSES: readonly ProjectStatus[] = [
 
 export const MAX_PROJECT_NAME = 200;
 
+/** Shared cap for free-text project fields (`purpose`, `successful_outcome`). */
+export const MAX_PROJECT_TEXT = 2000;
+
 export function isProjectStatus(value: unknown): value is ProjectStatus {
   return (
     typeof value === "string" && (PROJECT_STATUSES as string[]).includes(value)
@@ -53,16 +56,28 @@ export function sanitizeProjectPatch(body: unknown): ProjectUpdate | null {
 
   if ("purpose" in obj) {
     const v = obj.purpose;
-    if (v === null) patch.purpose = null;
-    else if (typeof v === "string") patch.purpose = v.trim();
-    else return null;
+    if (v === null) {
+      patch.purpose = null;
+    } else if (typeof v === "string") {
+      const trimmed = v.trim();
+      if (trimmed.length > MAX_PROJECT_TEXT) return null;
+      patch.purpose = trimmed;
+    } else {
+      return null;
+    }
   }
 
   if ("successful_outcome" in obj) {
     const v = obj.successful_outcome;
-    if (v === null) patch.successful_outcome = null;
-    else if (typeof v === "string") patch.successful_outcome = v.trim();
-    else return null;
+    if (v === null) {
+      patch.successful_outcome = null;
+    } else if (typeof v === "string") {
+      const trimmed = v.trim();
+      if (trimmed.length > MAX_PROJECT_TEXT) return null;
+      patch.successful_outcome = trimmed;
+    } else {
+      return null;
+    }
   }
 
   if ("status" in obj) {

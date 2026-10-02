@@ -21,11 +21,11 @@ describe("ProjectModeInput", () => {
       );
     });
 
-    it("disables submit on empty input", () => {
+    it("keeps the submit button enabled on empty input (no misleading aria-disabled)", () => {
       render(<ProjectModeInput onSubmit={vi.fn()} />);
-      expect(
-        screen.getByRole("button", { name: /break it down/i }),
-      ).toHaveAttribute("aria-disabled", "true");
+      const button = screen.getByRole("button", { name: /break it down/i });
+      expect(button).toBeEnabled();
+      expect(button).not.toHaveAttribute("aria-disabled");
     });
 
     it("shows no character counter", () => {
@@ -262,7 +262,9 @@ describe("ProjectModeInput", () => {
         <ProjectModeInput onSubmit={vi.fn()} onManualSubmit={onManualSubmit} />,
       );
       fireEvent.click(screen.getByRole("radio", { name: "Create manually" }));
-      fireEvent.click(screen.getByRole("button", { name: /create project/i }));
+      const button = screen.getByRole("button", { name: /create project/i });
+      expect(button).not.toHaveAttribute("aria-disabled");
+      fireEvent.click(button);
       expect(screen.getByRole("alert")).toBeInTheDocument();
       expect(onManualSubmit).not.toHaveBeenCalled();
     });

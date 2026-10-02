@@ -10,7 +10,7 @@
  * but invalid optional field rejects the whole payload.
  */
 
-import { MAX_PROJECT_NAME } from "./validate";
+import { MAX_PROJECT_NAME, MAX_PROJECT_TEXT } from "./validate";
 
 /** The validated, typed result of a manual project create request. */
 export interface ManualProjectInput {
@@ -28,13 +28,16 @@ const INVALID = Symbol("invalid");
 
 /**
  * Optional free text: absent/null → null, blank/whitespace → null, otherwise
- * the trimmed string. Any non-string value is invalid.
+ * the trimmed string. Any non-string or over-long (`MAX_PROJECT_TEXT`) value
+ * is invalid.
  */
 function optionalText(value: unknown): string | null | typeof INVALID {
   if (value === undefined || value === null) return null;
   if (typeof value !== "string") return INVALID;
   const trimmed = value.trim();
-  return trimmed === "" ? null : trimmed;
+  if (trimmed === "") return null;
+  if (trimmed.length > MAX_PROJECT_TEXT) return INVALID;
+  return trimmed;
 }
 
 /**

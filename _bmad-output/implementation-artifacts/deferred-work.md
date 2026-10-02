@@ -311,8 +311,7 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-5-2-inbox-processing-clarify.md`
   summary: Consider a full goal↔project linking UI (attach existing projects to a goal from the goal side; change a project's goal from project detail) — this story added the goal_id PATCH capability but no dedicated management surface
   evidence: Review (blind-hunter) — sanitizeProjectPatch now accepts goal_id (link/clear) and is route-exposed + tested, satisfying the linking mechanism the amendment required. A discoverable UI (goal detail "attach projects", project detail "change goal") is a usability follow-up beyond this story's clarify flow; revisit alongside Epic 4 goal/project detail polish.
-  tracking: Added to approved Story 4.6 (`spec-4-6-project-goal-linking-filtering.md`), ready-for-dev on 2026-10-01; remains unresolved until implementation is complete.
-  tracking: Added to approved Story 4.6 (`spec-4-6-project-goal-linking-filtering.md`), ready-for-dev on 2026-10-01; remains unresolved until implementation is complete.
+  status: done # 2026-10-02 — Story 4.6 shipped the full linking UI: goal detail "Attach existing project" (AttachProjectControl), project detail "Parent goal" selector, and the Projects index All/goal/No-goal filter.
 
 ## Deferred from: code review of 5-3 (2026-09-28)
 
@@ -371,18 +370,22 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-7-manual-project-creation.md`
   summary: `PATCH /api/projects/[id]` accepts a `goal_id` with no ownership check — a signed-in user can link their own project to another user's goal (FK + RLS only verify the project owner and goal existence)
   evidence: Review (verification-gap) — `sanitizeProjectPatch` passes a uuid `goal_id` straight into `.update(patch)` scoped only by project `id` + `user_id`; the goal's owner is never verified. The new `POST /api/projects` guards this cross-owner vector, so the edit route is now the remaining hole. Pre-existing route outside Story 2.7; pair with the 4.6 goal-linking work.
+  status: done # 2026-10-02 — Story 4.6 added the cross-owner goal_id guard to PATCH /api/projects/[id]: the route verifies the referenced goal belongs to the acting user before update (route.ts), covered by "rejects a foreign goal (404) and writes nothing".
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-7-manual-project-creation.md`
   summary: `purpose` and `successful_outcome` have no length bound in `lib/projects/create.ts` (and the existing `sanitizeProjectPatch`) — unbounded text is accepted and stored
   evidence: Review (blind + edge-case) — `optionalText` only type-checks; the DB columns are unbounded `text`. Every other user string is bounded (name 200, goal_text/action text). The new validator deliberately mirrors the existing project-edit convention, which is also unbounded; a shared length cap should be added across both in one change.
+  status: done # 2026-10-02 — added shared MAX_PROJECT_TEXT = 2000 to lib/projects/validate.ts and enforced it in sanitizeProjectPatch and validateManualProject (optionalText); the manual form caps purpose/outcome at the same length.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-7-manual-project-creation.md`
   summary: The manual parent-goal picker lists every goal with no order/limit/filter — nondeterministic ordering, includes completed/archived/someday goals, and grows unbounded with the user's history
   evidence: Review (blind + edge-case) — `loadGoalsForPicker` does `.select("id, goal_text")` with no `.order()`, `.limit()`, or status filter. Tolerable at expected scale; revisit with an ordering/status-filtering decision (which the spec leaves open) or alongside Epic 4 goal polish.
+  status: done # 2026-10-02 — loadGoalsForPicker now filters to non-terminal statuses (active/paused/not_now/someday, excluding completed/archived) and orders by goal_text ascending.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-7-manual-project-creation.md`
   summary: Submit buttons set `aria-disabled` true when the field is merely empty while the button is still clickable (clicking surfaces inline validation) — assistive tech is told the control is disabled
   evidence: Review (blind) — the AI submit button already carried this pre-existing `aria-disabled`-on-empty pattern; the new manual button replicates it. The real `disabled` attribute already covers actual disabling; fix both buttons in a shared a11y pass without altering AI behavior.
+  status: done # 2026-10-02 — removed the misleading aria-disabled from both the AI "Break it down" and manual "Create project" buttons in ProjectModeInput; only the real `disabled` attribute (in-flight) remains.
 
 ## Deferred from: code review of 4-6 (2026-10-02)
 

@@ -3,6 +3,8 @@ import { loadGoalsForPicker } from "./load-goals";
 
 let selectResult: { data: unknown; error: unknown };
 const selectSpy = vi.fn();
+const inSpy = vi.fn();
+const orderSpy = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
@@ -12,7 +14,17 @@ vi.mock("@/lib/supabase/server", () => ({
         select: (columns: string) => {
           // Capture the selected columns so the test can pin the query shape.
           selectSpy(columns);
-          return selectResult;
+          return {
+            in: (column: string, values: unknown) => {
+              inSpy(column, values);
+              return {
+                order: (orderColumn: string, opts: unknown) => {
+                  orderSpy(orderColumn, opts);
+                  return selectResult;
+                },
+              };
+            },
+          };
         },
       };
     },
@@ -38,6 +50,19 @@ describe("loadGoalsForPicker", () => {
       { id: "g2", goal_text: "Second goal" },
     ]);
     expect(selectSpy).toHaveBeenCalledWith("id, goal_text");
+  });
+
+  it("restricts to non-terminal goal statuses, ordered by goal_text", async () => {
+    selectResult = { data: [], error: null };
+    await loadGoalsForPicker();
+
+    expect(inSpy).toHaveBeenCalledWith("status", [
+      "active",
+      "paused",
+      "not_now",
+      "someday",
+    ]);
+    expect(orderSpy).toHaveBeenCalledWith("goal_text", { ascending: true });
   });
 
   it("degrades to [] when the query errors", async () => {

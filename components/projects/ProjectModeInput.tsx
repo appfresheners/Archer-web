@@ -23,6 +23,7 @@
  * drives.
  */
 
+import { MAX_PROJECT_TEXT } from "@/lib/projects/validate";
 import type { PlanningDepth } from "@/lib/supabase/schema";
 import { useId, useState } from "react";
 import DepthControl from "./DepthControl";
@@ -244,6 +245,7 @@ export default function ProjectModeInput({
               value={purpose}
               onChange={(e) => setPurpose(e.target.value)}
               placeholder="Why this project matters"
+              maxLength={MAX_PROJECT_TEXT}
               disabled={isDisabled}
               className={textFieldClass}
             />
@@ -259,6 +261,7 @@ export default function ProjectModeInput({
               value={successfulOutcome}
               onChange={(e) => setSuccessfulOutcome(e.target.value)}
               placeholder="What done looks like"
+              maxLength={MAX_PROJECT_TEXT}
               disabled={isDisabled}
               className={textFieldClass}
             />
@@ -288,7 +291,6 @@ export default function ProjectModeInput({
             type="button"
             onClick={handleManualSubmit}
             disabled={isDisabled}
-            aria-disabled={manualSubmitDisabled ? "true" : undefined}
             aria-busy={manualSaving ? "true" : undefined}
             className={`flex min-h-[44px] w-full items-center justify-center rounded-[var(--radius-sm)] px-6 py-3 font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] ${
               manualSubmitDisabled
@@ -356,7 +358,6 @@ export default function ProjectModeInput({
             type="button"
             onClick={handleAttemptSubmit}
             disabled={isDisabled}
-            aria-disabled={aiSubmitDisabled ? "true" : undefined}
             aria-busy={loading ? "true" : undefined}
             className={`flex min-h-[44px] w-full items-center justify-center rounded-[var(--radius-sm)] px-6 py-3 font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] ${
               aiSubmitDisabled
