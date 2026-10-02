@@ -1,9 +1,11 @@
 ---
 title: "Archer - Product Brief"
-status: draft
+status: superseded
 created: 2026-08-20
-updated: 2026-08-20
+updated: 2026-09-27
 ---
+
+> **SUPERSEDED (2026-09-27).** This brief describes the original static-export MVP (no accounts, copy/download, Notion-optimized markdown for paste-out). The current product (v1-full) is authenticated, Supabase-backed, and AI-generated: generation returns **structured JSON persisted as structured Supabase rows** — there is no markdown output, no copy/download, and Archer (not Notion) is the system of record. See `epics.md`, `ARCHITECTURE-SPINE.md`, and the UX `EXPERIENCE.md` for the authoritative current scope. The text below is retained for historical context only.
 
 # Product Brief: Archer
 

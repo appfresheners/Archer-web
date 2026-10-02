@@ -1,0 +1,1112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Archer — Brainstorm Keepsake</title>
+    <style>
+      :root {
+        --blue: #2563eb;
+        --blue-deep: #1e3a8a;
+        --emerald: #10b981;
+        --emerald-deep: #047857;
+        --ink: #0f172a;
+        --ink-soft: #334155;
+        --muted: #64748b;
+        --paper: #f8fafc;
+        --card: #ffffff;
+        --line: #e2e8f0;
+        --gold: #f59e0b;
+        --shadow:
+          0 1px 3px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.06);
+        --shadow-lift: 0 8px 30px rgba(37, 99, 235, 0.14);
+        --font:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        font-family: var(--font);
+        color: var(--ink);
+        background:
+          radial-gradient(
+            1200px 600px at 100% -10%,
+            rgba(37, 99, 235, 0.08),
+            transparent 60%
+          ),
+          radial-gradient(
+            1000px 500px at -10% 30%,
+            rgba(16, 185, 129, 0.07),
+            transparent 55%
+          ),
+          var(--paper);
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 0 20px;
+      }
+
+      /* ---------- HEADER ---------- */
+      header.hero {
+        position: relative;
+        overflow: hidden;
+        padding: 64px 20px 72px;
+        text-align: center;
+        color: #fff;
+        background:
+          radial-gradient(
+            900px 500px at 50% -30%,
+            rgba(255, 255, 255, 0.14),
+            transparent 60%
+          ),
+          linear-gradient(
+            135deg,
+            var(--blue-deep),
+            var(--blue) 55%,
+            var(--emerald-deep)
+          );
+      }
+      header.hero .wrap {
+        position: relative;
+        z-index: 2;
+      }
+
+      /* concentric target rings behind the title */
+      .rings {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 620px;
+        height: 620px;
+        z-index: 1;
+        opacity: 0.35;
+        pointer-events: none;
+      }
+      .rings span {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        border-radius: 50%;
+        border: 1.5px solid rgba(255, 255, 255, 0.4);
+      }
+      .rings span:nth-child(1) {
+        width: 620px;
+        height: 620px;
+      }
+      .rings span:nth-child(2) {
+        width: 470px;
+        height: 470px;
+      }
+      .rings span:nth-child(3) {
+        width: 330px;
+        height: 330px;
+      }
+      .rings span:nth-child(4) {
+        width: 200px;
+        height: 200px;
+      }
+      .rings span:nth-child(5) {
+        width: 84px;
+        height: 84px;
+        background: rgba(245, 158, 11, 0.55);
+        border-color: rgba(255, 255, 255, 0.7);
+      }
+
+      .kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.78rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.82);
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        padding: 6px 14px;
+        border-radius: 999px;
+        backdrop-filter: blur(4px);
+      }
+      header.hero h1 {
+        margin: 22px 0 6px;
+        font-size: clamp(2.4rem, 6vw, 4rem);
+        letter-spacing: -0.02em;
+        font-weight: 800;
+        text-shadow: 0 2px 20px rgba(0, 0, 0, 0.18);
+      }
+      header.hero .topic {
+        margin: 0 auto;
+        max-width: 620px;
+        font-size: clamp(1rem, 2.4vw, 1.2rem);
+        color: rgba(255, 255, 255, 0.92);
+        font-weight: 500;
+      }
+      .meta-row {
+        margin-top: 26px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 26px;
+        justify-content: center;
+        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.85);
+      }
+      .meta-row .dot {
+        opacity: 0.5;
+      }
+
+      /* ---------- SECTION SCAFFOLD ---------- */
+      main {
+        padding: 56px 0 40px;
+      }
+      section {
+        margin: 0 0 72px;
+      }
+
+      .sec-head {
+        margin-bottom: 26px;
+      }
+      .sec-index {
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--blue);
+      }
+      .sec-title {
+        margin: 6px 0 8px;
+        font-size: clamp(1.5rem, 3.4vw, 2.1rem);
+        letter-spacing: -0.02em;
+        font-weight: 800;
+        color: var(--ink);
+      }
+      .sec-desc {
+        margin: 0;
+        max-width: 720px;
+        color: var(--muted);
+        font-size: 1rem;
+      }
+      .sec-count {
+        display: inline-block;
+        margin-top: 12px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--emerald-deep);
+        background: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(16, 185, 129, 0.25);
+        padding: 3px 11px;
+        border-radius: 999px;
+      }
+
+      /* small aim glyph */
+      .aim {
+        display: inline-block;
+        width: 22px;
+        height: 22px;
+        vertical-align: -4px;
+        margin-right: 6px;
+      }
+
+      /* ---------- TECHNIQUE 1: SCAMPER as 7 lenses ---------- */
+      .lens-grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      }
+      .lens {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 18px 18px 16px;
+        box-shadow: var(--shadow);
+        position: relative;
+        transition:
+          transform 0.18s ease,
+          box-shadow 0.18s ease;
+      }
+      .lens:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-lift);
+      }
+      .lens-tag {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+      .lens-letter {
+        width: 34px;
+        height: 34px;
+        flex: none;
+        display: grid;
+        place-items: center;
+        border-radius: 10px;
+        font-weight: 800;
+        color: #fff;
+        background: linear-gradient(135deg, var(--blue), var(--blue-deep));
+        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+      }
+      .lens-name {
+        font-weight: 700;
+        font-size: 0.98rem;
+      }
+      .lens-sub {
+        font-size: 0.76rem;
+        color: var(--muted);
+      }
+      .lens ul {
+        margin: 0;
+        padding-left: 0;
+        list-style: none;
+      }
+      .lens li {
+        position: relative;
+        padding: 6px 0 6px 22px;
+        font-size: 0.92rem;
+        color: var(--ink-soft);
+        border-top: 1px dashed var(--line);
+      }
+      .lens li:first-child {
+        border-top: none;
+      }
+      .lens li::before {
+        content: "";
+        position: absolute;
+        left: 4px;
+        top: 13px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--emerald);
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.16);
+      }
+
+      /* ---------- TECHNIQUE 2: Job cards ---------- */
+      .jtbd-insight {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        background: linear-gradient(
+          135deg,
+          rgba(37, 99, 235, 0.06),
+          rgba(16, 185, 129, 0.06)
+        );
+        border: 1px solid var(--line);
+        border-left: 4px solid var(--blue);
+        border-radius: 12px;
+        padding: 16px 18px;
+        margin-bottom: 22px;
+      }
+      .jtbd-insight .q {
+        font-size: 1.5rem;
+        line-height: 1;
+      }
+      .jtbd-insight p {
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 0.98rem;
+      }
+      .jtbd-insight strong {
+        color: var(--ink);
+      }
+
+      .job-grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      }
+      .job {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 18px;
+        box-shadow: var(--shadow);
+        position: relative;
+        overflow: hidden;
+        transition:
+          transform 0.18s ease,
+          box-shadow 0.18s ease;
+      }
+      .job:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-lift);
+      }
+      .job::after {
+        content: "hire me";
+        position: absolute;
+        top: 12px;
+        right: -30px;
+        transform: rotate(35deg);
+        background: rgba(16, 185, 129, 0.14);
+        color: var(--emerald-deep);
+        font-size: 0.6rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        font-weight: 700;
+        padding: 3px 34px;
+      }
+      .job h4 {
+        margin: 0 0 6px;
+        font-size: 0.82rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--blue);
+      }
+      .job p {
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 0.95rem;
+      }
+
+      /* ---------- TECHNIQUE 3: What If provocation cards ---------- */
+      .whatif-grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      }
+      .provoke {
+        border-radius: 16px;
+        padding: 20px 18px;
+        color: #fff;
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(135deg, #1e293b, #0f172a);
+        box-shadow: var(--shadow);
+        transition:
+          transform 0.18s ease,
+          box-shadow 0.18s ease;
+      }
+      .provoke:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 34px rgba(15, 23, 42, 0.28);
+      }
+      .provoke .spark {
+        position: absolute;
+        inset: 0;
+        opacity: 0.16;
+        pointer-events: none;
+        background:
+          radial-gradient(
+            180px 120px at 90% 0%,
+            var(--emerald),
+            transparent 60%
+          ),
+          radial-gradient(180px 120px at 0% 100%, var(--blue), transparent 60%);
+      }
+      .provoke .wi {
+        position: relative;
+        font-size: 0.72rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: var(--emerald);
+      }
+      .provoke p {
+        position: relative;
+        margin: 8px 0 0;
+        font-size: 1.02rem;
+        font-weight: 500;
+      }
+
+      /* ---------- TECHNIQUE 4: Stolen traits ---------- */
+      .trait-grid {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      }
+      .trait {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 16px;
+        box-shadow: var(--shadow);
+        transition:
+          transform 0.18s ease,
+          box-shadow 0.18s ease;
+      }
+      .trait:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-lift);
+      }
+      .trait .badge {
+        flex: none;
+        width: 46px;
+        height: 46px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        color: #fff;
+        font-size: 1.05rem;
+        background: linear-gradient(
+          135deg,
+          var(--emerald),
+          var(--emerald-deep)
+        );
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+      }
+      .trait .from {
+        font-size: 0.74rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .trait .name {
+        font-weight: 700;
+        margin: 1px 0 3px;
+      }
+      .trait p {
+        margin: 0;
+        font-size: 0.92rem;
+        color: var(--ink-soft);
+      }
+
+      /* ---------- SYNTHESIS CLIMAX ---------- */
+      .synthesis {
+        position: relative;
+        border-radius: 24px;
+        padding: 54px 26px 48px;
+        color: #fff;
+        overflow: hidden;
+        background:
+          radial-gradient(
+            700px 400px at 50% -20%,
+            rgba(255, 255, 255, 0.12),
+            transparent 60%
+          ),
+          linear-gradient(
+            140deg,
+            #0b1220,
+            var(--blue-deep) 60%,
+            var(--emerald-deep)
+          );
+        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.35);
+      }
+      .synthesis .rings2 {
+        position: absolute;
+        top: -120px;
+        right: -120px;
+        width: 420px;
+        height: 420px;
+        opacity: 0.25;
+        pointer-events: none;
+      }
+      .synthesis .rings2 span {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        border-radius: 50%;
+        border: 1.5px solid rgba(255, 255, 255, 0.5);
+      }
+      .synthesis .rings2 span:nth-child(1) {
+        width: 420px;
+        height: 420px;
+      }
+      .synthesis .rings2 span:nth-child(2) {
+        width: 300px;
+        height: 300px;
+      }
+      .synthesis .rings2 span:nth-child(3) {
+        width: 180px;
+        height: 180px;
+      }
+      .synthesis .rings2 span:nth-child(4) {
+        width: 64px;
+        height: 64px;
+        background: rgba(245, 158, 11, 0.6);
+      }
+
+      .synthesis .inner {
+        position: relative;
+        z-index: 2;
+      }
+      .synthesis .climax-kicker {
+        text-align: center;
+        font-size: 0.78rem;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: var(--emerald);
+      }
+      .synthesis h2 {
+        text-align: center;
+        margin: 8px 0 4px;
+        font-size: clamp(1.8rem, 4.5vw, 2.6rem);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+      .synthesis .lede {
+        text-align: center;
+        max-width: 640px;
+        margin: 0 auto 34px;
+        color: rgba(255, 255, 255, 0.82);
+      }
+
+      .insight-stack {
+        display: grid;
+        gap: 16px;
+        max-width: 860px;
+        margin: 0 auto;
+      }
+      .insight {
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 16px;
+        padding: 20px 22px;
+        backdrop-filter: blur(6px);
+      }
+      .insight .medal {
+        flex: none;
+        width: 54px;
+        height: 54px;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        font-size: 1.4rem;
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+      .insight .label {
+        font-size: 0.74rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: var(--gold);
+      }
+      .insight h3 {
+        margin: 3px 0 6px;
+        font-size: 1.12rem;
+      }
+      .insight p {
+        margin: 0;
+        color: rgba(255, 255, 255, 0.86);
+        font-size: 0.95rem;
+      }
+
+      .insight.keystone {
+        border-color: rgba(245, 158, 11, 0.45);
+        box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.15) inset;
+      }
+      .insight.keystone .label {
+        color: var(--gold);
+      }
+      .insight.leverage .label {
+        color: #7dd3fc;
+      }
+      .insight.growth .label {
+        color: #6ee7b7;
+      }
+      .insight.tension .label {
+        color: #fca5a5;
+      }
+
+      /* ---------- FOOTER ---------- */
+      footer {
+        text-align: center;
+        padding: 30px 20px 60px;
+        color: var(--muted);
+        font-size: 0.86rem;
+      }
+      footer .arrow {
+        color: var(--blue);
+        font-weight: 700;
+      }
+
+      @media (max-width: 560px) {
+        .rings {
+          width: 380px;
+          height: 380px;
+        }
+        .rings span:nth-child(1) {
+          width: 380px;
+          height: 380px;
+        }
+        .rings span:nth-child(2) {
+          width: 290px;
+          height: 290px;
+        }
+        .rings span:nth-child(3) {
+          width: 205px;
+          height: 205px;
+        }
+        .rings span:nth-child(4) {
+          width: 125px;
+          height: 125px;
+        }
+        .rings span:nth-child(5) {
+          width: 56px;
+          height: 56px;
+        }
+        .synthesis {
+          padding: 40px 18px;
+        }
+      }
+    </style>
+  </head>
+  <body></body>
+</html>
+
+<header class="hero">
+  <div class="rings">
+    <span></span><span></span><span></span><span></span><span></span>
+  </div>
+  <div class="wrap">
+    <span class="kicker">◎ Brainstorming Keepsake</span>
+    <h1>Aim &amp; Release</h1>
+    <p class="topic">
+      Features to add to <strong>Archer</strong> — the GTD Goal &amp; Project
+      Creator that turns fuzzy goals into concrete next actions.
+    </p>
+    <div class="meta-row">
+      <span>Goal — explore the full landscape of possible features</span>
+      <span class="dot">•</span>
+      <span>2026-08-31</span>
+      <span class="dot">•</span>
+      <span>Facilitated by Mary, Business Analyst</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <p style="max-width: 760px; margin: 0 0 48px; color: var(--muted)">
+    Four techniques, run in sequence, drew a wide arc across the possible
+    feature space — then collapsed it to a bullseye. Every idea below traces to
+    a moment in the session. The synthesis at the end is where the arrows land.
+  </p>
+
+  <!-- ============ TECHNIQUE 1: SCAMPER ============ -->
+  <section id="scamper">
+    <div class="sec-head">
+      <div class="sec-index">Technique 01</div>
+      <h2 class="sec-title">SCAMPER Method — Seven Lenses on Archer</h2>
+      <p class="sec-desc">
+        Turning the existing product over and viewing it through seven prompts:
+        Substitute, Combine, Adapt, Modify, Put to another use, Eliminate,
+        Reverse. Each lens surfaced its own crop of features.
+      </p>
+      <span class="sec-count">21 ideas</span>
+    </div>
+
+    <div class="lens-grid">
+      <div class="lens">
+        <div class="lens-tag">
+          <div class="lens-letter">S</div>
+          <div>
+            <div class="lens-name">Substitute</div>
+            <div class="lens-sub">swap a part of the flow</div>
+          </div>
+        </div>
+        <ul>
+          <li>Voice input: speak your goal, get breakdown</li>
+          <li>
+            Methodology selector: GTD / OKR / SMART / 12-week / Eisenhower
+          </li>
+          <li>Rotating goal-of-the-day seeded from popular inputs</li>
+        </ul>
+      </div>
+
+      <div class="lens">
+        <div class="lens-tag">
+          <div class="lens-letter">C</div>
+          <div>
+            <div class="lens-name">Combine</div>
+            <div class="lens-sub">merge flows &amp; outputs</div>
+          </div>
+        </div>
+        <ul>
+          <li>
+            Unified flow: expand any project inside a goal breakdown inline
+          </li>
+          <li>
+            Calendar .ics export so next actions become time-blocked events
+          </li>
+          <li>
+            Effort tags per action (2min / 15min / 1hr) to batch by energy
+          </li>
+        </ul>
+      </div>
+
+      <div class="lens">
+        <div class="lens-tag">
+          <div class="lens-letter">A</div>
+          <div>
+            <div class="lens-name">Adapt</div>
+            <div class="lens-sub">borrow proven mechanics</div>
+          </div>
+        </div>
+        <ul>
+          <li>Diff view: regenerate and show what changed vs last version</li>
+          <li>
+            Spaced-repetition revisit reminder via generated calendar event (no
+            account)
+          </li>
+          <li>Time-to-done estimate for the whole project</li>
+        </ul>
+      </div>
+
+      <div class="lens">
+        <div class="lens-tag">
+          <div class="lens-letter">M</div>
+          <div>
+            <div class="lens-name">Modify / Magnify</div>
+            <div class="lens-sub">tune the intensity</div>
+          </div>
+        </div>
+        <ul>
+          <li>Depth slider: quick 3 actions ⇄ exhaustive breakdown</li>
+          <li>GTD strictness toggle: enforce physical-verb-only actions</li>
+          <li>Why-this-matters motivational framing layer atop output</li>
+        </ul>
+      </div>
+
+      <div class="lens">
+        <div class="lens-tag">
+          <div class="lens-letter">P</div>
+          <div>
+            <div class="lens-name">Put to Another Use</div>
+            <div class="lens-sub">new audiences &amp; jobs</div>
+          </div>
+        </div>
+        <ul>
+          <li>Team mode: shared objective → role-split action lists</li>
+          <li>Meeting-prep tool: prepare for X → agenda + actions</li>
+          <li>Learning-path generator: learn X → curriculum breakdown</li>
+        </ul>
+      </div>
+
+      <div class="lens">
+        <div class="lens-tag">
+          <div class="lens-letter">E</div>
+          <div>
+            <div class="lens-name">Eliminate</div>
+            <div class="lens-sub">remove the friction</div>
+          </div>
+        </div>
+        <ul>
+          <li>Auto-detect goal vs project, eliminate the mode toggle</li>
+          <li>Land on a pre-filled generated example, no blank page</li>
+          <li>One-click Open in Notion via template deep link</li>
+        </ul>
+      </div>
+
+      <div class="lens">
+        <div class="lens-tag">
+          <div class="lens-letter">R</div>
+          <div>
+            <div class="lens-name">Reverse / Rearrange</div>
+            <div class="lens-sub">flip the direction</div>
+          </div>
+        </div>
+        <ul>
+          <li>Reverse: paste a messy brain-dump → organized GTD structure</li>
+          <li>Backcasting built-in: start from done, work backward to today</li>
+          <li>Archer asks clarifying GTD-coach questions, then generates</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ TECHNIQUE 2: Job to Be Done ============ -->
+<section id="jtbd">
+  <div class="sec-head">
+    <div class="sec-index">Technique 02</div>
+    <h2 class="sec-title">
+      Job to Be Done — What People Actually Hire Archer For
+    </h2>
+    <p class="sec-desc">
+      Stepping past the feature list to ask what emotional and practical job a
+      user pulls Archer in to do. The answer reframed everything that followed.
+    </p>
+    <span class="sec-count">15 ideas</span>
+  </div>
+
+  <div class="jtbd-insight">
+    <div class="q">“</div>
+    <p>
+      <strong>The reframe:</strong> Users don't want a GTD breakdown — they hire
+      Archer for deeper emotional and practical jobs. Reduce overwhelm, find the
+      one true first step, feel momentum, and know whether the goal is even
+      worth it.
+    </p>
+  </div>
+
+  <div class="job-grid">
+    <div class="job">
+      <h4>Cut the overwhelm</h4>
+      <p>
+        Just-tell-me-the-ONE-thing button: collapse to a single first action.
+      </p>
+    </div>
+    <div class="job">
+      <h4>Emotional triage</h4>
+      <p>
+        Emotional check-in: “overwhelmed by X” → triage down to one tiny step.
+      </p>
+    </div>
+    <div class="job">
+      <h4>Right now</h4>
+      <p>Panic mode: strip everything to the next 10 minutes only.</p>
+    </div>
+    <div class="job">
+      <h4>Make it shareable</h4>
+      <p>Export to a polished, shareable, read-only public page.</p>
+    </div>
+    <div class="job">
+      <h4>Present it</h4>
+      <p>Present-this mode: turn the breakdown into slides.</p>
+    </div>
+    <div class="job">
+      <h4>Match the room</h4>
+      <p>Professional vs casual tone toggle.</p>
+    </div>
+    <div class="job">
+      <h4>Keep me moving</h4>
+      <p>
+        Progress check-in: “how'd it go?” → regenerate the remaining actions.
+      </p>
+    </div>
+    <div class="job">
+      <h4>Feel momentum</h4>
+      <p>Local streak / momentum tracking, no account required.</p>
+    </div>
+    <div class="job">
+      <h4>Gentle nudges</h4>
+      <p>Next-action-only email drip, opt-in and subscription-free.</p>
+    </div>
+    <div class="job">
+      <h4>Reality check</h4>
+      <p>Feasibility gut-check: flag unrealistic goals for the timeframe.</p>
+    </div>
+    <div class="job">
+      <h4>Show the cost</h4>
+      <p>Cost / tradeoff surfacing: estimated hours-per-week needed.</p>
+    </div>
+    <div class="job">
+      <h4>Should I even?</h4>
+      <p>Should-I-even-do-this pre-mortem before planning begins.</p>
+    </div>
+    <div class="job">
+      <h4>Hide the method</h4>
+      <p>Invisible methodology: never say “GTD”, just deliver clean actions.</p>
+    </div>
+    <div class="job">
+      <h4>Teach me</h4>
+      <p>Beginner-mode inline explanations of GTD terms.</p>
+    </div>
+    <div class="job">
+      <h4>Speak my language</h4>
+      <p>Auto-simplify jargon based on the detected domain.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TECHNIQUE 3: What If Scenarios ============ -->
+<section id="whatif">
+  <div class="sec-head">
+    <div class="sec-index">Technique 03</div>
+    <h2 class="sec-title">What If Scenarios — Provocations</h2>
+    <p class="sec-desc">
+      Bold “what if” provocations that stretched Archer into new shapes:
+      portable identity, richer views, embedded intelligence, and living where
+      the user already works.
+    </p>
+    <span class="sec-count">16 ideas</span>
+  </div>
+
+  <div class="whatif-grid">
+    <div class="provoke">
+      <div class="spark"></div>
+      <div class="wi">What if…</div>
+      <p>identity was a portable magic-link / QR — no server DB at all?</p>
+    </div>
+    <div class="provoke">
+      <div class="spark"></div>
+      <div class="wi">What if…</div>
+      <p>
+        goals lived in an encrypted local vault, exportable as one owned file?
+      </p>
+    </div>
+    <div class="provoke">
+      <div class="spark"></div>
+      <div class="wi">What if…</div>
+      <p>Archer had an in-app Kanban board — To Do / Doing / Done?</p>
+    </div>
+    <div class="provoke">
+      <div class="spark"></div>
+      <div class="wi">What if…</div>
+      <p>
+        you could see a visual mind-map / tree of goal → projects → actions?
+      </p>
+    </div>
+    <div class="provoke">
+      <div class="spark"></div>
+      <div class="wi">What if…</div>
+      <p>the checklist was interactive and tickable right inside Archer?</p>
+    </div>
+    <div class="provoke">
+      <div class="spark"></div>
+      <div class="wi">What if…</div>
+      <p>
+        you pasted completed actions back → and it celebrated + served the next
+        wave?
+      </p>
+    </div>
+    <div class="provoke">
+      <div class="spark"></div>
+      <div class="wi">What if…</div>
+      <p>Archer generated a weekly momentum report for you?</p>
+    </div>
+    <div class="provoke">
+      <div class="spark"></div>
+      <div class="wi">What if…</div>
+      <p>a browser extension could Archerize any highlighted goal text?</p>
+    </div>
+    <div class="provoke">
+      <div class="spark"></div>
+      <div class="wi">What if…</div>
+      <p>a Slack / Discord bot let you drop a goal and get a breakdown?</p>
+    </div>
+    <div class="provoke">
+      <div class="spark"></div>
+      <div class="wi">What if…</div>
+      <p>a Raycast / Alfred quick-capture command lived a keystroke away?</p>
+    </div>
+    <div class="provoke">
+      <div class="spark"></div>
+      <div class="wi">What if…</div>
+      <p>
+        the AI pulled real courses / tools / communities into a resource table?
+      </p>
+    </div>
+    <div class="provoke">
+      <div class="spark"></div>
+      <div class="wi">What if…</div>
+      <p>it cited current best-practice steps for the domain?</p>
+    </div>
+    <div class="provoke">
+      <div class="spark"></div>
+      <div class="wi">What if…</div>
+      <p>Archer detected cross-goal conflict on your time / energy budget?</p>
+    </div>
+    <div class="provoke">
+      <div class="spark"></div>
+      <div class="wi">What if…</div>
+      <p>goal bundling surfaced shared actions across related goals?</p>
+    </div>
+    <div class="provoke">
+      <div class="spark"></div>
+      <div class="wi">What if…</div>
+      <p>a life-area picker suggested goals worth setting?</p>
+    </div>
+    <div class="provoke">
+      <div class="spark"></div>
+      <div class="wi">What if…</div>
+      <p>an “I-don't-know-my-goal” guided discovery flow existed?</p>
+    </div>
+  </div>
+</section>
+
+  <!-- ============ TECHNIQUE 4: Trait Transfer ============ -->
+  <section id="traits">
+    <div class="sec-head">
+      <div class="sec-index">Technique 04</div>
+      <h2 class="sec-title">Trait Transfer — Traits Stolen From Products We Admire</h2>
+      <p class="sec-desc">Picking one signature trait from ten beloved products and grafting it onto Archer. Ten borrowed superpowers.</p>
+      <span class="sec-count">10 ideas</span>
+    </div>
+
+    <div class="trait-grid">
+      <div class="trait"><div class="badge">D</div><div><div class="from">from Duolingo</div><div class="name">The gentle habit loop</div><p>Daily nudge + gentle streak + a goal-graduation celebration.</p></div></div>
+      <div class="trait"><div class="badge">W</div><div><div class="from">from Wordle</div><div class="name">The shareable ritual</div><p>Daily shared prompt + a spoiler-free result card built for viral reach.</p></div></div>
+      <div class="trait"><div class="badge">L</div><div><div class="from">from Linear</div><div class="name">Keyboard velocity</div><p>Cmd-K command palette, a fully keyboard-only flow.</p></div></div>
+      <div class="trait"><div class="badge">N</div><div><div class="from">from Notion</div><div class="name">Community remix</div><p>Forkable community goal-template gallery + remix.</p></div></div>
+      <div class="trait"><div class="badge">S</div><div><div class="from">from Superhuman</div><div class="name">Onboard by doing</div><p>60-second guided first-run that teaches the mental model via a real goal.</p></div></div>
+      <div class="trait"><div class="badge">W</div><div><div class="from">from Spotify Wrapped</div><div class="name">The year in review</div><p>Your-goals-in-review, generated entirely from local data.</p></div></div>
+      <div class="trait"><div class="badge">G</div><div><div class="from">from Grammarly</div><div class="name">Live coaching</div><p>Live goal-sharpening suggestions as you type.</p></div></div>
+      <div class="trait"><div class="badge">G</div><div><div class="from">from GitHub</div><div class="name">Public progress</div><p>Opt-in public “goals-in-progress” profile.</p></div></div>
+      <div class="trait"><div class="badge">C</div><div><div class="from">from Calm</div><div class="name">Two moods</div><p>Reflective gentle mode vs crisp execution mode.</p></div></div>
+      <div class="trait"><div class="badge">Z</div><div><div class="from">from Zapier</div><div class="name">Pipe it anywhere</div><p>Webhook output to pipe breakdowns into your own tools.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============ SYNTHESIS — CLIMAX ============ -->
+  <section id="synthesis">
+    <div class="synthesis">
+      <div class="rings2"><span></span><span></span><span></span><span></span></div>
+      <div class="inner">
+        <div class="climax-kicker">◎ The Bullseye</div>
+        <h2>Synthesis</h2>
+        <p class="lede">Sixty-two arrows, four techniques — and they cluster around a handful of insights. This is where the session pays off.</p>
+
+        <div class="insight-stack">
+          <div class="insight keystone">
+            <div class="medal">🗝️</div>
+            <div>
+              <div class="label">Keystone</div>
+              <h3>Client-side memory unlocks a whole family of features</h3>
+              <p>One idea — client-side memory (localStorage history / magic-link-QR identity / encrypted vault) — unlocks streaks, Wrapped, momentum, and check-ins, all while honoring the no-account / no-tracking NFR6.</p>
+            </div>
+          </div>
+
+          <div class="insight leverage">
+            <div class="medal">🎯</div>
+            <div>
+              <div class="label">Highest Leverage</div>
+              <h3>Deepen the AI research layer</h3>
+              <p>Bringing in real resources and current best-practice steps turns structure into intelligence — delivering directly on the brief's Vision.</p>
+            </div>
+          </div>
+
+          <div class="insight growth">
+            <div class="medal">🚀</div>
+            <div>
+              <div class="label">Growth Engine</div>
+              <h3>A Wordle-style shareable result card</h3>
+              <p>Near-free to build, viral by design, and account-free distribution — growth that respects the product's constraints.</p>
+            </div>
+          </div>
+
+          <div class="insight tension">
+            <div class="medal">⚖️</div>
+            <div>
+              <div class="label">Tension — Resolved</div>
+              <h3>One slider serves both personas</h3>
+              <p>Invisible-methodology (beginner) vs GTD-strictness (practitioner) resolves into a single depth / mode slider — serving both brief personas with one control.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <p><span class="arrow">➵</span> A keepsake of a completed brainstorming session · Archer — GTD Goal &amp; Project Creator</p>
+  <p>Facilitated by Mary, Business Analyst · 2026-08-31</p>
+</footer>
+
+</body>
+</html>

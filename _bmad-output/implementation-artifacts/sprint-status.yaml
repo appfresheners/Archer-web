@@ -1,3 +1,4 @@
+
 # STATUS DEFINITIONS:
 # ==================
 # Epic Status:
@@ -28,31 +29,111 @@
 # - Developer typically creates the next story after the previous one is 'done' to incorporate learnings
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
-generated: 08-20-2026 12:00
-last_updated: 2026-08-27
+#
+# REGEN NOTE (09-27-2026):
+# ========================
+# This file was regenerated from the current epics.md (v1-full: authenticated,
+# Supabase-backed AI generation system). The prior tracking file described the
+# superseded static-export MVP (template engine, copy/download, local-only vault)
+# and has been preserved as sprint-status-superseded-mvp1.yaml. None of the new
+# 35 stories have been started under the current plan, so all are 'backlog'.
+generated: 09-27-2026 16:30
+last_updated: 10-02-2026 (Story H-3 review)
 
 project: GTDGoalandProjectCreator
 project_key: NOKEY
 tracking_system: file-system
 story_location: _bmad-output/implementation-artifacts
 development_status:
-  epic-1: in-progress
-  1-1-next-js-project-scaffold-with-design-tokens: done
-  1-2-mode-toggle-component: done
-  1-3-input-section-with-validation: done
-  1-4-page-layout-accessibility-deployment-verification: done
+  epic-1: done
+  1-1-standalone-nextjs-runtime-design-token-foundation: done
+  1-2-supabase-schema-rls-database-triggers: done
+  1-3-supabase-client-wiring-auth-middleware-guard: done
+  1-4-sign-up-sign-in-with-email-and-password: done
+  1-5-password-reset: done
+  1-6-authenticated-app-shell-with-responsive-navigation: done
+  1-7-ai-provider-configuration-layer: done
   epic-1-retrospective: optional
 
   epic-2: in-progress
-  2-1-goal-mode-template-engine: done
-  2-2-project-mode-template-engine: done
-  2-3-output-panel-rendering: done
+  2-1-single-generation-endpoint-with-auth-provider-path-pattern-a: review
+  2-2-project-mode-input-with-depth-control-validation: review
+  2-3-project-mode-generation-save-navigation: review
+  2-4-loading-timeout-provider-error-handling: review
+  # 2-5 (formatted-output-rendering / Notion-optimized markdown) REMOVED —
+  # obsolete: generation returns structured JSON persisted as Supabase rows;
+  # the project detail view (2.3) renders from structured data, not markdown.
+  2-6-remove-dead-copy-download-code: review
+  2-7-manual-project-creation: review
   epic-2-retrospective: optional
 
   epic-3: in-progress
-  3-1-copy-markdown-to-clipboard: review
-  3-2-download-as-markdown-file: review
-  3-3-try-an-example: backlog
-  3-4-start-over: backlog
-  3-5-notion-optimized-markdown-quality: review
+  3-1-wizard-shell-stepper-navigation: review
+  3-2-framework-generation-endpoint-pattern-b: review
+  3-3-wizard-step-1-goal-skill-framework: review
+  3-4-wizard-step-2-gap-rating: review
+  3-5-wizard-step-3-drivers-barriers-if-then-plan: review
+  3-6-wizard-step-4-review-generate-save-pattern-c: review
   epic-3-retrospective: optional
+
+  epic-4: in-progress
+  4-1-goals-list-status-badges: review
+  4-2-goal-detail-edit-status-changes: review
+  4-3-project-detail-edit-regeneration: review
+  4-4-action-management-context-tags: review
+  4-5-commit-single-next-action-stuck-detection: review
+  4-6-project-goal-linking-filtering: review
+  epic-4-retrospective: optional
+
+  epic-5: in-progress
+  5-1-frictionless-inbox-capture: review
+  5-2-inbox-processing-clarify: review
+  5-3-engage-view-committed-actions-next-action-prompting: review
+  5-4-weekly-review-shell-phase-bar-persistence: review
+  5-5-weekly-snapshot-opening-closing-closed-loop: review
+  5-6-weekly-review-phases-get-clear-current-creative: review
+  5-7-monthly-goal-check-prompted-manual: review
+  epic-5-retrospective: optional
+
+  epic-6: backlog
+  6-1-on-demand-data-export: backlog
+  6-2-vault-unlock-auto-save: backlog
+  6-3-vault-management-restore-delete-clear-export-import: backlog
+  6-4-portable-identity-link-qr: backlog
+  epic-6-retrospective: optional
+
+  # ===========================================================================
+  # HARDENING EPIC (epic-H) — promoted from the deferred-work ledger (2026-09-28).
+  # These are NOT new feature scope: each story consolidates related deferred
+  # findings (see deferred-work.md) that recurred across Epics 1–4 and are
+  # cheaper/safer to fix once than to retrofit per-story. Scheduled here so the
+  # debt is tracked and prioritized rather than buried in the ledger.
+  # ===========================================================================
+  epic-H: in-progress
+  # H-1 absorbs the correctness cluster: atomicity + the single-committed
+  # invariant + missing data-integrity constraints. Ledger sources:
+  #   3.6 (goals→projects→actions save not atomic)
+  #   4.2 (goal soft-delete cascade not atomic)
+  #   4.3 (project regeneration update+delete+insert not atomic)
+  #   4.4 (action reorder row-by-row loop not atomic)
+  #   1.2 (fn_commit_action UPDATE-only; no row-lock/serialization)
+  #   4.5 (no DB backstop for one-committed-per-project)
+  #   1.2 (cross-owner FK guard; CHECK constraints; snapshot immutability + FK indexes)
+  H-1-atomic-writes-and-db-integrity-hardening: review
+  # H-2 absorbs the a11y cluster: a shared focus-trap modal primitive adopted by
+  # the confirm/prompt dialogs, plus error-focus and live-region announcements.
+  # Ledger sources:
+  #   4.2 (delete dialog Tab-trap), 4.3 (regenerate dialog Tab-trap),
+  #   4.5 (next-action prompt; aria-live status region)
+  #   1.4 / 2.4 (move focus to error alert)
+  #   1.6 (skip-to-content + route-change focus)
+  #   3.1 / 3.3 (polite live-region step/readiness announcements)
+  H-2-provider-resilience-and-error-observability: review
+  H-3-app-wide-clickable-cursor-affordance: review
+  H-4-shared-focus-trap-modal-and-a11y-announcements: backlog
+  # H-3 absorbs resilience/observability. Ledger sources:
+  #   1.7 (provider retry/backoff; error diagnostics + AbortSignal; log gating)
+  #   3.6 (client AbortController on generate)
+  #   2.3 / 4.1 (distinguish transient backend error from 404 / empty state)
+  #   3.6 (friendly mapping for GenerationFormatError)
+  epic-H-retrospective: optional
