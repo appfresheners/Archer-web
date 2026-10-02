@@ -36,7 +36,10 @@ class NotFoundError extends Error { }
 const notFound = vi.fn(() => {
   throw new NotFoundError("NEXT_NOT_FOUND");
 });
-vi.mock("next/navigation", () => ({ notFound: () => notFound() }));
+vi.mock("next/navigation", () => ({
+  notFound: () => notFound(),
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
 
 // The interactive client pieces are covered in their own concerns; stub them
 // so the server-page test focuses on the read/render surface, but surface the
@@ -288,10 +291,13 @@ describe("ProjectDetailPage", () => {
     expect(notFound).toHaveBeenCalledTimes(1);
   });
 
-  it("calls notFound() when the query errors", async () => {
+  it("renders an error state when the query errors", async () => {
     projectMaybeSingle.mockResolvedValue({ data: null, error: { message: "boom" } });
-    await expect(renderPage("project-1")).rejects.toBeInstanceOf(NotFoundError);
-    expect(notFound).toHaveBeenCalledTimes(1);
+    await renderPage("project-1");
+    expect(
+      screen.getByText("Something went wrong loading this view. Please try again."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
   });
 
   it("passes the project's goalId and the loaded goal options to the client", async () => {

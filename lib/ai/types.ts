@@ -25,6 +25,15 @@ export interface ProviderConfig {
     endpoint: string;
 }
 
+/** Optional knobs for a generation call. */
+export interface GenerateOptions {
+    /**
+     * An external abort signal (e.g. the incoming request's signal). Aborting
+     * it cancels the upstream provider fetch alongside the internal 30s timeout.
+     */
+    signal?: AbortSignal;
+}
+
 /**
  * The single generation entry point.
  *
@@ -34,5 +43,6 @@ export interface ProviderConfig {
  */
 export type GenerateFn = (
     systemPrompt: string,
-    userMessage: string
+    userMessage: string,
+    options?: GenerateOptions
 ) => Promise<string>;

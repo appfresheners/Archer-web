@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
+import { GenerationFormatError } from "@/lib/ai";
 
 // --- Mocks -----------------------------------------------------------------
 
@@ -676,6 +677,20 @@ describe("/api/generate route — Pattern C (goal generate)", () => {
         const res = await call(validPayload());
         expect(res.status).toBe(500);
         expect(res._body.error).toMatch(/JSON/i);
+        expect(rpcCall).not.toHaveBeenCalled();
+    });
+
+    it("returns a friendly 500 for a GenerationFormatError without leaking the internal message", async () => {
+        authed();
+        generateGoal.mockRejectedValue(
+            new GenerationFormatError("Expected exactly 12 next actions but got 11.")
+        );
+        const res = await call(validPayload());
+        expect(res.status).toBe(500);
+        expect(res._body.error).toBe(
+            "The AI returned a response in an unexpected format. Please try again."
+        );
+        expect(res._body.error).not.toContain("Expected exactly 12");
         expect(rpcCall).not.toHaveBeenCalled();
     });
 

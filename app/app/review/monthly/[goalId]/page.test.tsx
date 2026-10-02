@@ -45,6 +45,15 @@ describe("MonthlyGoalCheckPage", () => {
     actionsIn.mockResolvedValue({ data: [], error: null });
   });
 
+  it("renders an error state when the goal query errors", async () => {
+    goalMaybeSingle.mockResolvedValue({ data: null, error: { message: "boom" } });
+    await renderPage();
+    expect(
+      screen.getByText("Something went wrong loading this view. Please try again."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+
   it("renders the goal, all six status choices, and linked project health", async () => {
     goalMaybeSingle.mockResolvedValue({
       data: {

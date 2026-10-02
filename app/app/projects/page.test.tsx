@@ -20,6 +20,10 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
+
 async function renderPage(searchParams: { goal?: string } = {}) {
   const ui = await ProjectsPage({
     searchParams: Promise.resolve(searchParams),
@@ -43,6 +47,15 @@ describe("ProjectsPage", () => {
     vi.clearAllMocks();
     projectsOrder.mockResolvedValue({ data: PROJECTS, error: null });
     goalsOrder.mockResolvedValue({ data: GOALS, error: null });
+  });
+
+  it("renders an error state when a read errors", async () => {
+    projectsOrder.mockResolvedValue({ data: null, error: { message: "boom" } });
+    await renderPage();
+    expect(
+      screen.getByText("Something went wrong loading this view. Please try again."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
   });
 
   it("shows all projects when no filter is supplied", async () => {

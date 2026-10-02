@@ -11,6 +11,29 @@ import type { AiProvider, ProviderConfig } from "./types";
 
 const VALID_PROVIDERS: readonly AiProvider[] = ["gemini", "groq", "openai"];
 
+/** Recognized `AI_LOG_LEVEL` values (default `warn`). */
+const LOG_LEVELS = ["debug", "info", "warn", "error", "silent"] as const;
+type LogLevel = (typeof LOG_LEVELS)[number];
+
+/**
+ * Minimal env-gated log level. `AI_LOG_LEVEL` defaults to `warn`, so the
+ * per-call `console.info` in `getProviderConfig` is silent unless the caller
+ * opts into `info`/`debug`. No logging framework — one small helper only.
+ */
+function resolveLogLevel(): LogLevel {
+    const raw = process.env.AI_LOG_LEVEL?.trim().toLowerCase();
+    if (raw && (LOG_LEVELS as readonly string[]).includes(raw)) {
+        return raw as LogLevel;
+    }
+    return "warn";
+}
+
+/** True when informational logs are enabled (AI_LOG_LEVEL=info|debug). */
+function shouldLogInfo(): boolean {
+    const level = resolveLogLevel();
+    return level === "info" || level === "debug";
+}
+
 /** Per-provider env var names and endpoint builders. No models or keys inline. */
 const PROVIDER_ENV: Record<
     AiProvider,
@@ -117,7 +140,9 @@ export function getProviderConfig(): ProviderConfig {
     const apiKey = resolveApiKey(id);
     const endpoint = PROVIDER_ENV[id].endpoint(model);
 
-    console.info(`[ai/config] provider=${id} model=${model}`);
+    if (shouldLogInfo()) {
+        console.info(`[ai/config] provider=${id} model=${model}`);
+    }
 
     return { id, model, apiKey, endpoint };
 }

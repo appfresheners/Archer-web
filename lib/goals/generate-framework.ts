@@ -18,7 +18,7 @@
  * Mirrors `lib/projects/generate-project.ts` (parse + validate + format error).
  */
 
-import { generate } from "@/lib/ai";
+import { generate, GenerationFormatError, type GenerateOptions } from "@/lib/ai";
 import { GOAL_FRAMEWORK_SYSTEM_PROMPT } from "@/lib/ai/prompts";
 
 /** Wizard minimum: fewer than this and the gap analysis is not meaningful. */
@@ -48,13 +48,6 @@ export interface GeneratedFramework {
   framework: FrameworkItem[];
 }
 
-class GenerationFormatError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "GenerationFormatError";
-  }
-}
-
 /**
  * Generate a structured skill framework (Target Profile) for the given goal.
  *
@@ -65,10 +58,12 @@ class GenerationFormatError extends Error {
 export async function generateFramework(
   goal: string,
   why: string,
+  options?: GenerateOptions,
 ): Promise<GeneratedFramework> {
   const raw = await generate(
     GOAL_FRAMEWORK_SYSTEM_PROMPT,
     `My goal: ${goal}\n\nWhy this goal matters to me: ${why}`,
+    options,
   );
   const parsed = parseJson(raw);
   return validate(parsed);

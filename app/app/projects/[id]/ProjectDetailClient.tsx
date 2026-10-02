@@ -65,15 +65,28 @@ export default function ProjectDetailClient({
     else regenTriggerRef.current?.focus();
   }, [confirmingRegen]);
 
+  // Abort the in-flight regenerate fetch on unmount so a late response never
+  // triggers a state update after the component is gone.
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
+
   async function handleStatusChange(status: ProjectStatus) {
     if (status === project.status || busy) return;
     setError("");
     setBusy(true);
+
+    const controller = new AbortController();
+    abortRef.current?.abort();
+    abortRef.current = controller;
+
     try {
       const res = await fetch(`/api/projects/${project.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
+        signal: controller.signal,
       });
       if (!res.ok) {
         const payload = (await res.json().catch(() => null)) as {
@@ -86,8 +99,11 @@ export default function ProjectDetailClient({
       setBusy(false);
       router.refresh();
     } catch {
+      if (controller.signal.aborted) return;
       setError(GENERIC_ERROR);
       setBusy(false);
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
     }
   }
 
@@ -96,11 +112,17 @@ export default function ProjectDetailClient({
     if (next === (project.goalId ?? null) || busy) return;
     setError("");
     setBusy(true);
+
+    const controller = new AbortController();
+    abortRef.current?.abort();
+    abortRef.current = controller;
+
     try {
       const res = await fetch(`/api/projects/${project.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ goal_id: next }),
+        signal: controller.signal,
       });
       if (!res.ok) {
         const payload = (await res.json().catch(() => null)) as {
@@ -113,8 +135,11 @@ export default function ProjectDetailClient({
       setBusy(false);
       router.refresh();
     } catch {
+      if (controller.signal.aborted) return;
       setError(GENERIC_ERROR);
       setBusy(false);
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
     }
   }
 
@@ -122,6 +147,11 @@ export default function ProjectDetailClient({
     if (busy) return;
     setError("");
     setBusy(true);
+
+    const controller = new AbortController();
+    abortRef.current?.abort();
+    abortRef.current = controller;
+
     try {
       const res = await fetch(`/api/projects/${project.id}`, {
         method: "PATCH",
@@ -131,6 +161,7 @@ export default function ProjectDetailClient({
           purpose: purpose.trim() === "" ? null : purpose,
           successful_outcome: outcome.trim() === "" ? null : outcome,
         }),
+        signal: controller.signal,
       });
       if (!res.ok) {
         const payload = (await res.json().catch(() => null)) as {
@@ -144,8 +175,11 @@ export default function ProjectDetailClient({
       setEditing(false);
       router.refresh();
     } catch {
+      if (controller.signal.aborted) return;
       setError(GENERIC_ERROR);
       setBusy(false);
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
     }
   }
 
@@ -161,9 +195,15 @@ export default function ProjectDetailClient({
     if (busy) return;
     setError("");
     setBusy(true);
+
+    const controller = new AbortController();
+    abortRef.current?.abort();
+    abortRef.current = controller;
+
     try {
       const res = await fetch(`/api/projects/${project.id}/regenerate`, {
         method: "POST",
+        signal: controller.signal,
       });
       if (!res.ok) {
         const payload = (await res.json().catch(() => null)) as {
@@ -179,8 +219,11 @@ export default function ProjectDetailClient({
       setBusy(false);
       router.refresh();
     } catch {
+      if (controller.signal.aborted) return;
       setError(GENERIC_ERROR);
       setBusy(false);
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
     }
   }
 

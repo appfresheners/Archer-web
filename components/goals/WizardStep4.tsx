@@ -26,7 +26,7 @@
 
 import type { StepContext } from "@/app/app/goals/new/GoalWizard";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /** Step indices in the shell's STEPS config — kept in sync with GoalWizard. */
 const STEP_GOAL = 0;
@@ -55,10 +55,21 @@ export default function WizardStep4({ ctx }: WizardStep4Props) {
   const [inFlight, setInFlight] = useState(false);
   const [error, setError] = useState("");
 
+  // Abort the in-flight breakdown fetch on unmount so a late response never
+  // triggers a state update after the step is gone.
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
+
   const runGenerate = async () => {
     if (inFlight) return;
     setError("");
     setInFlight(true);
+
+    const controller = new AbortController();
+    abortRef.current?.abort();
+    abortRef.current = controller;
 
     try {
       const res = await fetch("/api/generate", {
@@ -77,6 +88,7 @@ export default function WizardStep4({ ctx }: WizardStep4Props) {
           barriers,
           ifThen,
         }),
+        signal: controller.signal,
       });
 
       const payload = (await res.json().catch(() => null)) as {
@@ -99,8 +111,11 @@ export default function WizardStep4({ ctx }: WizardStep4Props) {
       }
       setInFlight(false);
     } catch {
+      if (controller.signal.aborted) return;
       setError(NETWORK_MESSAGE);
       setInFlight(false);
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
     }
   };
 

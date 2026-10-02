@@ -1,6 +1,8 @@
 /** Project list inside the authenticated `/app` shell. */
 
 import StatusBadge from "@/components/goals/StatusBadge";
+import ReadErrorState from "@/components/shared/ReadErrorState";
+import type { ReadListResult } from "@/lib/read-result";
 import type { ProjectStatus } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
@@ -30,25 +32,32 @@ interface LoadedProjects {
   goals: GoalListItem[];
 }
 
-async function loadProjects(): Promise<LoadedProjects> {
+async function loadProjects(): Promise<ReadListResult<LoadedProjects>> {
   try {
     const supabase = await createClient();
-    const [{ data: projects }, { data: goals }] = await Promise.all([
-      supabase
-        .from("projects")
-        .select("id, name, status, goal_id")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("goals")
-        .select("id, goal_text")
-        .order("goal_text", { ascending: true }),
-    ]);
+    const [{ data: projects, error: projectsError }, { data: goals, error: goalsError }] =
+      await Promise.all([
+        supabase
+          .from("projects")
+          .select("id, name, status, goal_id")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("goals")
+          .select("id, goal_text")
+          .order("goal_text", { ascending: true }),
+      ]);
+    if (projectsError || goalsError) {
+      return { status: "error" };
+    }
     return {
-      projects: (projects ?? []) as ProjectListItem[],
-      goals: (goals ?? []) as GoalListItem[],
+      status: "ok",
+      data: {
+        projects: (projects ?? []) as ProjectListItem[],
+        goals: (goals ?? []) as GoalListItem[],
+      },
     };
   } catch {
-    return { projects: [], goals: [] };
+    return { status: "error" };
   }
 }
 
@@ -109,10 +118,15 @@ export default async function ProjectsPage({
 }: {
   searchParams: Promise<{ goal?: string }>;
 }) {
-  const [{ goal: goalParam }, { projects, goals }] = await Promise.all([
+  const [{ goal: goalParam }, result] = await Promise.all([
     searchParams,
     loadProjects(),
   ]);
+
+  if (result.status === "error") {
+    return <ReadErrorState />;
+  }
+  const { projects, goals } = result.data;
 
   const goalNames = new Map(goals.map((g) => [g.id, g.goal_text]));
   const filter = resolveFilter(goalParam, new Set(goalNames.keys()));

@@ -18,6 +18,7 @@ const ENV_KEYS = [
     "GEMINI_API_KEY",
     "GROQ_API_KEY",
     "OPENAI_API_KEY",
+    "AI_LOG_LEVEL",
 ] as const;
 
 describe("lib/ai/config", () => {
@@ -161,10 +162,11 @@ describe("lib/ai/config", () => {
             expect(config.endpoint).toContain("api.groq.com");
         });
 
-        it("logs only provider id and model, never the key", () => {
+        it("logs only provider id and model, never the key (at info level)", () => {
             process.env.AI_PROVIDER = "gemini";
             process.env.GEMINI_MODEL = "gemini-3.1-flash-lite";
             process.env.GEMINI_API_KEY = "top-secret";
+            process.env.AI_LOG_LEVEL = "info";
 
             getProviderConfig();
 
@@ -173,6 +175,17 @@ describe("lib/ai/config", () => {
             expect(logged).toContain("gemini");
             expect(logged).toContain("gemini-3.1-flash-lite");
             expect(logged).not.toContain("top-secret");
+        });
+
+        it("is silent by default (warn level)", () => {
+            process.env.AI_PROVIDER = "gemini";
+            process.env.GEMINI_MODEL = "gemini-3.1-flash-lite";
+            process.env.GEMINI_API_KEY = "gkey";
+
+            getProviderConfig();
+
+            const infoSpy = console.info as unknown as ReturnType<typeof vi.fn>;
+            expect(infoSpy).not.toHaveBeenCalled();
         });
 
         it("propagates the missing-model error", () => {

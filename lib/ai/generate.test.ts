@@ -60,16 +60,125 @@ describe("lib/ai/generate", () => {
             expect(init.headers["x-goog-api-key"]).toBe("gkey");
         });
 
-        it("throws an actionable error on a provider HTTP error", async () => {
+        it("throws an actionable error on a provider HTTP error (no retry on 4xx)", async () => {
             const fetchMock = vi.fn().mockResolvedValue({
                 ok: false,
                 status: 401,
                 json: async () => ({ error: "invalid key" }),
+                text: async () => '{"error":"invalid key"}',
+                headers: { get: () => null },
+            });
+            vi.stubGlobal("fetch", fetchMock);
+
+            await expect(generate("system", "user")).rejects.toThrow(
+                /Gemini request failed \(HTTP 401\)/
+            );
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+        });
+
+        it("retries a transient 429 and succeeds", async () => {
+            const fetchMock = vi
+                .fn()
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 429,
+                    text: async () => "rate limited",
+                    headers: { get: () => null },
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    json: async () => ({
+                        candidates: [{ content: { parts: [{ text: "recovered" }] } }],
+                    }),
+                });
+            vi.stubGlobal("fetch", fetchMock);
+
+            const result = await generate("system", "user");
+            expect(result).toBe("recovered");
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
+
+        it("retries a transient 5xx and succeeds", async () => {
+            const fetchMock = vi
+                .fn()
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 500,
+                    text: async () => "server error",
+                    headers: { get: () => null },
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    json: async () => ({
+                        candidates: [{ content: { parts: [{ text: "back online" }] } }],
+                    }),
+                });
+            vi.stubGlobal("fetch", fetchMock);
+
+            const result = await generate("system", "user");
+            expect(result).toBe("back online");
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
+
+        it("honors Retry-After when retrying a 429", async () => {
+            const headersGet = vi.fn(() => "0");
+            const fetchMock = vi
+                .fn()
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 429,
+                    text: async () => "slow down",
+                    headers: { get: headersGet },
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    json: async () => ({
+                        candidates: [{ content: { parts: [{ text: "ok" }] } }],
+                    }),
+                });
+            vi.stubGlobal("fetch", fetchMock);
+
+            const result = await generate("system", "user");
+            expect(result).toBe("ok");
+            expect(headersGet).toHaveBeenCalledWith("retry-after");
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+        });
+
+        it("captures a non-JSON provider error body as a diagnostic", async () => {
+            const fetchMock = vi.fn().mockResolvedValue({
+                ok: false,
+                status: 400,
+                text: async () => "<html>Bad Request</html>",
+                headers: { get: () => null },
             });
             vi.stubGlobal("fetch", fetchMock);
 
             await expect(generate("system", "user")).rejects.toThrow(/Gemini/);
-            await expect(generate("system", "user")).rejects.toThrow(/401/);
+            const errorSpy = console.error as unknown as ReturnType<typeof vi.fn>;
+            expect(errorSpy.mock.calls.flat().join(" ")).toContain("Bad Request");
+        });
+
+        it("aborts the upstream fetch when the external signal fires", async () => {
+            const controller = new AbortController();
+            const fetchMock = vi.fn().mockImplementation(
+                (_url: unknown, init: { signal: AbortSignal }) =>
+                    new Promise((_resolve, reject) => {
+                        init.signal.addEventListener(
+                            "abort",
+                            () => {
+                                const err = new Error("Aborted");
+                                err.name = "AbortError";
+                                reject(err);
+                            },
+                            { once: true }
+                        );
+                    })
+            );
+            vi.stubGlobal("fetch", fetchMock);
+
+            const promise = generate("system", "user", { signal: controller.signal });
+            controller.abort();
+            await expect(promise).rejects.toThrow(/timed out/);
         });
 
         it("throws a timeout error when the request aborts", async () => {
@@ -123,7 +232,7 @@ describe("lib/ai/generate", () => {
             expect(JSON.parse(init.body).model).toBe("llama-3.1-8b-instant");
         });
 
-        it("throws an actionable error for openai HTTP failures", async () => {
+        it("retries a 5xx and surfaces the error after retries are exhausted", async () => {
             process.env.AI_PROVIDER = "openai";
             process.env.OPENAI_MODEL = "gpt-4o-mini";
             process.env.OPENAI_API_KEY = "okey";
@@ -131,11 +240,13 @@ describe("lib/ai/generate", () => {
             const fetchMock = vi.fn().mockResolvedValue({
                 ok: false,
                 status: 500,
-                json: async () => ({}),
+                text: async () => "internal error",
+                headers: { get: () => null },
             });
             vi.stubGlobal("fetch", fetchMock);
 
             await expect(generate("system", "user")).rejects.toThrow(/OpenAI/);
+            expect(fetchMock).toHaveBeenCalledTimes(3); // 1 initial + 2 retries
         });
     });
 

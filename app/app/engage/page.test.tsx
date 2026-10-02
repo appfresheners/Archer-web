@@ -48,12 +48,21 @@ describe("EngagePage (loader)", () => {
     ).toBeInTheDocument();
   });
 
-  it("degrades to the empty state when a read errors (does not throw)", async () => {
-    // A rejected read must be caught → safe empty model, not a crashed route.
+  it("renders an error state when a read errors (does not throw)", async () => {
+    // A rejected read must be caught → error state with Retry, not a crashed route.
     actionsSelect.mockRejectedValue(new Error("boom"));
     await renderPage();
     expect(
-      screen.getByText("No committed actions. Open a project and commit one."),
+      screen.getByText("Something went wrong loading this view. Please try again."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+
+  it("renders an error state when a read resolves with an error field", async () => {
+    goalsSelect.mockResolvedValue({ data: null, error: { message: "boom" } });
+    await renderPage();
+    expect(
+      screen.getByText("Something went wrong loading this view. Please try again."),
     ).toBeInTheDocument();
   });
 

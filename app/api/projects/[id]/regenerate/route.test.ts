@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
+import { GenerationFormatError } from "@/lib/ai";
 
 const getUser = vi.fn();
 const generateProject = vi.fn();
@@ -93,6 +94,17 @@ describe("POST /api/projects/[id]/regenerate", () => {
     const res = await POST({} as never, ctx());
     expect(res.status).toBe(504);
     expect(rpcCall).not.toHaveBeenCalled();
+  });
+
+  it("returns a friendly 500 for a GenerationFormatError without leaking the internal message", async () => {
+    generateProject.mockRejectedValue(
+      new GenerationFormatError("Expected exactly 12 next actions but got 11.")
+    );
+    const res = await POST({} as never, ctx());
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toEqual({
+      error: "The AI returned a response in an unexpected format. Please try again.",
+    });
   });
 
   it("500s when the regenerate RPC fails, without any partial write", async () => {

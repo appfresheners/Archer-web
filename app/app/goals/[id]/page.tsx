@@ -14,7 +14,9 @@
 
 import StatusBadge from "@/components/goals/StatusBadge";
 import { STUCK_MESSAGE } from "@/components/projects/StuckIndicator";
+import ReadErrorState from "@/components/shared/ReadErrorState";
 import { isProjectStuck } from "@/lib/goals/stuck";
+import type { ReadResult } from "@/lib/read-result";
 import type {
   ActionStatus,
   GoalStatus,
@@ -59,7 +61,7 @@ interface LoadResult {
   projects: LoadedProjectCard[];
 }
 
-async function loadGoalDetail(id: string): Promise<LoadResult | null> {
+async function loadGoalDetail(id: string): Promise<ReadResult<LoadResult>> {
   try {
     const supabase = await createClient();
 
@@ -71,13 +73,16 @@ async function loadGoalDetail(id: string): Promise<LoadResult | null> {
       .eq("id", id)
       .maybeSingle();
 
-    if (error || !goal) return null;
+    if (error) return { status: "error" };
+    if (!goal) return { status: "not-found" };
 
-    const { data: projects } = await supabase
+    const { data: projects, error: projectsError } = await supabase
       .from("projects")
       .select("id, name, status, sort_order")
       .eq("goal_id", id)
       .order("sort_order", { ascending: true });
+
+    if (projectsError) return { status: "error" };
 
     const projectRows = (projects ?? []) as {
       id: string;
@@ -88,13 +93,15 @@ async function loadGoalDetail(id: string): Promise<LoadResult | null> {
 
     let projectCards: LoadedProjectCard[] = [];
     if (projectRows.length > 0) {
-      const { data: actions } = await supabase
+      const { data: actions, error: actionsError } = await supabase
         .from("actions")
         .select("project_id, status")
         .in(
           "project_id",
           projectRows.map((p) => p.id),
         );
+
+      if (actionsError) return { status: "error" };
 
       const actionsByProject = new Map<string, { status: ActionStatus }[]>();
       for (const a of (actions ?? []) as {
@@ -117,9 +124,9 @@ async function loadGoalDetail(id: string): Promise<LoadResult | null> {
       }));
     }
 
-    return { goal: goal as LoadedGoal, projects: projectCards };
+    return { status: "ok", data: { goal: goal as LoadedGoal, projects: projectCards } };
   } catch {
-    return null;
+    return { status: "error" };
   }
 }
 
@@ -145,7 +152,7 @@ export async function generateMetadata({
 }: GoalDetailPageProps): Promise<Metadata> {
   const { id } = await params;
   const result = await loadGoalDetail(id);
-  const text = result?.goal.goal_text;
+  const text = result.status === "ok" ? result.data.goal.goal_text : undefined;
   return {
     title: text
       ? `${text.slice(0, 40)}${text.length > 40 ? "…" : ""} — Archer`
@@ -311,11 +318,14 @@ export default async function GoalDetailPage({ params }: GoalDetailPageProps) {
     loadAttachableProjects(),
   ]);
 
-  if (!result) {
+  if (result.status === "error") {
+    return <ReadErrorState />;
+  }
+  if (result.status === "not-found") {
     notFound();
   }
 
-  const { goal, projects } = result;
+  const { goal, projects } = result.data;
 
   return (
     <article className="flex flex-col gap-[var(--spacing-section-y)]">

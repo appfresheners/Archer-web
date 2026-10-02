@@ -34,7 +34,7 @@
 
 import type { SkillFrameworkItem, StepContext } from "@/app/app/goals/new/GoalWizard";
 import type { FrameworkItem } from "@/lib/goals/generate-framework";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 const PLACEHOLDER = "e.g., Become a confident public speaker";
 const MAX_LENGTH = 500;
@@ -69,6 +69,13 @@ export default function WizardStep1({ ctx }: WizardStep1Props) {
   const [fetchError, setFetchError] = useState("");
   const [newItemName, setNewItemName] = useState("");
 
+  // Abort the in-flight framework fetch on unmount so a late response never
+  // triggers a state update after the step is gone.
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
+
   const goalInputId = useId();
   const goalCounterId = useId();
   const goalErrorId = useId();
@@ -100,11 +107,17 @@ export default function WizardStep1({ ctx }: WizardStep1Props) {
   const runFetch = async (goal: string, whyText: string) => {
     setFetchError("");
     setInFlight(true);
+
+    const controller = new AbortController();
+    abortRef.current?.abort();
+    abortRef.current = controller;
+
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: "goal", step: "framework", goal, why: whyText }),
+        signal: controller.signal,
       });
 
       const payload = (await res.json().catch(() => null)) as {
@@ -143,8 +156,11 @@ export default function WizardStep1({ ctx }: WizardStep1Props) {
       }
       setInFlight(false);
     } catch {
+      if (controller.signal.aborted) return;
       setFetchError(NETWORK_MESSAGE);
       setInFlight(false);
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
     }
   };
 

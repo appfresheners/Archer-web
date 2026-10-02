@@ -1,10 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const generate = vi.fn();
-vi.mock("@/lib/ai", () => ({
-    generate: (systemPrompt: string, userMessage: string) =>
-        generate(systemPrompt, userMessage),
-}));
+vi.mock("@/lib/ai", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("@/lib/ai")>();
+    return {
+        ...actual,
+        generate: (systemPrompt: string, userMessage: string) =>
+            generate(systemPrompt, userMessage),
+    };
+});
 
 import {
     buildUserMessage,

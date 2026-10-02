@@ -1,5 +1,7 @@
 import StatusBadge from "@/components/goals/StatusBadge";
+import ReadErrorState from "@/components/shared/ReadErrorState";
 import { isProjectStuck } from "@/lib/goals/stuck";
+import type { ReadResult } from "@/lib/read-result";
 import type {
   ActionStatus,
   GoalStatus,
@@ -36,7 +38,7 @@ interface LoadedMonthlyCheck {
   stuckCount: number;
 }
 
-async function loadMonthlyCheck(goalId: string): Promise<LoadedMonthlyCheck | null> {
+async function loadMonthlyCheck(goalId: string): Promise<ReadResult<LoadedMonthlyCheck>> {
   try {
     const supabase = await createClient();
     const { data: goal, error } = await supabase
@@ -45,7 +47,8 @@ async function loadMonthlyCheck(goalId: string): Promise<LoadedMonthlyCheck | nu
       .eq("id", goalId)
       .maybeSingle();
 
-    if (error || !goal) return null;
+    if (error) return { status: "error" };
+    if (!goal) return { status: "not-found" };
 
     const { data: projects, error: projectsError } = await supabase
       .from("projects")
@@ -53,7 +56,7 @@ async function loadMonthlyCheck(goalId: string): Promise<LoadedMonthlyCheck | nu
       .eq("goal_id", goalId)
       .order("sort_order", { ascending: true });
 
-    if (projectsError) return null;
+    if (projectsError) return { status: "error" };
 
     const projectRows = (projects ?? []) as {
       id: string;
@@ -72,7 +75,7 @@ async function loadMonthlyCheck(goalId: string): Promise<LoadedMonthlyCheck | nu
           projectRows.map((project) => project.id),
         );
 
-      if (actionsError) return null;
+      if (actionsError) return { status: "error" };
       for (const action of (actions ?? []) as {
         project_id: string;
         status: ActionStatus;
@@ -94,12 +97,15 @@ async function loadMonthlyCheck(goalId: string): Promise<LoadedMonthlyCheck | nu
     }));
 
     return {
-      goal: goal as LoadedGoal,
-      projects: loadedProjects,
-      stuckCount: loadedProjects.filter((project) => project.stuck).length,
+      status: "ok",
+      data: {
+        goal: goal as LoadedGoal,
+        projects: loadedProjects,
+        stuckCount: loadedProjects.filter((project) => project.stuck).length,
+      },
     };
   } catch {
-    return null;
+    return { status: "error" };
   }
 }
 
@@ -109,7 +115,7 @@ export async function generateMetadata({
   const { goalId } = await params;
   const result = await loadMonthlyCheck(goalId);
   return {
-    title: result ? `Monthly Check — ${result.goal.goal_text}` : "Monthly Check — Archer",
+    title: result.status === "ok" ? `Monthly Check — ${result.data.goal.goal_text}` : "Monthly Check — Archer",
   };
 }
 
@@ -117,8 +123,14 @@ export default async function MonthlyGoalCheckPage({
   params,
 }: MonthlyGoalCheckPageProps) {
   const { goalId } = await params;
-  const result = await loadMonthlyCheck(goalId);
-  if (!result) notFound();
+  const res = await loadMonthlyCheck(goalId);
+  if (res.status === "error") {
+    return <ReadErrorState />;
+  }
+  if (res.status === "not-found") {
+    notFound();
+  }
+  const result = res.data;
 
   const lastChecked = result.goal.last_checked_at
     ? new Date(result.goal.last_checked_at).toLocaleDateString()

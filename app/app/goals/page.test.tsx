@@ -22,6 +22,10 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
+
 async function renderPage() {
   const ui = await GoalsPage();
   return render(ui);
@@ -44,12 +48,15 @@ describe("GoalsPage", () => {
     expect(link).toHaveAttribute("href", "/app/goals/new");
   });
 
-  it("degrades to the empty state when the goals query errors", async () => {
+  it("renders an error state when the goals query errors", async () => {
     goalsSelect.mockResolvedValue({ data: null, error: { message: "boom" } });
 
     await renderPage();
 
-    expect(screen.getByText("No goals yet. Start one.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Something went wrong loading this view. Please try again."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
   });
 
   it("renders goal rows sorted Active-first with badge, counts, and chevron link", async () => {

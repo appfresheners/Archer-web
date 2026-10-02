@@ -12,6 +12,8 @@
  */
 
 import ClarifyWizard from "@/components/inbox/clarify/ClarifyWizard";
+import ReadErrorState from "@/components/shared/ReadErrorState";
+import type { ReadResult } from "@/lib/read-result";
 import type { InboxProcessingStatus } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
@@ -36,7 +38,7 @@ interface LoadResult {
   projects: { id: string; name: string }[];
 }
 
-async function loadClarifyData(id: string): Promise<LoadResult | null> {
+async function loadClarifyData(id: string): Promise<ReadResult<LoadResult>> {
   try {
     const supabase = await createClient();
 
@@ -46,34 +48,44 @@ async function loadClarifyData(id: string): Promise<LoadResult | null> {
       .eq("id", id)
       .maybeSingle();
 
-    if (error || !item) return null;
+    if (error) return { status: "error" };
+    if (!item) return { status: "not-found" };
 
     const loaded = item as LoadedItem;
     // Only an unprocessed item is clarifiable; a terminal item is "not found"
     // for the purposes of this flow.
-    if (loaded.processing_status !== "unprocessed") return null;
+    if (loaded.processing_status !== "unprocessed") return { status: "not-found" };
 
-    const { data: projects } = await supabase
+    const { data: projects, error: projectsError } = await supabase
       .from("projects")
       .select("id, name")
       .order("sort_order", { ascending: true });
 
+    if (projectsError) return { status: "error" };
+
     return {
-      item: { id: loaded.id, raw_text: loaded.raw_text },
-      projects: (projects ?? []) as { id: string; name: string }[],
+      status: "ok",
+      data: {
+        item: { id: loaded.id, raw_text: loaded.raw_text },
+        projects: (projects ?? []) as { id: string; name: string }[],
+      },
     };
   } catch {
-    return null;
+    return { status: "error" };
   }
 }
 
 export default async function ClarifyPage({ params }: ClarifyPageProps) {
   const { id } = await params;
-  const result = await loadClarifyData(id);
+  const res = await loadClarifyData(id);
 
-  if (!result) {
+  if (res.status === "error") {
+    return <ReadErrorState />;
+  }
+  if (res.status === "not-found") {
     notFound();
   }
+  const result = res.data;
 
   return (
     <section className="flex flex-col gap-[var(--spacing-section-y)]">

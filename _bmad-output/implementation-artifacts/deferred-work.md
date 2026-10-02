@@ -406,3 +406,17 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-h-1-atomic-writes-and-db-integrity-hardening.md`
   summary: Serialize concurrent regenerations of the same project (e.g. a project-row FOR UPDATE lock in regenerate_project_actions) so two simultaneous regenerations cannot interleave delete/insert and yield duplicate actions
   evidence: Review (blind-hunter) — regenerate_project_actions takes no row lock, unlike reorder_project_actions and fn_commit_action, so two concurrent RPCs can both delete then both insert their 12 actions. Pre-existing: the old sequential update/delete/insert had the same interleave race, so it was not introduced by this story.
+
+## Deferred from: code review of H-2 (2026-10-02)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-h-2-provider-resilience-and-error-observability.md`
+  summary: The sprint-status epic-H comments are misattributed — the "H-2 absorbs the a11y cluster" comment sits over the `H-2-provider-resilience-and-error-observability` key and the "H-3 absorbs resilience/observability" comment sits after the H-4 key
+  evidence: Review (blind-hunter) — stale after the H-2/H-3/H-4 key rotation; content vs key disagree. The human chose to leave the keys as-is, so this is tracked as tracking-file hygiene rather than fixed inline.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-h-2-provider-resilience-and-error-observability.md`
+  summary: `components/shared/ReadErrorState.tsx` does not move focus to the alert or Retry button
+  evidence: Review (blind-hunter) — role="alert" announces but does not focus. Focus management is the a11y cluster's scope (epic-H a11y story), not this resilience story, so it is deferred there rather than fixed here.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-h-2-provider-resilience-and-error-observability.md`
+  summary: Remaining H-2 verification gaps — route→generate() signal forwarding (mock wrappers drop the options arg), inbox list/clarify loaders (no test files), and client abort-on-unmount (no component unmount/abort tests)
+  evidence: Review (verification-gap) — these behaviors are implemented and the lib-level abort/retry/error-state tests pass, but the route-boundary signal argument, the two inbox page loaders, and the four client components' unmount cleanup have no executed test. Add them in a follow-up test-coverage pass.

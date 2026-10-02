@@ -26,7 +26,7 @@ import ProjectModeInput, {
 } from "@/components/projects/ProjectModeInput";
 import type { PlanningDepth } from "@/lib/supabase/schema";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type SubmitArgs = { input: string; depth: PlanningDepth };
 
@@ -61,6 +61,13 @@ export default function NewProjectClient({
   const [lastManualSubmit, setLastManualSubmit] =
     useState<ManualProjectArgs | null>(null);
 
+  // Abort the in-flight fetch on unmount so a late response never triggers a
+  // state update after the component is gone.
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
+
   // Link the originating inbox item to the created project and mark it
   // processed (clarify hand-off, shared by both AI and manual paths).
   // Best-effort — a link failure must not strand the user on the created
@@ -85,6 +92,10 @@ export default function NewProjectClient({
     setLastManualSubmit(null);
     setInFlight(true);
 
+    const controller = new AbortController();
+    abortRef.current?.abort();
+    abortRef.current = controller;
+
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
@@ -94,6 +105,7 @@ export default function NewProjectClient({
           input: args.input,
           depth: args.depth,
         }),
+        signal: controller.signal,
       });
 
       const payload = (await res.json().catch(() => null)) as {
@@ -125,8 +137,11 @@ export default function NewProjectClient({
       }
       setInFlight(false);
     } catch {
+      if (controller.signal.aborted) return;
       setError(NETWORK_MESSAGE);
       setInFlight(false);
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
     }
   };
 
@@ -136,6 +151,10 @@ export default function NewProjectClient({
     setLastManualSubmit(args);
     setLastSubmit(null);
     setManualSaving(true);
+
+    const controller = new AbortController();
+    abortRef.current?.abort();
+    abortRef.current = controller;
 
     try {
       const res = await fetch("/api/projects", {
@@ -147,6 +166,7 @@ export default function NewProjectClient({
           successful_outcome: args.successfulOutcome || null,
           goal_id: args.goalId,
         }),
+        signal: controller.signal,
       });
 
       const payload = (await res.json().catch(() => null)) as {
@@ -164,8 +184,11 @@ export default function NewProjectClient({
       setError(payload?.error || MANUAL_GENERIC_MESSAGE);
       setManualSaving(false);
     } catch {
+      if (controller.signal.aborted) return;
       setError(NETWORK_MESSAGE);
       setManualSaving(false);
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
     }
   };
 

@@ -21,6 +21,7 @@
  */
 
 import EngageBoard from "@/components/engage/EngageBoard";
+import ReadErrorState from "@/components/shared/ReadErrorState";
 import {
   buildEngageModel,
   type EngageActionInput,
@@ -28,18 +29,12 @@ import {
   type EngageModel,
   type EngageProjectInput,
 } from "@/lib/engage/model";
+import type { ReadListResult } from "@/lib/read-result";
 import { createClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Engage — Archer",
-};
-
-const EMPTY_MODEL: EngageModel = {
-  goalGroups: [],
-  projectGroups: [],
-  anytime: [],
-  isEmpty: true,
 };
 
 /** Today's calendar date (YYYY-MM-DD) for future-scheduled exclusion. */
@@ -51,38 +46,52 @@ function todayIso(): string {
  * Load goals + projects + actions and build the Engage model. Returns a safe
  * empty model on any failure so the page always renders.
  */
-async function loadEngageModel(): Promise<EngageModel> {
+async function loadEngageModel(): Promise<ReadListResult<EngageModel>> {
   try {
     const supabase = await createClient();
 
-    const [{ data: goals }, { data: projects }, { data: actions }] =
-      await Promise.all([
-        supabase.from("goals").select("id, goal_text, status"),
-        supabase.from("projects").select("id, goal_id, name, status"),
-        supabase
-          .from("actions")
-          .select(
-            "id, project_id, text, status, context_tags, time_available_minutes, scheduled_for, sort_order",
-          ),
-      ]);
+    const [
+      { data: goals, error: goalsError },
+      { data: projects, error: projectsError },
+      { data: actions, error: actionsError },
+    ] = await Promise.all([
+      supabase.from("goals").select("id, goal_text, status"),
+      supabase.from("projects").select("id, goal_id, name, status"),
+      supabase
+        .from("actions")
+        .select(
+          "id, project_id, text, status, context_tags, time_available_minutes, scheduled_for, sort_order",
+        ),
+    ]);
 
-    return buildEngageModel(
-      (goals ?? []) as EngageGoalInput[],
-      (projects ?? []) as EngageProjectInput[],
-      (actions ?? []) as EngageActionInput[],
-      todayIso(),
-    );
+    if (goalsError || projectsError || actionsError) {
+      return { status: "error" };
+    }
+
+    return {
+      status: "ok",
+      data: buildEngageModel(
+        (goals ?? []) as EngageGoalInput[],
+        (projects ?? []) as EngageProjectInput[],
+        (actions ?? []) as EngageActionInput[],
+        todayIso(),
+      ),
+    };
   } catch {
-    return EMPTY_MODEL;
+    return { status: "error" };
   }
 }
 
 export default async function EngagePage() {
-  const model = await loadEngageModel();
+  const result = await loadEngageModel();
+
+  if (result.status === "error") {
+    return <ReadErrorState />;
+  }
 
   return (
     <section className="flex flex-col gap-[var(--spacing-section-y)]">
-      <EngageBoard model={model} />
+      <EngageBoard model={result.data} />
     </section>
   );
 }

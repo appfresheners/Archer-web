@@ -11,7 +11,7 @@
  * No markdown is produced, parsed, or stored anywhere.
  */
 
-import { generate } from "@/lib/ai";
+import { generate, GenerationFormatError, type GenerateOptions } from "@/lib/ai";
 import {
   PROJECT_FULL_GTD_SYSTEM_PROMPT,
   PROJECT_MINIMAL_SYSTEM_PROMPT,
@@ -35,13 +35,6 @@ export interface GeneratedProject {
   detail: PlanningDetail | null;
 }
 
-class GenerationFormatError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "GenerationFormatError";
-  }
-}
-
 /**
  * Generate a structured project breakdown for the given input + depth.
  *
@@ -51,14 +44,15 @@ class GenerationFormatError extends Error {
  */
 export async function generateProject(
   input: string,
-  depth: PlanningDepth
+  depth: PlanningDepth,
+  options?: GenerateOptions,
 ): Promise<GeneratedProject> {
   const systemPrompt =
     depth === "full_gtd"
       ? PROJECT_FULL_GTD_SYSTEM_PROMPT
       : PROJECT_MINIMAL_SYSTEM_PROMPT;
 
-  const raw = await generate(systemPrompt, `My project: ${input}`);
+  const raw = await generate(systemPrompt, `My project: ${input}`, options);
   const parsed = parseJson(raw);
   return validate(parsed, depth);
 }

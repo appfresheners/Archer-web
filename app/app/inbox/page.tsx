@@ -13,6 +13,8 @@
 
 import InboxCaptureForm from "@/components/inbox/InboxCaptureForm";
 import InboxList, { type InboxListItem } from "@/components/inbox/InboxList";
+import ReadErrorState from "@/components/shared/ReadErrorState";
+import type { ReadListResult } from "@/lib/read-result";
 import { createClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
 
@@ -24,7 +26,7 @@ export const metadata: Metadata = {
  * Load only items that still need clarification, newest capture first.
  * Returns an empty list on any failure so the page always renders.
  */
-async function loadInboxItems(): Promise<InboxListItem[]> {
+async function loadInboxItems(): Promise<ReadListResult<InboxListItem[]>> {
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -33,15 +35,19 @@ async function loadInboxItems(): Promise<InboxListItem[]> {
       .eq("processing_status", "unprocessed")
       .order("captured_at", { ascending: false });
 
-    if (error || !data) return [];
-    return data as InboxListItem[];
+    if (error) return { status: "error" };
+    return { status: "ok", data: (data ?? []) as InboxListItem[] };
   } catch {
-    return [];
+    return { status: "error" };
   }
 }
 
 export default async function InboxPage() {
-  const items = await loadInboxItems();
+  const result = await loadInboxItems();
+
+  if (result.status === "error") {
+    return <ReadErrorState />;
+  }
 
   return (
     <section className="flex flex-col gap-[var(--spacing-section-y)]">
@@ -52,7 +58,7 @@ export default async function InboxPage() {
         <InboxCaptureForm />
       </header>
 
-      <InboxList items={items} />
+      <InboxList items={result.data} />
     </section>
   );
 }

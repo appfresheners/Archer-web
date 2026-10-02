@@ -15,6 +15,7 @@
  */
 
 import { generateProject } from "@/lib/projects/generate-project";
+import { GenerationFormatError } from "@/lib/ai";
 import type { PlanningDepth } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
@@ -34,6 +35,15 @@ function mapGenerateError(error: unknown): NextResponse {
     error instanceof Error
       ? error.message
       : "An unexpected error occurred. Please try again.";
+
+  if (error instanceof GenerationFormatError) {
+    console.error("[api/projects regenerate] generation format error:", error.message);
+    return NextResponse.json(
+      { error: "The AI returned a response in an unexpected format. Please try again." },
+      { status: 500 },
+    );
+  }
+
   const isTimeout =
     (error instanceof Error && /timed out/i.test(error.message)) ||
     (typeof error === "object" &&
@@ -54,7 +64,7 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
-export async function POST(_request: NextRequest, context: RouteContext) {
+export async function POST(request: NextRequest, context: RouteContext) {
   const userId = await getAuthenticatedUserId();
   if (!userId) {
     return NextResponse.json(
@@ -94,7 +104,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
   // Generate the new structured breakdown (may throw timeout/provider/format).
   let generated;
   try {
-    generated = await generateProject(input, depth);
+    generated = await generateProject(input, depth, { signal: request.signal });
   } catch (error) {
     return mapGenerateError(error);
   }

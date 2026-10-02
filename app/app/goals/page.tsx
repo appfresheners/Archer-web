@@ -15,8 +15,10 @@
  */
 
 import GoalRow, { type GoalRowData } from "@/components/goals/GoalRow";
+import ReadErrorState from "@/components/shared/ReadErrorState";
 import { sortGoals } from "@/lib/goals/sort";
 import { countStuckProjects } from "@/lib/goals/stuck";
+import type { ReadListResult } from "@/lib/read-result";
 import type { ActionStatus, GoalStatus, ProjectStatus } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
@@ -49,7 +51,7 @@ interface ActionRecord {
  * Load goals + per-goal project and stuck counts. Returns an empty list on any
  * failure so the page always renders.
  */
-async function loadGoals(): Promise<GoalRowData[]> {
+async function loadGoals(): Promise<ReadListResult<GoalRowData[]>> {
   try {
     const supabase = await createClient();
 
@@ -57,14 +59,24 @@ async function loadGoals(): Promise<GoalRowData[]> {
       .from("goals")
       .select("id, goal_text, status, target_date, created_at");
 
-    if (goalsError || !goals || goals.length === 0) {
-      return [];
+    if (goalsError) {
+      return { status: "error" };
+    }
+    if (!goals || goals.length === 0) {
+      return { status: "ok", data: [] };
     }
 
-    const [{ data: projects }, { data: actions }] = await Promise.all([
+    const [
+      { data: projects, error: projectsError },
+      { data: actions, error: actionsError },
+    ] = await Promise.all([
       supabase.from("projects").select("id, goal_id, status"),
       supabase.from("actions").select("project_id, status"),
     ]);
+
+    if (projectsError || actionsError) {
+      return { status: "error" };
+    }
 
     const projectRecords = (projects ?? []) as ProjectRecord[];
     const actionRecords = (actions ?? []) as ActionRecord[];
@@ -110,9 +122,9 @@ async function loadGoals(): Promise<GoalRowData[]> {
     );
     rows.sort((a, b) => (orderIndex.get(a.id)! - orderIndex.get(b.id)!));
 
-    return rows;
+    return { status: "ok", data: rows };
   } catch {
-    return [];
+    return { status: "error" };
   }
 }
 
@@ -131,7 +143,12 @@ function EmptyState() {
 }
 
 export default async function GoalsPage() {
-  const goals = await loadGoals();
+  const result = await loadGoals();
+
+  if (result.status === "error") {
+    return <ReadErrorState />;
+  }
+  const goals = result.data;
 
   return (
     <section className="flex flex-col gap-[var(--spacing-section-y)]">

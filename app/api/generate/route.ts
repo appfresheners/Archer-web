@@ -28,6 +28,7 @@
 import { generateFramework } from "@/lib/goals/generate-framework";
 import { generateGoal } from "@/lib/goals/generate-goal";
 import { generateProject } from "@/lib/projects/generate-project";
+import { GenerationFormatError } from "@/lib/ai";
 import type {
     ActionInsert,
     PlanningDepth,
@@ -164,7 +165,7 @@ export async function POST(request: NextRequest) {
             drivers,
             barriers,
             ifThen,
-        });
+        }, request.signal);
     }
 
     if (mode !== "project") {
@@ -208,7 +209,9 @@ export async function POST(request: NextRequest) {
     //    validation). No markdown is produced or stored.
     let generated;
     try {
-        generated = await generateProject(trimmedInput, planningDepth);
+        generated = await generateProject(trimmedInput, planningDepth, {
+            signal: request.signal,
+        });
     } catch (error) {
         return mapGenerateError(error);
     }
@@ -312,7 +315,8 @@ interface GoalRequestFields {
 
 async function handleGoal(
     userId: string,
-    fields: GoalRequestFields
+    fields: GoalRequestFields,
+    signal: AbortSignal
 ): Promise<NextResponse> {
     const { step, goal, why } = fields;
 
@@ -350,7 +354,9 @@ async function handleGoal(
 
     if (step === "framework") {
         try {
-            const { framework } = await generateFramework(goal.trim(), why.trim());
+            const { framework } = await generateFramework(goal.trim(), why.trim(), {
+                signal,
+            });
             return NextResponse.json({ framework });
         } catch (error) {
             return mapGenerateError(error);
@@ -359,7 +365,7 @@ async function handleGoal(
 
     // Pattern C (`generate`) — validate the full payload, generate the
     // breakdown, then persist goals→projects→actions with rollback.
-    return handleGoalGenerate(userId, goal.trim(), why.trim(), fields);
+    return handleGoalGenerate(userId, goal.trim(), why.trim(), fields, signal);
 }
 
 /**
@@ -378,7 +384,8 @@ async function handleGoalGenerate(
     userId: string,
     goal: string,
     why: string,
-    fields: GoalRequestFields
+    fields: GoalRequestFields,
+    signal: AbortSignal
 ): Promise<NextResponse> {
     const { framework, drivers, barriers, ifThen } = fields;
 
@@ -429,7 +436,7 @@ async function handleGoalGenerate(
             drivers: drivers.map((d) => d.trim()),
             barriers: barriers.map((b) => b.trim()),
             ifThen: ifThen.trim(),
-        });
+        }, { signal });
     } catch (error) {
         return mapGenerateError(error);
     }
@@ -613,6 +620,17 @@ function mapGenerateError(error: unknown): NextResponse {
         error instanceof Error
             ? error.message
             : "An unexpected error occurred. Please try again.";
+
+    if (error instanceof GenerationFormatError) {
+        console.error("[api/generate] generation format error:", error.message);
+        return NextResponse.json(
+            {
+                error:
+                    "The AI returned a response in an unexpected format. Please try again.",
+            },
+            { status: 500 }
+        );
+    }
 
     const isTimeout =
         (error instanceof Error && /timed out/i.test(error.message)) ||

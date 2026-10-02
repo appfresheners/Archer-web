@@ -19,7 +19,9 @@ import StatusBadge from "@/components/goals/StatusBadge";
 import type { ActionItemData } from "@/components/projects/ActionItem";
 import ActionList from "@/components/projects/ActionList";
 import StuckIndicator from "@/components/projects/StuckIndicator";
+import ReadErrorState from "@/components/shared/ReadErrorState";
 import { isProjectStuck } from "@/lib/goals/stuck";
+import type { ReadResult } from "@/lib/read-result";
 import type {
     PlanningDetail,
     ProjectStatus,
@@ -65,8 +67,8 @@ async function loadGoalOptions(): Promise<GoalOption[]> {
     }
 }
 
-/** Fetch the RLS-scoped project + parent goal + ordered actions, or null. */
-async function loadProject(id: string): Promise<LoadedProject | null> {
+/** Fetch the RLS-scoped project + parent goal + ordered actions, or a discriminated result. */
+async function loadProject(id: string): Promise<ReadResult<LoadedProject>> {
     try {
         const supabase = await createClient();
         const { data, error } = await supabase
@@ -77,30 +79,40 @@ async function loadProject(id: string): Promise<LoadedProject | null> {
             .eq("id", id)
             .maybeSingle();
 
-        if (error || !data) {
-            return null;
+        if (error) {
+            return { status: "error" };
+        }
+        if (!data) {
+            return { status: "not-found" };
         }
 
         // Parent goal text for the breadcrumb (goal-less projects skip this).
         let goalText: string | null = null;
         if (data.goal_id) {
-            const { data: goal } = await supabase
+            const { data: goal, error: goalError } = await supabase
                 .from("goals")
                 .select("goal_text")
                 .eq("id", data.goal_id)
                 .maybeSingle();
+            if (goalError) {
+                return { status: "error" };
+            }
             goalText = goal?.goal_text ?? null;
         }
 
-        const { data: actions } = await supabase
+        const { data: actions, error: actionsError } = await supabase
             .from("actions")
             .select("id, text, status, context_tags, time_available_minutes, sort_order")
             .eq("project_id", id)
             .order("sort_order", { ascending: true });
 
-        return { ...data, goalText, actions: actions ?? [] };
+        if (actionsError) {
+            return { status: "error" };
+        }
+
+        return { status: "ok", data: { ...data, goalText, actions: actions ?? [] } };
     } catch {
-        return null;
+        return { status: "error" };
     }
 }
 
@@ -108,9 +120,9 @@ export async function generateMetadata({
     params,
 }: ProjectDetailPageProps): Promise<Metadata> {
     const { id } = await params;
-    const project = await loadProject(id);
+    const projectResult = await loadProject(id);
     return {
-        title: project ? `${project.name} — Archer` : "Project — Archer",
+        title: projectResult.status === "ok" ? `${projectResult.data.name} — Archer` : "Project — Archer",
     };
 }
 
@@ -169,14 +181,18 @@ export default async function ProjectDetailPage({
     params,
 }: ProjectDetailPageProps) {
     const { id } = await params;
-    const [project, goals] = await Promise.all([
+    const [projectResult, goals] = await Promise.all([
         loadProject(id),
         loadGoalOptions(),
     ]);
 
-    if (!project) {
+    if (projectResult.status === "error") {
+        return <ReadErrorState />;
+    }
+    if (projectResult.status === "not-found") {
         notFound();
     }
+    const project = projectResult.data;
 
     const detail = project.planning_detail;
     const header: ProjectHeaderData = {

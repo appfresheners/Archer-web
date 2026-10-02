@@ -17,7 +17,7 @@
  * Mirrors `lib/projects/generate-project.ts` (parse + validate + format error).
  */
 
-import { generate } from "@/lib/ai";
+import { generate, GenerationFormatError, type GenerateOptions } from "@/lib/ai";
 import { GOAL_GENERATE_SYSTEM_PROMPT } from "@/lib/ai/prompts";
 import type { SkillFrameworkItem } from "@/lib/supabase/schema";
 
@@ -58,13 +58,6 @@ export interface GenerateGoalPayload {
   drivers: string[];
   barriers: string[];
   ifThen: string;
-}
-
-class GenerationFormatError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "GenerationFormatError";
-  }
 }
 
 /**
@@ -111,11 +104,13 @@ export function buildUserMessage(payload: GenerateGoalPayload): string {
  *         shape-invalid JSON.
  */
 export async function generateGoal(
-  payload: GenerateGoalPayload
+  payload: GenerateGoalPayload,
+  options?: GenerateOptions,
 ): Promise<GeneratedGoal> {
   const raw = await generate(
     GOAL_GENERATE_SYSTEM_PROMPT,
-    buildUserMessage(payload)
+    buildUserMessage(payload),
+    options,
   );
   const parsed = parseJson(raw);
   return validate(parsed);

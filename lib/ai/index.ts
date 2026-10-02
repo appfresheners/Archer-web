@@ -7,4 +7,5 @@
 
 export { getProviderConfig, resolveProvider, resolveModel, resolveApiKey } from "./config";
 export { generate } from "./generate";
-export type { AiProvider, ProviderConfig, GenerateFn } from "./types";
+export { GenerationFormatError } from "./errors";
+export type { AiProvider, ProviderConfig, GenerateFn, GenerateOptions } from "./types";
