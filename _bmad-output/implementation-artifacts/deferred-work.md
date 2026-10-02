@@ -365,3 +365,21 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-5-6-weekly-review-phases-get-clear-current-creative.md`
   summary: Add pending/aria-busy affordances to the Get Current / Get Creative in-flight buttons, and reconcile the duplicated en-US formatDate helper (GetCurrentPanel + review page) into a shared util
   evidence: Review (blind) — buttons disable while busy but show no spinner/aria-busy; formatDate is duplicated verbatim. Minor polish; the locale-hardcoding is the same deferred cross-cutting concern as elsewhere (no user-tz/locale infra).
+
+## Deferred from: code review of 2-7 (2026-10-01)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-7-manual-project-creation.md`
+  summary: `PATCH /api/projects/[id]` accepts a `goal_id` with no ownership check — a signed-in user can link their own project to another user's goal (FK + RLS only verify the project owner and goal existence)
+  evidence: Review (verification-gap) — `sanitizeProjectPatch` passes a uuid `goal_id` straight into `.update(patch)` scoped only by project `id` + `user_id`; the goal's owner is never verified. The new `POST /api/projects` guards this cross-owner vector, so the edit route is now the remaining hole. Pre-existing route outside Story 2.7; pair with the 4.6 goal-linking work.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-7-manual-project-creation.md`
+  summary: `purpose` and `successful_outcome` have no length bound in `lib/projects/create.ts` (and the existing `sanitizeProjectPatch`) — unbounded text is accepted and stored
+  evidence: Review (blind + edge-case) — `optionalText` only type-checks; the DB columns are unbounded `text`. Every other user string is bounded (name 200, goal_text/action text). The new validator deliberately mirrors the existing project-edit convention, which is also unbounded; a shared length cap should be added across both in one change.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-7-manual-project-creation.md`
+  summary: The manual parent-goal picker lists every goal with no order/limit/filter — nondeterministic ordering, includes completed/archived/someday goals, and grows unbounded with the user's history
+  evidence: Review (blind + edge-case) — `loadGoalsForPicker` does `.select("id, goal_text")` with no `.order()`, `.limit()`, or status filter. Tolerable at expected scale; revisit with an ordering/status-filtering decision (which the spec leaves open) or alongside Epic 4 goal polish.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-7-manual-project-creation.md`
+  summary: Submit buttons set `aria-disabled` true when the field is merely empty while the button is still clickable (clicking surfaces inline validation) — assistive tech is told the control is disabled
+  evidence: Review (blind) — the AI submit button already carried this pre-existing `aria-disabled`-on-empty pattern; the new manual button replicates it. The real `disabled` attribute already covers actual disabling; fix both buttons in a shared a11y pass without altering AI behavior.

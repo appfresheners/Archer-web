@@ -205,4 +205,136 @@ describe("ProjectModeInput", () => {
       expect(screen.queryByText("Generating…")).not.toBeInTheDocument();
     });
   });
+
+  describe("Mode selection (Story 2.7)", () => {
+    it("defaults to Generate with AI and shows the AI surface", () => {
+      render(<ProjectModeInput onSubmit={vi.fn()} onManualSubmit={vi.fn()} />);
+      expect(
+        screen.getByRole("radio", { name: "Generate with AI" }),
+      ).toBeChecked();
+      expect(
+        screen.getByRole("radio", { name: "Create manually" }),
+      ).not.toBeChecked();
+      // AI surface is present, manual surface is not.
+      expect(
+        screen.getByPlaceholderText(canonicalPlaceholder),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /create project/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("switches to the manual form when Create manually is selected", () => {
+      render(<ProjectModeInput onSubmit={vi.fn()} onManualSubmit={vi.fn()} />);
+      fireEvent.click(screen.getByRole("radio", { name: "Create manually" }));
+      expect(
+        screen.getByRole("radio", { name: "Create manually" }),
+      ).toBeChecked();
+      expect(screen.getByLabelText(/project name/i)).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /create project/i }),
+      ).toBeInTheDocument();
+      // AI surface is gone.
+      expect(
+        screen.queryByPlaceholderText(canonicalPlaceholder),
+      ).not.toBeInTheDocument();
+    });
+
+    it("seeds the manual name from initialInput (clarify hand-off)", () => {
+      render(
+        <ProjectModeInput
+          onSubmit={vi.fn()}
+          onManualSubmit={vi.fn()}
+          initialInput="Plan the offsite"
+        />,
+      );
+      fireEvent.click(screen.getByRole("radio", { name: "Create manually" }));
+      expect(screen.getByLabelText(/project name/i)).toHaveValue(
+        "Plan the offsite",
+      );
+    });
+  });
+
+  describe("Manual submit", () => {
+    it("blocks submission on an empty name with a role=alert error", () => {
+      const onManualSubmit = vi.fn();
+      render(
+        <ProjectModeInput onSubmit={vi.fn()} onManualSubmit={onManualSubmit} />,
+      );
+      fireEvent.click(screen.getByRole("radio", { name: "Create manually" }));
+      fireEvent.click(screen.getByRole("button", { name: /create project/i }));
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+      expect(onManualSubmit).not.toHaveBeenCalled();
+    });
+
+    it("emits trimmed fields with a null goalId when none is selected", () => {
+      const onManualSubmit = vi.fn();
+      render(
+        <ProjectModeInput onSubmit={vi.fn()} onManualSubmit={onManualSubmit} />,
+      );
+      fireEvent.click(screen.getByRole("radio", { name: "Create manually" }));
+      fireEvent.change(screen.getByLabelText(/project name/i), {
+        target: { value: "  Launch a newsletter  " },
+      });
+      fireEvent.change(screen.getByLabelText(/purpose/i), {
+        target: { value: "  Grow an audience  " },
+      });
+      fireEvent.change(screen.getByLabelText(/successful outcome/i), {
+        target: { value: "  500 subscribers  " },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /create project/i }));
+      expect(onManualSubmit).toHaveBeenCalledWith({
+        name: "Launch a newsletter",
+        purpose: "Grow an audience",
+        successfulOutcome: "500 subscribers",
+        goalId: null,
+      });
+    });
+
+    it("emits the selected parent goal id", () => {
+      const onManualSubmit = vi.fn();
+      const goals = [
+        { id: "g1", goal_text: "First goal" },
+        { id: "g2", goal_text: "Second goal" },
+      ];
+      render(
+        <ProjectModeInput
+          onSubmit={vi.fn()}
+          onManualSubmit={onManualSubmit}
+          goals={goals}
+        />,
+      );
+      fireEvent.click(screen.getByRole("radio", { name: "Create manually" }));
+      fireEvent.change(screen.getByLabelText(/project name/i), {
+        target: { value: "A project" },
+      });
+      fireEvent.change(screen.getByLabelText(/parent goal/i), {
+        target: { value: "g2" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /create project/i }));
+      expect(onManualSubmit).toHaveBeenCalledWith({
+        name: "A project",
+        purpose: "",
+        successfulOutcome: "",
+        goalId: "g2",
+      });
+    });
+
+    it("shows 'Saving…' and disables while manualSaving", () => {
+      const { rerender } = render(
+        <ProjectModeInput onSubmit={vi.fn()} onManualSubmit={vi.fn()} />,
+      );
+      fireEvent.click(screen.getByRole("radio", { name: "Create manually" }));
+      rerender(
+        <ProjectModeInput
+          onSubmit={vi.fn()}
+          onManualSubmit={vi.fn()}
+          manualSaving
+        />,
+      );
+      const button = screen.getByRole("button", { name: /saving/i });
+      expect(button).toBeDisabled();
+      expect(button).toHaveTextContent("Saving…");
+    });
+  });
 });

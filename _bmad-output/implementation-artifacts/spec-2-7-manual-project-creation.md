@@ -2,7 +2,8 @@
 title: "Manual Project Creation"
 type: "feature"
 created: "2026-10-01"
-status: "ready-for-dev"
+status: "done"
+baseline_commit: "32039893824e106e5ecb262000edb2e8c400cae7"
 review_loop_iteration: 0
 context: []
 ---
@@ -58,3 +59,22 @@ context: []
 - Route-test auth, successful insert, goal ownership, invalid data, and database errors.
 - Component-test mode selection, AI-default preservation, manual submission, and Inbox handoff.
 - Run `npx tsc --noEmit`, `npm run lint`, focused project tests, and `npm run build`.
+
+## Review Triage Log
+
+- `app/api/projects/route.test.ts` — ownership `eq` filter args mocked away, never asserted — `patch`. Verified: the mock's `eq` calls discard arguments, so a wrong `.eq("user_id", …)` passes silently; the sibling inbox route test asserts the filter args. Fix: record and assert the `goals` chain `eq` calls.
+- `app/app/projects/new/page.tsx` — `loadGoalsForPicker` has no coverage and degrades silently — `patch`. Verified: no test references it; a dropped `goal_text` or `.map` leaves a broken picker with no failing test. Fix: extract to a testable module and unit-test success mapping and `[]` degradation.
+- `app/app/projects/new/NewProjectClient.tsx` — manual "Try again" retry untested — `patch`. Verified: the AI retry test covers only `/api/generate`; no test clicks retry after a manual failure. Fix: add a manual-retry case.
+- `app/api/projects/route.test.ts` — present-but-invalid optional field (non-string `purpose`/`outcome`, malformed `goal_id`) untested at the route level — `patch`. Verified: only the pure validator covers these. Fix: add route-level 400 cases.
+- `app/api/projects/[id]/route.ts` — `PATCH` accepts `goal_id` with no ownership check — `defer`. Verified: `sanitizeProjectPatch` passes a uuid `goal_id` straight into `.update`; FK + RLS alone do not prevent cross-user goal linking. Pre-existing route, outside Story 2.7.
+- `lib/projects/create.ts` — `purpose`/`successful_outcome` have no length bound — `defer`. Verified: `optionalText` only type-checks; the existing `sanitizeProjectPatch` has the same unbounded convention, so a bound belongs to a shared change, not this story alone.
+- `components/projects/ProjectModeInput.tsx` — submit buttons set `aria-disabled` true on an empty field while still clickable — `defer`. Verified: the AI button already had this pre-existing pattern; changing it would touch the AI path the spec forbids altering.
+- `app/api/projects/route.ts` — auth-check errors collapse to 401 — `low`/reject. Verified: identical `getAuthenticatedUserId` convention on every sibling route; `createClient`/`getUser` does not throw in normal operation, and distinguishing would add branching.
+- `app/api/projects/route.ts` — 400 message "A valid project name is required" also returned for non-name validation failures — `low`/reject. Verified: only craftable requests reach those branches; the client always sends well-typed fields; a precise message needs the validator to report a reason.
+- `components/projects/ProjectModeInput.tsx` — manual mode has no Enter-to-submit — `low`/reject. Verified: multi-field manual form; Enter parity was never required by the intent; adding a form/submit plumbing is more than a direct fix.
+- `app/app/projects/new/NewProjectClient.tsx` — stale error/retry across a mode switch — `low`/reject. Verified: requires a failed submit followed by a mode switch then a retry click; the fix needs a new mode-change callback, which is disproportionate.
+- `app/app/projects/new/page.tsx` — goals picker has no order/limit/filter — `low`/reject. Verified: tolerable for the typical user; ordering/filtering rules are not settled by the spec.
+- `components/projects/ProjectModeInput.tsx` — local validation errors not cleared on mode switch — `low`/reject. Verified: the persisted error stays accurate (the underlying field is still empty/invalid), so no bad outcome occurs.
+- `_bmad-output/implementation-artifacts/epic-2-context.md` — rewrite dropped story-level specifics — `false`. Verified: the compile instructions mandate aggressive scoping and no story-level details; those specifics live in Story 2.3's spec.
+- `_bmad-output/implementation-artifacts/spec-2-7-manual-project-creation.md` — body "does not reflect" the implemented toggle/route — `false`. Verified: the frozen spec already describes the toggle and route; editing the spec to match code is prohibited.
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` — story `in-progress` while spec is `in-review` — `false`. Verified: transient within the workflow; final status sync happens at completion.

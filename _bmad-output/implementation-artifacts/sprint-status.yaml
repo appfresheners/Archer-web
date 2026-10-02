@@ -38,7 +38,7 @@
 # and has been preserved as sprint-status-superseded-mvp1.yaml. None of the new
 # 35 stories have been started under the current plan, so all are 'backlog'.
 generated: 09-27-2026 16:30
-last_updated: 10-01-2026 (approved course correction; Stories 2.7, 4.6, H-4 ready-for-dev)
+last_updated: 10-01-2026 (approved course correction; Story 2.7 review; Stories 4.6, H-4 ready-for-dev)
 
 project: GTDGoalandProjectCreator
 project_key: NOKEY
@@ -64,7 +64,7 @@ development_status:
   # obsolete: generation returns structured JSON persisted as Supabase rows;
   # the project detail view (2.3) renders from structured data, not markdown.
   2-6-remove-dead-copy-download-code: review
-  2-7-manual-project-creation: ready-for-dev
+  2-7-manual-project-creation: review
   epic-2-retrospective: optional
 
   epic-3: in-progress

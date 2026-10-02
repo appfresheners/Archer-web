@@ -262,4 +262,144 @@ describe("NewProjectClient", () => {
       resolved_project_id: "proj-1",
     });
   });
+
+  // --- Manual create (Story 2.7) -------------------------------------------
+
+  function switchToManualAndSubmit(name: string, purpose?: string) {
+    fireEvent.click(screen.getByRole("radio", { name: "Create manually" }));
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: name },
+    });
+    if (purpose !== undefined) {
+      fireEvent.change(screen.getByLabelText(/purpose/i), {
+        target: { value: purpose },
+      });
+    }
+    fireEvent.click(screen.getByRole("button", { name: /create project/i }));
+  }
+
+  it("POSTs a manual project to /api/projects and navigates on success (no AI call)", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: "project-manual-1" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<NewProjectClient />);
+    switchToManualAndSubmit("Launch a newsletter", "Grow an audience");
+
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith("/app/projects/project-manual-1"),
+    );
+
+    const createCall = fetchMock.mock.calls.find((c) => c[0] === "/api/projects");
+    expect(createCall).toBeTruthy();
+    expect(JSON.parse(createCall![1].body as string)).toEqual({
+      name: "Launch a newsletter",
+      purpose: "Grow an audience",
+      successful_outcome: null,
+      goal_id: null,
+    });
+    // The manual path must never hit the generation endpoint.
+    expect(
+      fetchMock.mock.calls.some((c) => c[0] === "/api/generate"),
+    ).toBe(false);
+  });
+
+  it("surfaces a manual 500 error and does not navigate", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({
+        error: "Failed to create the project. Please try again.",
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<NewProjectClient />);
+    switchToManualAndSubmit("A project");
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/failed to create/i),
+    );
+    expect(push).not.toHaveBeenCalled();
+    // Form re-enabled so the user can retry.
+    expect(screen.getByLabelText(/project name/i)).not.toBeDisabled();
+  });
+
+  it("Try again re-POSTs the same manual fields after a manual failure", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({
+          error: "Failed to create the project. Please try again.",
+        }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "proj-retry" }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<NewProjectClient />);
+    switchToManualAndSubmit("Launch a newsletter", "Grow an audience");
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/failed to create/i),
+    );
+    expect(push).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: /try again/i }));
+
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith("/app/projects/proj-retry"),
+    );
+
+    const createCalls = fetchMock.mock.calls.filter(
+      (c) => c[0] === "/api/projects",
+    );
+    expect(createCalls).toHaveLength(2);
+    expect(JSON.parse(createCalls[0][1].body as string)).toEqual(
+      JSON.parse(createCalls[1][1].body as string),
+    );
+    expect(JSON.parse(createCalls[1][1].body as string)).toEqual({
+      name: "Launch a newsletter",
+      purpose: "Grow an audience",
+      successful_outcome: null,
+      goal_id: null,
+    });
+    // Manual retry never touches the generation endpoint.
+    expect(
+      fetchMock.mock.calls.some((c) => c[0] === "/api/generate"),
+    ).toBe(false);
+  });
+
+  it("links the inbox item after a manual create (clarify hand-off)", async () => {
+    searchParams = new URLSearchParams({
+      from_inbox: "item-1",
+      seed: "Plan the offsite",
+    });
+    const fetchMock = vi
+      .fn()
+      // 1) manual create → returns the new project id
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "proj-m" }) })
+      // 2) inbox PATCH link
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "item-1" }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<NewProjectClient />);
+    switchToManualAndSubmit("Offsite plan");
+
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith("/app/projects/proj-m"),
+    );
+
+    const linkCall = fetchMock.mock.calls.find(
+      (c) => c[0] === "/api/inbox/item-1",
+    );
+    expect(linkCall).toBeTruthy();
+    expect(JSON.parse(linkCall![1].body as string)).toEqual({
+      status: "processed",
+      resolved_project_id: "proj-m",
+    });
+  });
 });
