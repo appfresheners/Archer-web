@@ -38,7 +38,7 @@
 # and has been preserved as sprint-status-superseded-mvp1.yaml. None of the new
 # 35 stories have been started under the current plan, so all are 'backlog'.
 generated: 09-27-2026 16:30
-last_updated: 10-02-2026 (Story H-2 review)
+last_updated: 10-02-2026 (Story H-3 review)
 
 project: GTDGoalandProjectCreator
 project_key: NOKEY
@@ -129,7 +129,7 @@ development_status:
   #   1.6 (skip-to-content + route-change focus)
   #   3.1 / 3.3 (polite live-region step/readiness announcements)
   H-2-provider-resilience-and-error-observability: review
-  H-3-app-wide-clickable-cursor-affordance: ready-for-dev
+  H-3-app-wide-clickable-cursor-affordance: review
   H-4-shared-focus-trap-modal-and-a11y-announcements: backlog
   # H-3 absorbs resilience/observability. Ledger sources:
   #   1.7 (provider retry/backoff; error diagnostics + AbortSignal; log gating)

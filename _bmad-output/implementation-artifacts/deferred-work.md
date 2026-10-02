@@ -420,3 +420,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-h-2-provider-resilience-and-error-observability.md`
   summary: Remaining H-2 verification gaps — route→generate() signal forwarding (mock wrappers drop the options arg), inbox list/clarify loaders (no test files), and client abort-on-unmount (no component unmount/abort tests)
   evidence: Review (verification-gap) — these behaviors are implemented and the lib-level abort/retry/error-state tests pass, but the route-boundary signal argument, the two inbox page loaders, and the four client components' unmount cleanup have no executed test. Add them in a follow-up test-coverage pass.
+
+## Deferred from: code review of H-3 (2026-10-02)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-h-4-app-wide-clickable-cursor-affordance.md`
+  summary: Replace the jsdom computed-style cursor check with a real browser check (e.g. Playwright) that renders representative app surfaces, so component-level and inline cursor overrides are caught
+  evidence: Review (edge-case + verification-gap) — the cursor test injects the raw rules into a synthetic jsdom fixture and never renders a real component, so a component's own cursor utility or inline style could contradict the app-wide rule undetected. Adding a browser-automation dependency needs sign-off, so the jsdom check stands as a reasonable proxy meanwhile.

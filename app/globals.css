@@ -114,6 +114,33 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ------------------------------------------------------------------ */
+/* Pointer affordance — enabled vs disabled interactive controls       */
+/* ------------------------------------------------------------------ */
+/* Enabled semantic controls get a pointer cursor; disabled native and
+   aria-disabled controls keep not-allowed. Cursor shape supplements
+   (never replaces) semantic markup, visible focus, and hover/selected
+   states. The rules live in @layer base so component-level cursor
+   utilities (e.g. cursor-not-allowed) can still override them. */
+
+@layer base {
+/* Pointer affordance rules: start */
+a[href]:not([aria-disabled="true"]),
+button:not(:disabled):not([aria-disabled="true"]),
+select:not(:disabled):not([aria-disabled="true"]),
+input:not(:disabled):not([aria-disabled="true"]):where([type="checkbox"], [type="radio"], [type="range"]),
+summary,
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
+:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+/* Pointer affordance rules: end */
+}
+
 .output-prose h1 {
   font-size: var(--font-size-section);
   font-weight: 700;

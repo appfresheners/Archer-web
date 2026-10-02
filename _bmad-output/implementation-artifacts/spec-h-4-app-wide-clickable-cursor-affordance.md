@@ -2,9 +2,10 @@
 title: "App-wide Clickable Cursor Affordance"
 type: "hardening"
 created: "2026-10-01"
-status: "ready-for-dev"
+status: "done"
 review_loop_iteration: 0
 context: []
+baseline_commit: "30062459ffb2d8580d93e0aa631a82b810775f44"
 ---
 
 <frozen-after-approval reason="human-approved course correction">
@@ -35,6 +36,26 @@ context: []
 
 - `app/globals.css` -- shared rules for interactive and disabled controls.
 - `components/**` and `app/**` -- audit custom click handlers and non-semantic controls; add local exceptions only when needed and documented.
+
+## Review Triage Log
+
+- blind-hunter · `a[href]`/`select`/`input` pointer selectors omit `:not([aria-disabled="true"])`, so aria-disabled controls kept pointer · medium: patched — exclusions added.
+- edge-case-hunter · same aria-disabled specificity gap (pointer 0-1-1 beats not-allowed 0-1-0) · medium: patched (same fix).
+- blind-hunter · test missing aria-disabled variants of link/select/checkbox · medium: patched — fixture + assertions added.
+- verification-gap · unlayered rule overrode `ProjectModeInput`'s `cursor-not-allowed` on logically-disabled submit buttons · medium: patched — rules moved into `@layer base` so component cursor utilities override.
+- blind-hunter · date/time/color/file inputs lack pointer · low: rejected (not in the spec's enumerated controls).
+- blind-hunter · labels lack a pointer rule · low: rejected (not in the spec's controls).
+- blind-hunter · selector-coverage test brittle to whitespace edits · low: rejected.
+- blind-hunter · `extractAffordanceRules` calls `expect()` at module top level · low: rejected.
+- blind-hunter · test resolves via `process.cwd()` · low: rejected.
+- blind-hunter · `summary` selected globally rather than `details > summary` · low: rejected (stray summary is invalid HTML).
+- blind-hunter · `[aria-disabled="true"]` on group containers shows not-allowed · low: rejected (matches spec intent).
+- blind-hunter · sprint-status in-progress vs spec in-review · false: lifecycle sync happens at completion.
+- edge-case-hunter · `[role="button"]` lacks `:not(:disabled)` · low: rejected (a div cannot be `:disabled`).
+- edge-case-hunter · `aria-disabled="TRUE"` case-sensitivity · low: rejected (non-conforming ARIA value).
+- edge-case-hunter · `[role="link"]` and href-less anchors lack pointer · low: rejected.
+- edge-case-hunter · `input[type=submit|button|reset]` omitted · low: rejected (spec enumerates `<button>`).
+- edge-case-hunter + verification-gap · synthetic jsdom fixture vs a real browser check across app surfaces · defer: browser automation (Playwright) would need sign-off; jsdom computed styles are a reasonable proxy.
 
 ## Verification
 
