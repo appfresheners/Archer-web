@@ -350,7 +350,54 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      /** Atomic goal generate-save: goals → projects → actions in one RPC. */
+      save_goal_breakdown: {
+        Args: {
+          p_goal: {
+            goal_text: string;
+            why: string | null;
+            target_date: string;
+            skill_framework: SkillFrameworkItem[] | null;
+            drivers: string[] | null;
+            barriers: string[] | null;
+            if_then_plan: string | null;
+          };
+          p_projects: Array<{
+            name: string;
+            purpose: string | null;
+            successful_outcome: string | null;
+            sort_order: number;
+            next_actions: string[];
+          }>;
+        };
+        Returns: string;
+      };
+      /** Atomic goal soft-delete: archive the goal and its projects. */
+      archive_goal_cascade: {
+        Args: { p_goal_id: string };
+        Returns: undefined;
+      };
+      /** Atomic project regeneration: update fields + replace actions. */
+      regenerate_project_actions: {
+        Args: {
+          p_project_id: string;
+          p_project: {
+            name: string;
+            purpose: string | null;
+            successful_outcome: string | null;
+            planning_detail: PlanningDetail | null;
+          };
+          p_actions: Array<{ text: string; sort_order: number }>;
+        };
+        Returns: undefined;
+      };
+      /** Atomic action reorder: verify id set, then write sort_order. */
+      reorder_project_actions: {
+        Args: { p_project_id: string; p_action_ids: string[] };
+        Returns: undefined;
+      };
+    };
     Enums: {
       goal_status: GoalStatus;
       project_status: ProjectStatus;

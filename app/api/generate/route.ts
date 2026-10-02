@@ -30,7 +30,6 @@ import { generateGoal } from "@/lib/goals/generate-goal";
 import { generateProject } from "@/lib/projects/generate-project";
 import type {
     ActionInsert,
-    GoalInsert,
     PlanningDepth,
     ProjectInsert,
     SkillFrameworkItem
@@ -435,9 +434,9 @@ async function handleGoalGenerate(
         return mapGenerateError(error);
     }
 
-    // Save-before-return: goals → projects → actions, all owned by the user.
+    // Save-before-return: goals → projects → actions, all owned by the user,
+    // persisted in one atomic RPC.
     return saveGoalBreakdown(
-        userId,
         goal,
         why,
         validFramework,
@@ -450,11 +449,11 @@ async function handleGoalGenerate(
 
 /**
  * Persist the generated breakdown as linked `goals` + `projects` + `actions`
- * rows, with rollback on any partial failure. Returns `{ id }` on success or a
- * 500 on any insert failure (after deleting whatever was written).
+ * rows via a single atomic RPC. Returns `{ id }` (the new goal id) on success
+ * or a 500 when the RPC fails — the RPC's transaction rolls back everything it
+ * wrote, so a mid-sequence failure leaves no rows behind.
  */
 async function saveGoalBreakdown(
-    userId: string,
     goal: string,
     why: string,
     framework: SkillFrameworkItem[],
@@ -465,131 +464,47 @@ async function saveGoalBreakdown(
 ): Promise<NextResponse> {
     const targetDate = computeTargetDate();
 
-    const goalRow: GoalInsert = {
-        user_id: userId,
-        goal_text: goal,
-        why,
-        target_date: targetDate,
-        skill_framework: framework,
-        drivers: drivers.map((d) => d.trim()),
-        barriers: barriers.map((b) => b.trim()),
-        if_then_plan: ifThen.trim(),
-    };
-
     const failure = () =>
         NextResponse.json(
             { error: "Failed to save your goal. Please try again." },
             { status: 500 }
         );
 
+    // The RPC derives the owner from auth.uid(); actions are grouped under
+    // their project so the project→action mapping can never desync.
+    const projects = generated.projects.map((project, index) => ({
+        name: project.name,
+        purpose: project.purpose,
+        successful_outcome: project.successful_outcome,
+        sort_order: index,
+        next_actions: project.next_actions,
+    }));
+
     try {
         const supabase = await createClient();
 
-        // 1. Insert the parent goal row.
-        const { data: goalData, error: goalError } = await supabase
-            .from("goals")
-            .insert(goalRow)
-            .select("id")
-            .single();
-
-        if (goalError || !goalData?.id) {
-            console.error(
-                "[api/generate] goal insert failed:",
-                goalError?.message ?? "no row returned"
-            );
-            return failure();
-        }
-
-        const goalId = goalData.id as string;
-
-        // Roll back everything written so far and return 500. IMPORTANT:
-        // `projects.goal_id` is `ON DELETE SET NULL` (not cascade — Project
-        // Mode intentionally keeps goal-less projects), so deleting the goal
-        // would ORPHAN its projects/actions rather than remove them. Delete
-        // explicitly in FK order: actions → projects → goal. `actions` are
-        // cascade-deleted with their project, but we delete them first anyway
-        // to be robust to partial project inserts.
-        const rollback = async () => {
-            const { data: toDelete } = await supabase
-                .from("projects")
-                .select("id")
-                .eq("goal_id", goalId);
-            const projectIdsToDelete = (toDelete ?? []).map((p) => p.id as string);
-            if (projectIdsToDelete.length > 0) {
-                await supabase
-                    .from("actions")
-                    .delete()
-                    .in("project_id", projectIdsToDelete);
-                await supabase.from("projects").delete().eq("goal_id", goalId);
-            }
-            const { error: goalDeleteError } = await supabase
-                .from("goals")
-                .delete()
-                .eq("id", goalId);
-            if (goalDeleteError) {
-                console.error(
-                    "[api/generate] rollback: goal delete failed:",
-                    goalDeleteError.message
-                );
-            }
-        };
-
-        // 2. Insert one projects row per generated project.
-        const projectRows: ProjectInsert[] = generated.projects.map(
-            (project, index) => ({
-                user_id: userId,
-                goal_id: goalId,
-                name: project.name,
-                purpose: project.purpose,
-                successful_outcome: project.successful_outcome,
-                sort_order: index,
-            })
-        );
-
-        const { data: projectData, error: projectsError } = await supabase
-            .from("projects")
-            .insert(projectRows)
-            .select("id");
-
-        if (projectsError || !projectData || projectData.length !== projectRows.length) {
-            console.error(
-                "[api/generate] projects insert failed, rolling back goal:",
-                projectsError?.message ?? "row count mismatch"
-            );
-            await rollback();
-            return failure();
-        }
-
-        // 3. Insert one actions row per next action, linked to its project.
-        //    `select("id")` preserves insert order, so projectData[i] maps to
-        //    generated.projects[i].
-        const projectIds = projectData.map((p) => p.id as string);
-        const actionRows: ActionInsert[] = [];
-        generated.projects.forEach((project, pIndex) => {
-            project.next_actions.forEach((text, aIndex) => {
-                actionRows.push({
-                    user_id: userId,
-                    project_id: projectIds[pIndex],
-                    text,
-                    sort_order: aIndex,
-                });
-            });
+        const { data, error } = await supabase.rpc("save_goal_breakdown", {
+            p_goal: {
+                goal_text: goal,
+                why,
+                target_date: targetDate,
+                skill_framework: framework,
+                drivers: drivers.map((d) => d.trim()),
+                barriers: barriers.map((b) => b.trim()),
+                if_then_plan: ifThen.trim(),
+            },
+            p_projects: projects,
         });
 
-        const { error: actionsError } = await supabase
-            .from("actions")
-            .insert(actionRows);
-
-        if (actionsError) {
+        if (error || !data) {
             console.error(
-                "[api/generate] actions insert failed, rolling back goal:",
-                actionsError.message
+                "[api/generate] goal save RPC failed:",
+                error?.message ?? "no goal id returned",
             );
-            await rollback();
             return failure();
         }
 
-        return NextResponse.json({ id: goalId });
+        return NextResponse.json({ id: data });
     } catch (error) {
         const message =
             error instanceof Error ? error.message : "unexpected insert error";

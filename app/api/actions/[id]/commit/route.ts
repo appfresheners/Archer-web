@@ -40,7 +40,10 @@ export async function POST(_request: NextRequest, context: RouteContext) {
   try {
     const supabase = await createClient();
     // Setting status to 'committed' fires fn_commit_action, which decommits any
-    // sibling committed action on the same project. Scoped by user_id (+ RLS).
+    // sibling committed action on the same project (scoped by user_id + RLS).
+    // The partial unique index `actions(project_id) WHERE status='committed'`
+    // is the DB backstop: a concurrent commit that loses the race surfaces as a
+    // unique violation (23505), mapped to a friendly 409 below.
     const { data, error } = await supabase
       .from("actions")
       .update({ status: "committed" })
@@ -50,6 +53,12 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       .maybeSingle();
 
     if (error) {
+      if ((error as { code?: string }).code === "23505") {
+        return NextResponse.json(
+          { error: "Another action is already committed for this project." },
+          { status: 409 },
+        );
+      }
       console.error("[api/actions commit] update failed:", error.message);
       return NextResponse.json(
         { error: "Failed to commit the action. Please try again." },

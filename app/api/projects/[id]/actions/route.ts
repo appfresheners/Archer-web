@@ -8,9 +8,11 @@
  * scope every query by the acting user + the project id (RLS also enforces it).
  *
  * Reorder is safe-by-contract: the client sends the full ordered list of the
- * project's action ids; the server verifies that set is EXACTLY the project's
- * current action ids before writing `sort_order = index`. A missing or foreign
- * id is a 400 with no write, so a reorder can never drop or adopt an action.
+ * project's action ids; the `reorder_project_actions` RPC verifies that set is
+ * EXACTLY the project's current action ids before atomically writing
+ * `sort_order = index`. A missing or foreign id is a 400 with no write, so a
+ * reorder can never drop or adopt an action — and a mid-loop failure can never
+ * leave a partial order.
  */
 
 import { sanitizeActionText } from "@/lib/actions/validate";
@@ -169,6 +171,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       { status: 400 },
     );
   }
+  const uuidRe =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!ids.every((v) => uuidRe.test(v))) {
+    return NextResponse.json(
+      { error: "The reorder list contains an invalid action id." },
+      { status: 400 },
+    );
+  }
 
   try {
     const supabase = await createClient();
@@ -176,50 +186,36 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Project not found." }, { status: 404 });
     }
 
-    // Load the project's current action ids and verify the submitted set is
-    // EXACTLY equal — no missing, no foreign ids — before any write.
-    const { data: current, error: readError } = await supabase
-      .from("actions")
-      .select("id")
-      .eq("project_id", projectId)
-      .eq("user_id", userId);
+    // Verify the submitted set is EXACTLY the project's action ids and write
+    // sort_order = index for each, all in one atomic RPC. A mismatched set
+    // raises SQLSTATE 22000 (mapped to 400); any other failure is a 500. No
+    // partial reorder can ever be persisted.
+    const { error: reorderError } = await supabase.rpc(
+      "reorder_project_actions",
+      {
+        p_project_id: projectId,
+        p_action_ids: ids,
+      },
+    );
 
-    if (readError) {
-      console.error("[api/projects/actions PATCH] read failed:", readError.message);
+    if (reorderError) {
+      if ((reorderError as { code?: string }).code === "22000") {
+        return NextResponse.json(
+          { error: "The reorder list must match this project's actions exactly." },
+          { status: 400 },
+        );
+      }
+      if ((reorderError as { code?: string }).code === "P0002") {
+        return NextResponse.json({ error: "Project not found." }, { status: 404 });
+      }
+      console.error(
+        "[api/projects/actions PATCH] reorder RPC failed:",
+        reorderError.message,
+      );
       return NextResponse.json(
         { error: "Failed to reorder actions. Please try again." },
         { status: 500 },
       );
-    }
-
-    const currentIds = new Set((current ?? []).map((a) => a.id as string));
-    if (
-      currentIds.size !== ids.length ||
-      !ids.every((id) => currentIds.has(id))
-    ) {
-      return NextResponse.json(
-        { error: "The reorder list must match this project's actions exactly." },
-        { status: 400 },
-      );
-    }
-
-    // Persist sort_order = index for each action, scoped to the owner.
-    for (let index = 0; index < ids.length; index++) {
-      const { error: updateError } = await supabase
-        .from("actions")
-        .update({ sort_order: index })
-        .eq("id", ids[index])
-        .eq("user_id", userId);
-      if (updateError) {
-        console.error(
-          "[api/projects/actions PATCH] update failed:",
-          updateError.message,
-        );
-        return NextResponse.json(
-          { error: "Failed to reorder actions. Please try again." },
-          { status: 500 },
-        );
-      }
     }
 
     return NextResponse.json({ ok: true });

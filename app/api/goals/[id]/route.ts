@@ -12,10 +12,9 @@
  *                            projects AND those projects' actions. No row is
  *                            ever hard-deleted; archived rows are retained.
  *
- * The soft-delete cascade runs as three sequential updates (projects → their
- * actions → the goal). Full transactional atomicity via an RPC is deferred
- * (tracked in the deferred-work ledger); on any step failing we stop and
- * return 500 without proceeding.
+ * The soft-delete cascade (archive the goal AND its linked projects) runs as a
+ * single atomic `archive_goal_cascade` RPC, so a failure can never leave a
+ * partially-archived state.
  */
 
 import { sanitizeGoalPatch } from "@/lib/goals/validate";
@@ -134,61 +133,21 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Goal not found." }, { status: 404 });
     }
 
-    // Find the goal's projects so we can archive their actions too.
-    const { data: projects, error: projectsReadError } = await supabase
-      .from("projects")
-      .select("id")
-      .eq("goal_id", id)
-      .eq("user_id", userId);
+    // Archive the goal and all its projects in one atomic RPC. The projects'
+    // actions are archived transitively via their parent project (action_status
+    // has no `archived` member by design), so nothing is orphaned or left
+    // half-archived on a failure.
+    const { error: archiveError } = await supabase.rpc("archive_goal_cascade", {
+      p_goal_id: id,
+    });
 
-    if (projectsReadError) {
-      console.error(
-        "[api/goals DELETE] projects read failed:",
-        projectsReadError.message,
-      );
-      return NextResponse.json(
-        { error: "Failed to delete the goal. Please try again." },
-        { status: 500 },
-      );
-    }
-
-    const projectIds = (projects ?? []).map((p) => p.id as string);
-
-    // Soft-delete the goal's projects by archiving them. The projects' actions
-    // are retained as-is (they belong to an archived project, so they no longer
-    // surface anywhere active, and remain available for exports). `action_status`
-    // has no `archived` member by design, so actions are archived transitively
-    // via their parent project rather than by restatusing each action row.
-    if (projectIds.length > 0) {
-      const { error: projectsArchiveError } = await supabase
-        .from("projects")
-        .update({ status: "archived" })
-        .eq("goal_id", id)
-        .eq("user_id", userId);
-
-      if (projectsArchiveError) {
-        console.error(
-          "[api/goals DELETE] projects archive failed:",
-          projectsArchiveError.message,
-        );
-        return NextResponse.json(
-          { error: "Failed to delete the goal. Please try again." },
-          { status: 500 },
-        );
+    if (archiveError) {
+      if ((archiveError as { code?: string }).code === "P0002") {
+        return NextResponse.json({ error: "Goal not found." }, { status: 404 });
       }
-    }
-
-    // Finally archive the goal.
-    const { error: goalArchiveError } = await supabase
-      .from("goals")
-      .update({ status: "archived" })
-      .eq("id", id)
-      .eq("user_id", userId);
-
-    if (goalArchiveError) {
       console.error(
-        "[api/goals DELETE] goal archive failed:",
-        goalArchiveError.message,
+        "[api/goals DELETE] archive RPC failed:",
+        archiveError.message,
       );
       return NextResponse.json(
         { error: "Failed to delete the goal. Please try again." },

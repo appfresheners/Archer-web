@@ -52,6 +52,18 @@ describe("POST /api/actions/[id]/commit", () => {
     expect(res.status).toBe(404);
   });
 
+  it("409s when another action is already committed for the project (unique backstop)", async () => {
+    updateMaybeSingle.mockResolvedValue({
+      data: null,
+      error: { message: "duplicate key", code: "23505" },
+    });
+    const res = await POST({} as never, ctx());
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({
+      error: "Another action is already committed for this project.",
+    });
+  });
+
   it("500s on a db error", async () => {
     updateMaybeSingle.mockResolvedValue({ data: null, error: { message: "boom" } });
     const res = await POST({} as never, ctx());

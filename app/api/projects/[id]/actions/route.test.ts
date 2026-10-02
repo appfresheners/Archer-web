@@ -6,13 +6,12 @@ const projectOwnMaybeSingle = vi.fn();
 const maxSort = vi.fn();
 const actionInsertSingle = vi.fn();
 const actionInsert = vi.fn();
-const currentActions = vi.fn();
-const reorderUpdate = vi.fn();
-const reorderUpdateResult = vi.fn();
+const rpcCall = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser },
+    rpc: (fn: string, args: unknown) => rpcCall(fn, args),
     from: (table: string) => {
       if (table === "projects") {
         return {
@@ -24,20 +23,10 @@ vi.mock("@/lib/supabase/server", () => ({
       // actions
       return {
         // append lookup: select("sort_order").eq().order().limit()
-        // reorder read: select("id").eq().eq()
-        select: (cols: string) => {
-          if (cols.includes("sort_order")) {
-            return { eq: () => ({ order: () => ({ limit: () => maxSort() }) }) };
-          }
-          return { eq: () => ({ eq: () => currentActions() }) };
-        },
+        select: () => ({ eq: () => ({ order: () => ({ limit: () => maxSort() }) }) }),
         insert: (row: unknown) => {
           actionInsert(row);
           return { select: () => ({ single: () => actionInsertSingle() }) };
-        },
-        update: (patch: unknown) => {
-          reorderUpdate(patch);
-          return { eq: () => ({ eq: () => reorderUpdateResult() }) };
         },
       };
     },
@@ -51,6 +40,11 @@ function req(body: unknown, method: string): Request {
   });
 }
 const ctx = (id = "p1") => ({ params: Promise.resolve({ id }) });
+
+const U1 = "11111111-1111-4111-8111-111111111111";
+const U2 = "22222222-2222-4222-8222-222222222222";
+const U3 = "33333333-3333-4333-8333-333333333333";
+const U4 = "44444444-4444-4444-8444-444444444444";
 
 describe("POST /api/projects/[id]/actions (add)", () => {
   beforeEach(() => {
@@ -102,11 +96,7 @@ describe("PATCH /api/projects/[id]/actions (reorder)", () => {
     vi.clearAllMocks();
     getUser.mockResolvedValue({ data: { user: { id: "u1" } } });
     projectOwnMaybeSingle.mockResolvedValue({ data: { id: "p1" }, error: null });
-    currentActions.mockResolvedValue({
-      data: [{ id: "a1" }, { id: "a2" }, { id: "a3" }],
-      error: null,
-    });
-    reorderUpdateResult.mockResolvedValue({ error: null });
+    rpcCall.mockResolvedValue({ data: null, error: null });
   });
 
   it("400s on a missing/empty ordered list", async () => {
@@ -114,13 +104,16 @@ describe("PATCH /api/projects/[id]/actions (reorder)", () => {
     expect(res.status).toBe(400);
   });
 
-  it("rejects a reorder whose set does not match the project's actions", async () => {
+  it("rejects a reorder whose set does not match the project's actions (400)", async () => {
+    rpcCall.mockResolvedValue({
+      data: null,
+      error: { message: "mismatch", code: "22000" },
+    });
     const res = await PATCH(
-      req({ orderedIds: ["a1", "a2", "foreign"] }, "PATCH") as never,
+      req({ orderedIds: [U1, U2, U4] }, "PATCH") as never,
       ctx(),
     );
     expect(res.status).toBe(400);
-    expect(reorderUpdate).not.toHaveBeenCalled();
   });
 
   it("rejects a reorder with duplicate ids", async () => {
@@ -129,27 +122,51 @@ describe("PATCH /api/projects/[id]/actions (reorder)", () => {
       ctx(),
     );
     expect(res.status).toBe(400);
+    expect(rpcCall).not.toHaveBeenCalled();
   });
 
-  it("persists sort_order for an exact-match reorder", async () => {
+  it("persists sort_order for an exact-match reorder via one atomic RPC", async () => {
     const res = await PATCH(
-      req({ orderedIds: ["a3", "a1", "a2"] }, "PATCH") as never,
+      req({ orderedIds: [U3, U1, U2] }, "PATCH") as never,
       ctx(),
     );
     expect(res.status).toBe(200);
-    // One update per action, sort_order = index.
-    expect(reorderUpdate).toHaveBeenCalledTimes(3);
-    expect(reorderUpdate).toHaveBeenNthCalledWith(1, { sort_order: 0 });
+    await expect(res.json()).resolves.toEqual({ ok: true });
+    // One RPC call with the project id and the full ordered id list.
+    expect(rpcCall).toHaveBeenCalledTimes(1);
+    expect(rpcCall).toHaveBeenCalledWith("reorder_project_actions", {
+      p_project_id: "p1",
+      p_action_ids: [U3, U1, U2],
+    });
   });
 
-  it("500s if a per-row sort_order update fails mid-loop", async () => {
-    reorderUpdateResult
-      .mockResolvedValueOnce({ error: null })
-      .mockResolvedValueOnce({ error: { message: "boom" } });
+  it("500s when the reorder RPC fails", async () => {
+    rpcCall.mockResolvedValue({ data: null, error: { message: "boom" } });
     const res = await PATCH(
-      req({ orderedIds: ["a1", "a2", "a3"] }, "PATCH") as never,
+      req({ orderedIds: [U1, U2, U3] }, "PATCH") as never,
       ctx(),
     );
     expect(res.status).toBe(500);
+  });
+
+  it("404s when the reorder RPC reports the project is gone (P0002)", async () => {
+    rpcCall.mockResolvedValue({
+      data: null,
+      error: { message: "gone", code: "P0002" },
+    });
+    const res = await PATCH(
+      req({ orderedIds: [U1, U2, U3] }, "PATCH") as never,
+      ctx(),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("400s on a non-UUID action id", async () => {
+    const res = await PATCH(
+      req({ orderedIds: ["not-a-uuid"] }, "PATCH") as never,
+      ctx(),
+    );
+    expect(res.status).toBe(400);
+    expect(rpcCall).not.toHaveBeenCalled();
   });
 });

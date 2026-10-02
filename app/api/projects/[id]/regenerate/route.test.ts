@@ -9,40 +9,20 @@ vi.mock("@/lib/projects/generate-project", () => ({
 }));
 
 // Supabase chains used by the regenerate route:
-//   read:    from("projects").select().eq("id").eq("user_id").maybeSingle()
-//   update:  from("projects").update(fields).eq("id").eq("user_id")
-//   snapshot:from("actions").select().eq("project_id").order()
-//   delete:  from("actions").delete().eq("project_id").eq("user_id")
-//   insert:  from("actions").insert(rows)
+//   read:     from("projects").select().eq("id").eq("user_id").maybeSingle()
+//   replace:  rpc("regenerate_project_actions", { p_project_id, p_project, p_actions })
 const projectReadMaybeSingle = vi.fn();
-const projectUpdate = vi.fn();
-const projectUpdateResult = vi.fn();
-const actionsSnapshot = vi.fn();
-const actionsDelete = vi.fn();
-const actionsInsert = vi.fn();
+const rpcCall = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser },
-    from: (table: string) => {
-      if (table === "projects") {
-        return {
-          select: () => ({
-            eq: () => ({ eq: () => ({ maybeSingle: () => projectReadMaybeSingle() }) }),
-          }),
-          update: (fields: unknown) => {
-            projectUpdate(fields);
-            return { eq: () => ({ eq: () => projectUpdateResult() }) };
-          },
-        };
-      }
-      // actions
-      return {
-        select: () => ({ eq: () => ({ order: () => actionsSnapshot() }) }),
-        delete: () => ({ eq: () => ({ eq: () => actionsDelete() }) }),
-        insert: (rows: unknown) => actionsInsert(rows),
-      };
-    },
+    rpc: (fn: string, args: unknown) => rpcCall(fn, args),
+    from: () => ({
+      select: () => ({
+        eq: () => ({ eq: () => ({ maybeSingle: () => projectReadMaybeSingle() }) }),
+      }),
+    }),
   }),
 }));
 
@@ -64,10 +44,7 @@ describe("POST /api/projects/[id]/regenerate", () => {
       data: { id: "p1", name: "Old", purpose: "why", planning_depth: "minimal" },
       error: null,
     });
-    projectUpdateResult.mockResolvedValue({ error: null });
-    actionsSnapshot.mockResolvedValue({ data: [], error: null });
-    actionsDelete.mockResolvedValue({ error: null });
-    actionsInsert.mockResolvedValue({ error: null });
+    rpcCall.mockResolvedValue({ data: null, error: null });
     generateProject.mockResolvedValue(generated);
   });
 
@@ -85,68 +62,55 @@ describe("POST /api/projects/[id]/regenerate", () => {
     expect(generateProject).not.toHaveBeenCalled();
   });
 
-  it("regenerates: replaces AI fields and the 12 actions, returns the id", async () => {
+  it("regenerates atomically: replaces AI fields and the 12 actions, returns the id", async () => {
     const res = await POST({} as never, ctx());
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ id: "p1" });
 
     // Regeneration used the existing depth and the project name+purpose.
     expect(generateProject).toHaveBeenCalledWith("Old — why", "minimal");
-    // Project AI fields replaced in place.
-    expect(projectUpdate).toHaveBeenCalledWith({
+
+    // One atomic RPC replaces the project fields and its actions.
+    expect(rpcCall).toHaveBeenCalledTimes(1);
+    const [fn, args] = rpcCall.mock.calls[0] as [
+      string,
+      { p_project_id: string; p_project: Record<string, unknown>; p_actions: unknown[] },
+    ];
+    expect(fn).toBe("regenerate_project_actions");
+    expect(args.p_project_id).toBe("p1");
+    expect(args.p_project).toEqual({
       name: "Fresh name",
       purpose: "Fresh purpose",
       successful_outcome: "Fresh outcome",
       planning_detail: null,
     });
-    // Actions replaced: delete then insert the new 12.
-    expect(actionsDelete).toHaveBeenCalledTimes(1);
-    const inserted = actionsInsert.mock.calls[0][0];
-    expect(inserted).toHaveLength(12);
-    expect(inserted[0]).toMatchObject({ project_id: "p1", sort_order: 0 });
+    expect(args.p_actions).toHaveLength(12);
+    expect(args.p_actions[0]).toEqual({ text: "Action 1", sort_order: 0 });
   });
 
   it("maps a generation timeout to 504 and does not touch the project", async () => {
     generateProject.mockRejectedValue(new Error("The request timed out."));
     const res = await POST({} as never, ctx());
     expect(res.status).toBe(504);
-    expect(projectUpdate).not.toHaveBeenCalled();
+    expect(rpcCall).not.toHaveBeenCalled();
   });
 
-  it("500s and does not delete actions when the project update fails", async () => {
-    projectUpdateResult.mockResolvedValue({ error: { message: "boom" } });
+  it("500s when the regenerate RPC fails, without any partial write", async () => {
+    rpcCall.mockResolvedValue({ data: null, error: { message: "boom" } });
     const res = await POST({} as never, ctx());
     expect(res.status).toBe(500);
-    // Generation ran, but the action delete/insert never happened.
+    // Generation ran; the RPC owns atomicity server-side.
     expect(generateProject).toHaveBeenCalled();
-    expect(actionsDelete).not.toHaveBeenCalled();
-    expect(actionsInsert).not.toHaveBeenCalled();
+    expect(rpcCall).toHaveBeenCalledTimes(1);
   });
 
-  it("500s and does not insert when the action delete fails", async () => {
-    actionsDelete.mockResolvedValue({ error: { message: "boom" } });
-    const res = await POST({} as never, ctx());
-    expect(res.status).toBe(500);
-    expect(actionsInsert).not.toHaveBeenCalled();
-  });
-
-  it("restores the original actions when the new insert fails", async () => {
-    actionsSnapshot.mockResolvedValue({
-      data: [
-        { text: "Original 1", status: "available", context_tags: [], sort_order: 0 },
-      ],
-      error: null,
+  it("404s when the regenerate RPC reports the project is gone (P0002)", async () => {
+    rpcCall.mockResolvedValue({
+      data: null,
+      error: { message: "gone", code: "P0002" },
     });
-    // First insert (new actions) fails; second insert (restore) succeeds.
-    actionsInsert
-      .mockResolvedValueOnce({ error: { message: "boom" } })
-      .mockResolvedValueOnce({ error: null });
-
     const res = await POST({} as never, ctx());
-    expect(res.status).toBe(500);
-    // Attempted the new insert, then restored the originals.
-    expect(actionsInsert).toHaveBeenCalledTimes(2);
-    const restored = actionsInsert.mock.calls[1][0];
-    expect(restored[0]).toMatchObject({ text: "Original 1", sort_order: 0 });
+    expect(res.status).toBe(404);
+    expect(generateProject).toHaveBeenCalled();
   });
 });

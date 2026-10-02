@@ -396,3 +396,13 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-6-project-goal-linking-filtering.md`
   summary: The new goal-change fetch (ProjectDetailClient) and attach/move fetch (AttachProjectControl) have no AbortController/timeout — a stalled request leaves the control `busy`/disabled with no recovery
   evidence: Review (edge-case) — both fetches rely entirely on the server to bound the request. Same client-abort gap already deferred for Project Mode (2.4) and Step 4 generate (3.6); tracked under epic-H (H-3 provider-resilience). Pre-existing fetch pattern, not introduced by this story.
+
+## Deferred from: code review of H-1 (2026-10-02)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-h-1-atomic-writes-and-db-integrity-hardening.md`
+  summary: Add a throwaway-Postgres migration/integration test harness so the four atomic RPCs, the rewritten fn_commit_action, the reorder set check, and the integrity triggers/constraints are exercised by an executed test rather than only migration pre-checks
+  evidence: Review (verification-gap + blind-hunter) — the Vitest suite mocks @/lib/supabase/server and never executes SQL; no test runs save_goal_breakdown/archive_goal_cascade/regenerate_project_actions/reorder_project_actions, the rewritten fn_commit_action, or the ownership/CHECK/immutability triggers, so a bug in any of them ships with every route test green. Accepted as migration-verified for H-1; harness shape is sketched in deferred-work.md:304.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-h-1-atomic-writes-and-db-integrity-hardening.md`
+  summary: Serialize concurrent regenerations of the same project (e.g. a project-row FOR UPDATE lock in regenerate_project_actions) so two simultaneous regenerations cannot interleave delete/insert and yield duplicate actions
+  evidence: Review (blind-hunter) — regenerate_project_actions takes no row lock, unlike reorder_project_actions and fn_commit_action, so two concurrent RPCs can both delete then both insert their 12 actions. Pre-existing: the old sequential update/delete/insert had the same interleave race, so it was not introduced by this story.

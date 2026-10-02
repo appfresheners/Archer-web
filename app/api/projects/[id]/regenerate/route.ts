@@ -6,20 +6,16 @@
  * Regenerates ONLY the given project: it reuses the shared structured
  * `generateProject` (which owns prompt selection, the provider call, the 30s
  * timeout, and JSON validation), then replaces this project's AI content
- * (`name`/`purpose`/`successful_outcome`/`planning_detail`) and its actions —
- * leaving every sibling project untouched.
- *
- * Action replacement is delete-then-insert. To avoid leaving the project with
- * no actions on a partial failure, the existing action rows are read first; if
- * inserting the freshly generated actions fails after the delete, the original
- * rows are restored and a 500 is returned.
+ * (`name`/`purpose`/`successful_outcome`/`planning_detail`) and its actions in
+ * one atomic `regenerate_project_actions` RPC — leaving every sibling project
+ * untouched, and never leaving the project action-less on a partial failure.
  *
  * Errors mirror `/api/generate`: a provider timeout maps to 504, everything
  * else to 500 (preserving the already user-safe message).
  */
 
 import { generateProject } from "@/lib/projects/generate-project";
-import type { ActionInsert, PlanningDepth } from "@/lib/supabase/schema";
+import type { PlanningDepth } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -104,85 +100,34 @@ export async function POST(_request: NextRequest, context: RouteContext) {
   }
 
   try {
-    // 1. Update the project's AI content in place (never touches siblings).
-    const { error: updateError } = await supabase
-      .from("projects")
-      .update({
-        name: generated.name,
-        purpose: generated.purpose,
-        successful_outcome: generated.successful_outcome,
-        planning_detail: generated.detail,
-      })
-      .eq("id", id)
-      .eq("user_id", userId);
-
-    if (updateError) {
-      console.error(
-        "[api/projects regenerate] project update failed:",
-        updateError.message,
-      );
-      return NextResponse.json(
-        { error: "Failed to save the regenerated project. Please try again." },
-        { status: 500 },
-      );
-    }
-
-    // 2. Snapshot the existing actions so we can restore them on a failure.
-    const { data: existingActions } = await supabase
-      .from("actions")
-      .select("text, status, context_tags, sort_order")
-      .eq("project_id", id)
-      .order("sort_order", { ascending: true });
-
-    // 3. Replace actions: delete the project's current actions, insert the new 12.
-    const { error: deleteError } = await supabase
-      .from("actions")
-      .delete()
-      .eq("project_id", id)
-      .eq("user_id", userId);
-
-    if (deleteError) {
-      console.error(
-        "[api/projects regenerate] actions delete failed:",
-        deleteError.message,
-      );
-      return NextResponse.json(
-        { error: "Failed to save the regenerated project. Please try again." },
-        { status: 500 },
-      );
-    }
-
-    const newActionRows: ActionInsert[] = generated.next_actions.map(
-      (text, index) => ({
-        user_id: userId,
-        project_id: id,
-        text,
-        sort_order: index,
-      }),
+    // Replace the project's AI content and its actions in one atomic RPC.
+    // A failure partway through rolls the whole transaction back, so the
+    // project is never left without actions.
+    const { error: regenerateError } = await supabase.rpc(
+      "regenerate_project_actions",
+      {
+        p_project_id: id,
+        p_project: {
+          name: generated.name,
+          purpose: generated.purpose,
+          successful_outcome: generated.successful_outcome,
+          planning_detail: generated.detail,
+        },
+        p_actions: generated.next_actions.map((text, index) => ({
+          text,
+          sort_order: index,
+        })),
+      },
     );
 
-    const { error: insertError } = await supabase
-      .from("actions")
-      .insert(newActionRows);
-
-    if (insertError) {
-      console.error(
-        "[api/projects regenerate] actions insert failed, restoring originals:",
-        insertError.message,
-      );
-      // Best-effort restore of the prior actions so the project is not left
-      // action-less after a failed regeneration.
-      if (existingActions && existingActions.length > 0) {
-        const restore: ActionInsert[] = existingActions.map((a) => ({
-          user_id: userId,
-          project_id: id,
-          text: a.text as string,
-          status: a.status as ActionInsert["status"],
-          context_tags: a.context_tags as string[] | null,
-          sort_order: a.sort_order as number,
-        }));
-        await supabase.from("actions").insert(restore);
+    if (regenerateError) {
+      if ((regenerateError as { code?: string }).code === "P0002") {
+        return NextResponse.json({ error: "Project not found." }, { status: 404 });
       }
+      console.error(
+        "[api/projects regenerate] RPC failed:",
+        regenerateError.message,
+      );
       return NextResponse.json(
         { error: "Failed to save the regenerated project. Please try again." },
         { status: 500 },
