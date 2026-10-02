@@ -7,6 +7,7 @@ import GoalDetailPage from "./page";
 const goalMaybeSingle = vi.fn();
 const projectsOrder = vi.fn();
 const actionsIn = vi.fn();
+const attachableProjects = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
@@ -18,7 +19,10 @@ vi.mock("@/lib/supabase/server", () => ({
       }
       if (table === "projects") {
         return {
-          select: () => ({ eq: () => ({ order: () => projectsOrder() }) }),
+          select: () => ({
+            then: (resolve: (v: unknown) => void) => resolve(attachableProjects()),
+            eq: () => ({ order: () => projectsOrder() }),
+          }),
         };
       }
       return { select: () => ({ in: () => actionsIn() }) };
@@ -40,6 +44,25 @@ vi.mock("./GoalDetailClient", () => ({
   ),
 }));
 
+// The attach-existing-project control is covered by its own test file; stub it
+// so the page test can render without a router, but surface its props so the
+// page-level wiring is still asserted.
+vi.mock("./AttachProjectControl", () => ({
+  default: ({
+    goalId,
+    projects,
+  }: {
+    goalId: string;
+    projects: unknown[];
+  }) => (
+    <div
+      data-testid="attach-project-control"
+      data-goal-id={goalId}
+      data-project-count={projects.length}
+    />
+  ),
+}));
+
 async function renderPage(id: string) {
   const ui = await GoalDetailPage({ params: Promise.resolve({ id }) });
   return render(ui);
@@ -50,6 +73,7 @@ describe("GoalDetailPage", () => {
     vi.clearAllMocks();
     projectsOrder.mockResolvedValue({ data: [], error: null });
     actionsIn.mockResolvedValue({ data: [], error: null });
+    attachableProjects.mockResolvedValue({ data: [], error: null });
   });
 
   it("renders the gap analysis, projects, and Monthly Check when the goal exists", async () => {
@@ -109,5 +133,36 @@ describe("GoalDetailPage", () => {
   it("calls notFound() when the goal query errors", async () => {
     goalMaybeSingle.mockResolvedValue({ data: null, error: { message: "boom" } });
     await expect(renderPage("g1")).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("passes the goal id and the user's attachable projects to AttachProjectControl", async () => {
+    goalMaybeSingle.mockResolvedValue({
+      data: {
+        id: "g1",
+        goal_text: "Run a marathon",
+        why: null,
+        status: "active",
+        target_date: "2026-12-31",
+        last_checked_at: null,
+        skill_framework: null,
+        drivers: null,
+        barriers: null,
+        if_then_plan: null,
+      },
+      error: null,
+    });
+    attachableProjects.mockResolvedValue({
+      data: [
+        { id: "p9", name: "Other project", goal_id: null },
+        { id: "p10", name: "Linked elsewhere", goal_id: "g2" },
+      ],
+      error: null,
+    });
+
+    await renderPage("g1");
+
+    const control = screen.getByTestId("attach-project-control");
+    expect(control).toHaveAttribute("data-goal-id", "g1");
+    expect(control).toHaveAttribute("data-project-count", "2");
   });
 });

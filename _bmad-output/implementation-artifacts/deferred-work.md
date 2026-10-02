@@ -383,3 +383,13 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-7-manual-project-creation.md`
   summary: Submit buttons set `aria-disabled` true when the field is merely empty while the button is still clickable (clicking surfaces inline validation) — assistive tech is told the control is disabled
   evidence: Review (blind) — the AI submit button already carried this pre-existing `aria-disabled`-on-empty pattern; the new manual button replicates it. The real `disabled` attribute already covers actual disabling; fix both buttons in a shared a11y pass without altering AI behavior.
+
+## Deferred from: code review of 4-6 (2026-10-02)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-6-project-goal-linking-filtering.md`
+  summary: The new "Move this project?" confirm dialog in AttachProjectControl has no focus trap (Tab escapes the dialog, initial focus lands on the container, focus is not restored to the trigger on close)
+  evidence: Review (blind + edge-case) — the dialog is role="alertdialog" aria-modal="true" with an Escape handler but no Tab/Shift+Tab containment, focus restore, or visible-focus on the overlay (focus:outline-none). Same dialog-focus-trap gap already deferred for the Epic 4 confirm dialogs (4.2/4.3) and CaptureDrawer (5.1); belongs to the shared focus-trap modal primitive tracked under epic-H (H-2), which should adopt this dialog too.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-6-project-goal-linking-filtering.md`
+  summary: The new goal-change fetch (ProjectDetailClient) and attach/move fetch (AttachProjectControl) have no AbortController/timeout — a stalled request leaves the control `busy`/disabled with no recovery
+  evidence: Review (edge-case) — both fetches rely entirely on the server to bound the request. Same client-abort gap already deferred for Project Mode (2.4) and Step 4 generate (3.6); tracked under epic-H (H-3 provider-resilience). Pre-existing fetch pattern, not introduced by this story.

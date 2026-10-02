@@ -2,7 +2,8 @@
 title: "Project-Goal Linking and Project Filtering"
 type: "feature"
 created: "2026-10-01"
-status: "ready-for-dev"
+status: "done"
+baseline_commit: "115fb9f"
 review_loop_iteration: 0
 context:
   - "Deferred-work item from Story 5.2: expose goal-project linking from both goal and project detail."
@@ -60,3 +61,24 @@ context:
 - Extend project PATCH route tests for owned goal, foreign goal, clear, and missing goal.
 - Test project detail selector, goal detail attach/move/cancel, and Projects index filters.
 - Run `npx tsc --noEmit`, `npm run lint`, focused project/goal tests, and `npm run build`.
+
+## Review Triage Log
+
+- `blind-hunter` · sprint-status.yaml H-3 comment → **false**: H-3 is still `provider-resilience-and-error-observability` (H-2 is the focus-trap story); the comment is correct and untouched by this diff.
+- `blind-hunter` · `app/api/projects/[id]/route.ts` header comment → **low → patch**: header now mentions goal link/unlink (Story 4.6).
+- `blind-hunter` · `app/app/goals/[id]/page.tsx` `loadAttachableProjects` error-swallow → **low → reject**: transient DB failure is unlikely in everyday use and a distinct error state is more than a direct correction; matches the established loader pattern already tracked under H-3.
+- `blind-hunter` · `app/app/projects/[id]/page.tsx` `loadGoalOptions` error-swallow → **low → reject**: same root cause as the loader above.
+- `blind-hunter` · `app/app/projects/page.tsx` `loadProjects` error discard → **low → reject**: pre-existing pattern; renders empty state on error, same class already deferred.
+- `blind-hunter` · `app/app/goals/[id]/AttachProjectControl.tsx` dialog focus trap → **medium → defer (H-2)**: `role="alertdialog"` with no Tab containment, focus restore, or visible focus; covered by the shared focus-trap modal primitive in epic-H.
+- `blind-hunter` · `ProjectDetailClient` "Goal" vs "Parent goal" label → **low → patch**: visible label now reads "Parent goal", matching the `aria-label`.
+- `blind-hunter` · `AttachProjectControl.test.tsx` missing fully-excluded test → **low → patch**: added a test asserting the disabled select and "No projects available" option.
+- `blind-hunter` · `projects/page.tsx` `ProjectFilter` type collapse → **low → patch**: dropped the redundant `"all" | "none" |` union.
+- `blind-hunter` · filter nav hidden when no goals → **false**: with zero goals "No goal" ≡ "All", so hiding the nav is correct.
+- `blind-hunter` · silent fallback for unknown `?goal=` → **false**: the frozen matrix explicitly allows "fall back to All".
+- `edge-case-hunter` · `ProjectDetailClient.tsx:257` current goal absent from options → **low → reject**: only reachable when the goals query fails; a fallback option (showing a UUID) adds a parameter/guard beyond a direct correction.
+- `edge-case-hunter` · `AttachProjectControl.tsx:148` dialog focus trap → **medium → defer (H-2)**: same root cause as the blind-hunter focus-trap finding.
+- `edge-case-hunter` · `ProjectDetailClient.tsx:100` goal-change fetch lacks abort/timeout → **low → defer (H-3)**: same client-abort gap already deferred for 2.4/3.6; pre-existing fetch pattern.
+- `edge-case-hunter` · `AttachProjectControl.tsx:56` attach fetch lacks abort/timeout → **low → defer (H-3)**: same root cause as above.
+- `verification-gap` · goal detail attach wiring unverified → **patch**: added a page test asserting `AttachProjectControl` receives `goalId` and the loaded attachable projects.
+- `verification-gap` · project detail parent-goal wiring unverified → **patch**: added a page test asserting `ProjectDetailClient` receives `goalId` and the loaded goal options.
+- `verification-gap` other · loader error-swallow → **low → reject**: same root cause as the two loader findings above.

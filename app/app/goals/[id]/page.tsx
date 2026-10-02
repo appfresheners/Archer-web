@@ -25,6 +25,9 @@ import { createClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import AttachProjectControl, {
+  type AttachableProject,
+} from "./AttachProjectControl";
 import GoalDetailClient from "./GoalDetailClient";
 
 interface GoalDetailPageProps {
@@ -117,6 +120,23 @@ async function loadGoalDetail(id: string): Promise<LoadResult | null> {
     return { goal: goal as LoadedGoal, projects: projectCards };
   } catch {
     return null;
+  }
+}
+
+/**
+ * Load the signed-in user's projects for the attach-existing-project control.
+ * RLS scopes to owned rows only; `AttachProjectControl` filters out projects
+ * already linked to this goal, leaving goal-less and other-goal projects.
+ */
+async function loadAttachableProjects(): Promise<AttachableProject[]> {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("projects")
+      .select("id, name, goal_id");
+    return (data ?? []) as AttachableProject[];
+  } catch {
+    return [];
   }
 }
 
@@ -286,7 +306,10 @@ function ProjectCards({ projects }: { projects: LoadedProjectCard[] }) {
 
 export default async function GoalDetailPage({ params }: GoalDetailPageProps) {
   const { id } = await params;
-  const result = await loadGoalDetail(id);
+  const [result, attachable] = await Promise.all([
+    loadGoalDetail(id),
+    loadAttachableProjects(),
+  ]);
 
   if (!result) {
     notFound();
@@ -310,6 +333,8 @@ export default async function GoalDetailPage({ params }: GoalDetailPageProps) {
       <GapAnalysis goal={goal} />
 
       <ProjectCards projects={projects} />
+
+      <AttachProjectControl goalId={goal.id} projects={attachable} />
 
       <Collapsible title="Monthly Goal Check">
         <p className="text-text-secondary">

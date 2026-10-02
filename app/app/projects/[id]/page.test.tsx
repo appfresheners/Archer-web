@@ -6,10 +6,12 @@ import ProjectDetailPage from "./page";
 
 const projectMaybeSingle = vi.fn();
 const goalMaybeSingle = vi.fn();
+const goalsList = vi.fn();
 const actionsOrder = vi.fn();
 
 // createClient().from("projects").select(...).eq(...).maybeSingle()
 // createClient().from("goals").select(...).eq(...).maybeSingle()   (breadcrumb)
+// createClient().from("goals").select(...)                         (goal options)
 // createClient().from("actions").select(...).eq(...).order(...)
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
@@ -18,7 +20,12 @@ vi.mock("@/lib/supabase/server", () => ({
         return { select: () => ({ eq: () => ({ maybeSingle: () => projectMaybeSingle() }) }) };
       }
       if (table === "goals") {
-        return { select: () => ({ eq: () => ({ maybeSingle: () => goalMaybeSingle() }) }) };
+        return {
+          select: () => ({
+            then: (resolve: (v: unknown) => void) => resolve(goalsList()),
+            eq: () => ({ maybeSingle: () => goalMaybeSingle() }),
+          }),
+        };
       }
       return { select: () => ({ eq: () => ({ order: () => actionsOrder() }) }) };
     },
@@ -32,10 +39,23 @@ const notFound = vi.fn(() => {
 vi.mock("next/navigation", () => ({ notFound: () => notFound() }));
 
 // The interactive client pieces are covered in their own concerns; stub them
-// so the server-page test focuses on the read/render surface.
+// so the server-page test focuses on the read/render surface, but surface the
+// props so the page-level wiring (goalId + goal options) is still asserted.
 vi.mock("./ProjectDetailClient", () => ({
-  default: ({ project }: { project: { name: string } }) => (
-    <div data-testid="project-client">{project.name}</div>
+  default: ({
+    project,
+    goals,
+  }: {
+    project: { name: string; goalId: string | null };
+    goals: unknown[];
+  }) => (
+    <div
+      data-testid="project-client"
+      data-goal-id={project.goalId ?? ""}
+      data-goal-count={goals.length}
+    >
+      {project.name}
+    </div>
   ),
 }));
 vi.mock("@/components/projects/ActionList", () => ({
@@ -63,6 +83,7 @@ describe("ProjectDetailPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     goalMaybeSingle.mockResolvedValue({ data: null, error: null });
+    goalsList.mockResolvedValue({ data: [], error: null });
     actionsOrder.mockResolvedValue({ data: twelveActions, error: null });
   });
 
@@ -105,7 +126,7 @@ describe("ProjectDetailPage", () => {
     expect(screen.queryByText("Principles")).not.toBeInTheDocument();
   });
 
-  it("renders a goal-less project with a fallback breadcrumb to the goals list", async () => {
+  it("renders a goal-less project with a fallback breadcrumb to the projects list", async () => {
     projectMaybeSingle.mockResolvedValue({
       data: {
         id: "project-3",
@@ -122,8 +143,8 @@ describe("ProjectDetailPage", () => {
 
     await renderPage("project-3");
 
-    const crumb = screen.getByRole("link", { name: /Goals/ });
-    expect(crumb).toHaveAttribute("href", "/app/goals");
+    const crumb = screen.getByRole("link", { name: /Projects/ });
+    expect(crumb).toHaveAttribute("href", "/app/projects");
     // The parent-goal lookup is never attempted for a goal-less project.
     expect(goalMaybeSingle).not.toHaveBeenCalled();
   });
@@ -208,7 +229,7 @@ describe("ProjectDetailPage", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("falls back to the goals-list breadcrumb when the parent goal text is null", async () => {
+  it("falls back to the projects-list breadcrumb when the parent goal text is null", async () => {
     projectMaybeSingle.mockResolvedValue({
       data: {
         id: "project-4",
@@ -227,8 +248,8 @@ describe("ProjectDetailPage", () => {
 
     await renderPage("project-4");
 
-    const crumb = screen.getByRole("link", { name: /Goals/ });
-    expect(crumb).toHaveAttribute("href", "/app/goals");
+    const crumb = screen.getByRole("link", { name: /Projects/ });
+    expect(crumb).toHaveAttribute("href", "/app/projects");
   });
 
   it("renders Full-GTD planning_detail sections", async () => {
@@ -271,5 +292,34 @@ describe("ProjectDetailPage", () => {
     projectMaybeSingle.mockResolvedValue({ data: null, error: { message: "boom" } });
     await expect(renderPage("project-1")).rejects.toBeInstanceOf(NotFoundError);
     expect(notFound).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes the project's goalId and the loaded goal options to the client", async () => {
+    projectMaybeSingle.mockResolvedValue({
+      data: {
+        id: "project-1",
+        name: "Portfolio site live",
+        goal_id: "goal-1",
+        status: "active",
+        purpose: null,
+        successful_outcome: null,
+        planning_depth: "minimal",
+        planning_detail: null,
+      },
+      error: null,
+    });
+    goalsList.mockResolvedValue({
+      data: [
+        { id: "goal-1", goal_text: "Launch my freelance career" },
+        { id: "goal-2", goal_text: "Run a marathon" },
+      ],
+      error: null,
+    });
+
+    await renderPage("project-1");
+
+    const client = screen.getByTestId("project-client");
+    expect(client).toHaveAttribute("data-goal-id", "goal-1");
+    expect(client).toHaveAttribute("data-goal-count", "2");
   });
 });

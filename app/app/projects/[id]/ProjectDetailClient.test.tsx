@@ -17,7 +17,13 @@ const project: ProjectHeaderData = {
   purpose: "Build mileage",
   successful_outcome: "Run 20 miles",
   status: "active",
+  goalId: "goal-1",
 };
+
+const goals = [
+  { id: "goal-1", goal_text: "Run a marathon" },
+  { id: "goal-2", goal_text: "Launch a newsletter" },
+];
 
 function mockFetch(ok: boolean, body: unknown = { id: "p1" }, status = 200) {
   globalThis.fetch = vi.fn().mockResolvedValue({
@@ -45,6 +51,47 @@ describe("ProjectDetailClient", () => {
     expect(init.method).toBe("PATCH");
     expect(JSON.parse(init.body)).toEqual({ status: "completed" });
     await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("PATCHes a parent-goal change and refreshes", async () => {
+    mockFetch(true);
+    const user = userEvent.setup();
+    render(<ProjectDetailClient project={project} goals={goals} />);
+
+    await user.selectOptions(screen.getByLabelText("Parent goal"), "goal-2");
+
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    const [url, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(url).toBe("/api/projects/p1");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body)).toEqual({ goal_id: "goal-2" });
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("PATCHes goal_id null when No goal is selected", async () => {
+    mockFetch(true);
+    const user = userEvent.setup();
+    render(<ProjectDetailClient project={project} goals={goals} />);
+
+    await user.selectOptions(screen.getByLabelText("Parent goal"), "");
+
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    const sent = JSON.parse(
+      (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1].body,
+    );
+    expect(sent).toEqual({ goal_id: null });
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("surfaces an error when a parent-goal change fails", async () => {
+    mockFetch(false, { error: "Goal not found." }, 404);
+    const user = userEvent.setup();
+    render(<ProjectDetailClient project={project} goals={goals} />);
+
+    await user.selectOptions(screen.getByLabelText("Parent goal"), "goal-2");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Goal not found.");
+    expect(refresh).not.toHaveBeenCalled();
   });
 
   it("PATCHes edited fields on save", async () => {

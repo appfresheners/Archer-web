@@ -2,7 +2,8 @@
  * Authenticated project-edit endpoint (Story 4.3).
  *
  *   PATCH /api/projects/[id] — edit the project's name/purpose/successful
- *   outcome and/or change its status (active/paused/completed/archived).
+ *   outcome, change its status (active/paused/completed/archived), or
+ *   link/unlink a parent goal (Story 4.6).
  *
  * Follows the Epic 4 mutation convention established by `/api/goals/[id]`:
  * guard auth before any DB work, validate the body server-side, and scope the
@@ -60,6 +61,34 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   try {
     const supabase = await createClient();
+
+    // Cross-owner guard (Story 4.6): a non-null goal_id must reference a goal
+    // owned by the acting user. RLS on `projects` only scopes the project row;
+    // the FK only checks the goal exists — neither prevents linking to another
+    // user's goal. Mirrors the same guard in `POST /api/projects`.
+    if (patch.goal_id) {
+      const { data: ownedGoal, error: goalError } = await supabase
+        .from("goals")
+        .select("id")
+        .eq("id", patch.goal_id)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (goalError) {
+        console.error(
+          "[api/projects PATCH] goal ownership check failed:",
+          goalError.message,
+        );
+        return NextResponse.json(
+          { error: "Failed to update the project. Please try again." },
+          { status: 500 },
+        );
+      }
+      if (!ownedGoal) {
+        return NextResponse.json({ error: "Goal not found." }, { status: 404 });
+      }
+    }
+
     const { data, error } = await supabase
       .from("projects")
       .update(patch)

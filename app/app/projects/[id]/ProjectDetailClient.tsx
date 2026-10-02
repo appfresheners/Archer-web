@@ -3,12 +3,14 @@
 /**
  * ProjectDetailClient — the interactive header for the project detail view.
  *
- * Owns three interactions, backed by `/api/projects/[id]`:
+ * Owns four interactions, backed by `/api/projects/[id]`:
  *   1. Status change — `ProjectStatusSelect` PATCHes `{ status }`.
  *   2. Edit — a view/edit toggle over name/purpose/successful_outcome; Save
  *      PATCHes the fields.
  *   3. Regenerate — a confirmation modal; on confirm, POSTs to
  *      `/regenerate`, which replaces only this project's AI content + actions.
+ *   4. Parent goal — a selector over the user's goals plus a "No goal" option
+ *      that PATCHes `{ goal_id }` (uuid or null).
  *
  * On any success it calls `router.refresh()` so the server page re-renders from
  * the database. Regeneration can take up to ~30s, so the confirm button shows a
@@ -26,6 +28,13 @@ export interface ProjectHeaderData {
   purpose: string | null;
   successful_outcome: string | null;
   status: ProjectStatus;
+  goalId: string | null;
+}
+
+/** A goal option shown in the parent-goal selector. */
+export interface ParentGoalOption {
+  id: string;
+  goal_text: string;
 }
 
 const GENERIC_ERROR = "Something went wrong. Please try again.";
@@ -34,8 +43,10 @@ const TIMEOUT_ERROR =
 
 export default function ProjectDetailClient({
   project,
+  goals = [],
 }: {
   project: ProjectHeaderData;
+  goals?: ParentGoalOption[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -63,6 +74,33 @@ export default function ProjectDetailClient({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
+      });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        setError(payload?.error || GENERIC_ERROR);
+        setBusy(false);
+        return;
+      }
+      setBusy(false);
+      router.refresh();
+    } catch {
+      setError(GENERIC_ERROR);
+      setBusy(false);
+    }
+  }
+
+  async function handleGoalChange(goalId: string) {
+    const next = goalId === "" ? null : goalId;
+    if (next === (project.goalId ?? null) || busy) return;
+    setError("");
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ goal_id: next }),
       });
       if (!res.ok) {
         const payload = (await res.json().catch(() => null)) as {
@@ -211,6 +249,23 @@ export default function ProjectDetailClient({
               onChange={handleStatusChange}
               disabled={busy}
             />
+          </label>
+          <label className="flex items-center gap-2 text-[length:var(--font-size-small)] text-text-secondary">
+            Parent goal
+            <select
+              aria-label="Parent goal"
+              value={project.goalId ?? ""}
+              onChange={(e) => handleGoalChange(e.target.value)}
+              disabled={busy}
+              className="min-h-[44px] rounded-[var(--radius-sm)] border border-border-strong bg-surface-raised px-3 py-2 text-[length:var(--font-size-small)] text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">No goal</option>
+              {goals.map((goal) => (
+                <option key={goal.id} value={goal.id}>
+                  {goal.goal_text}
+                </option>
+              ))}
+            </select>
           </label>
           <button type="button" className={btnSecondary} onClick={() => setEditing(true)} disabled={busy}>
             Edit project

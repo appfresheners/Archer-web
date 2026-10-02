@@ -49,6 +49,22 @@ interface LoadedProject {
     actions: ActionItemData[];
 }
 
+interface GoalOption {
+    id: string;
+    goal_text: string;
+}
+
+/** Load the signed-in user's goals for the parent-goal selector. */
+async function loadGoalOptions(): Promise<GoalOption[]> {
+    try {
+        const supabase = await createClient();
+        const { data } = await supabase.from("goals").select("id, goal_text");
+        return (data ?? []) as GoalOption[];
+    } catch {
+        return [];
+    }
+}
+
 /** Fetch the RLS-scoped project + parent goal + ordered actions, or null. */
 async function loadProject(id: string): Promise<LoadedProject | null> {
     try {
@@ -153,7 +169,10 @@ export default async function ProjectDetailPage({
     params,
 }: ProjectDetailPageProps) {
     const { id } = await params;
-    const project = await loadProject(id);
+    const [project, goals] = await Promise.all([
+        loadProject(id),
+        loadGoalOptions(),
+    ]);
 
     if (!project) {
         notFound();
@@ -166,6 +185,7 @@ export default async function ProjectDetailPage({
         purpose: project.purpose,
         successful_outcome: project.successful_outcome,
         status: project.status,
+        goalId: project.goal_id,
     };
     // Stuck = Active project with zero committed actions (Story 4.5).
     const stuck = isProjectStuck({ status: project.status }, project.actions);
@@ -204,7 +224,7 @@ export default async function ProjectDetailPage({
                     </div>
                 </div>
 
-                <ProjectDetailClient project={header} />
+                <ProjectDetailClient project={header} goals={goals} />
             </header>
 
             {stuck && <StuckIndicator />}
