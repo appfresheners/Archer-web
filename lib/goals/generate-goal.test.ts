@@ -51,7 +51,7 @@ function payload(): GenerateGoalPayload {
         ],
         drivers: ["I love a challenge"],
         barriers: ["I get nervous"],
-        ifThen: "If it is 7am, then I will rehearse for 10 minutes",
+        ifThens: ["If it is 7am, then I will rehearse for 10 minutes"],
     };
 }
 
@@ -145,7 +145,7 @@ describe("validate", () => {
 // --- buildUserMessage ------------------------------------------------------
 
 describe("buildUserMessage", () => {
-    it("includes the goal, why, gaps, drivers, barriers, and if–then", () => {
+    it("includes the goal, why, gaps, drivers, barriers, and if–then plans (one per line)", () => {
         const msg = buildUserMessage(payload());
         expect(msg).toContain("Become a confident public speaker");
         expect(msg).toContain("Why this goal matters to me: I want to share ideas clearly with my community.");
@@ -153,7 +153,21 @@ describe("buildUserMessage", () => {
         expect(msg).toContain("Stage confidence: required 9, current 3, gap 6");
         expect(msg).toContain("I love a challenge");
         expect(msg).toContain("I get nervous");
-        expect(msg).toContain("If it is 7am, then I will rehearse for 10 minutes");
+        expect(msg).toContain("My if–then plans (one or more):");
+        expect(msg).toContain("- If it is 7am, then I will rehearse for 10 minutes");
+    });
+
+    it("lists multiple if–then plans on separate lines", () => {
+        const msg = buildUserMessage({
+            ...payload(),
+            ifThens: [
+                "If it is 7am, then I will rehearse for 10 minutes",
+                "If I feel nervous, then I will breathe for 30 seconds",
+            ],
+        });
+        const lines = msg.split("\n");
+        expect(lines).toContain("- If it is 7am, then I will rehearse for 10 minutes");
+        expect(lines).toContain("- If I feel nervous, then I will breathe for 30 seconds");
     });
 });
 

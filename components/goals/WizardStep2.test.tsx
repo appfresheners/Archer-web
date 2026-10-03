@@ -39,6 +39,12 @@ function goalInput() {
   return screen.getByLabelText("Describe your goal") as HTMLInputElement;
 }
 
+function whyInput() {
+  return screen.getByLabelText(
+    "Why does this goal matter to you?",
+  ) as HTMLInputElement;
+}
+
 function nextButton() {
   return screen.getByRole("button", { name: /^Next/ });
 }
@@ -54,6 +60,7 @@ async function goToStep2(framework = FRAMEWORK) {
   mockFrameworkFetch(framework);
   render(<GoalWizard />);
   fireEvent.change(goalInput(), { target: { value: "Learn to present" } });
+  fireEvent.change(whyInput(), { target: { value: "To grow." } });
   fireEvent.click(screen.getByRole("button", { name: "Continue" }));
   await screen.findByRole("heading", { name: "Your skill framework" });
   // Advance into Step 2.

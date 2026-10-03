@@ -41,6 +41,12 @@ function goalInput() {
   return screen.getByLabelText("Describe your goal") as HTMLInputElement;
 }
 
+function whyInput() {
+  return screen.getByLabelText(
+    "Why does this goal matter to you?",
+  ) as HTMLInputElement;
+}
+
 function nextButton() {
   return screen.getByRole("button", { name: /^Next/ });
 }
@@ -54,6 +60,7 @@ async function goToStep3(framework = FRAMEWORK) {
   mockFrameworkFetch(framework);
   render(<GoalWizard />);
   fireEvent.change(goalInput(), { target: { value: "Learn to present" } });
+  fireEvent.change(whyInput(), { target: { value: "To grow." } });
   fireEvent.click(screen.getByRole("button", { name: "Continue" }));
   await screen.findByRole("heading", { name: "Your skill framework" });
   // Step 1 → Step 2.
@@ -72,14 +79,6 @@ function barrierInput() {
   return screen.getByLabelText("Barriers") as HTMLInputElement;
 }
 
-function ifInput() {
-  return screen.getByLabelText("If …") as HTMLInputElement;
-}
-
-function thenInput() {
-  return screen.getByLabelText("then I will …") as HTMLInputElement;
-}
-
 function addDriver(value: string) {
   fireEvent.change(driverInput(), { target: { value } });
   fireEvent.click(screen.getByRole("button", { name: "Add driver" }));
@@ -90,9 +89,18 @@ function addBarrier(value: string) {
   fireEvent.click(screen.getByRole("button", { name: "Add barrier" }));
 }
 
-function fillIfThen(ifValue: string, thenValue: string) {
-  fireEvent.change(ifInput(), { target: { value: ifValue } });
-  fireEvent.change(thenInput(), { target: { value: thenValue } });
+/** Click "Add if–then plan" and fill the resulting pair's two inputs. */
+function addIfThenPlan(ifValue: string, thenValue: string, planNumber = 1) {
+  fireEvent.click(screen.getByRole("button", { name: "Add if–then plan" }));
+  const ifInput = screen.getByLabelText(
+    `If … (plan ${planNumber})`,
+  ) as HTMLInputElement;
+  const thenInput = screen.getByLabelText(
+    `then I will … (plan ${planNumber})`,
+  ) as HTMLInputElement;
+  fireEvent.change(ifInput, { target: { value: ifValue } });
+  fireEvent.change(thenInput, { target: { value: thenValue } });
+  return { ifInput, thenInput };
 }
 
 describe("composeIfThen", () => {
@@ -147,13 +155,18 @@ describe("WizardStep3", () => {
   });
 
   describe("Enter Step 3 — three blank groups with guidance", () => {
-    it("renders Drivers, Barriers, and If–then groups all blank on load", async () => {
+    it("renders Drivers, Barriers, and an empty If–then group all blank on load", async () => {
       await goToStep3();
 
       expect(driverInput().value).toBe("");
       expect(barrierInput().value).toBe("");
-      expect(ifInput().value).toBe("");
-      expect(thenInput().value).toBe("");
+      // No if–then entries yet; only the Add control.
+      expect(
+        screen.getByRole("button", { name: "Add if–then plan" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByLabelText(/^If … \(plan/),
+      ).not.toBeInTheDocument();
     });
 
     it("shows the inline label guidance for Drivers and Barriers", async () => {
@@ -172,9 +185,9 @@ describe("WizardStep3", () => {
       expect(
         screen.queryByRole("button", { name: /^Remove (driver|barrier):/ }),
       ).not.toBeInTheDocument();
-      // Both if–then halves are empty.
-      expect(ifInput().value).toBe("");
-      expect(thenInput().value).toBe("");
+      expect(
+        screen.queryByRole("button", { name: /^Remove if–then:/ }),
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -231,7 +244,7 @@ describe("WizardStep3", () => {
       await goToStep3();
       addDriver("Discipline");
       addBarrier("Distractions");
-      fillIfThen("it is 7am", "practise for 10 minutes");
+      addIfThenPlan("it is 7am", "practise for 10 minutes");
       expect(nextButton()).not.toBeDisabled();
 
       fireEvent.click(
@@ -243,6 +256,25 @@ describe("WizardStep3", () => {
       // Gate re-evaluates: no drivers → blocked.
       expect(nextButton()).toBeDisabled();
     });
+
+    it("removes an if–then plan and re-evaluates the gate", async () => {
+      await goToStep3();
+      addDriver("Discipline");
+      addBarrier("Distractions");
+      addIfThenPlan("it is 7am", "practise for 10 minutes");
+      expect(nextButton()).not.toBeDisabled();
+
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "Remove if–then: If it is 7am, then I will practise for 10 minutes",
+        }),
+      );
+      expect(
+        screen.queryByRole("button", { name: /^Remove if–then:/ }),
+      ).not.toBeInTheDocument();
+      // Gate re-evaluates: no if–then plan → blocked.
+      expect(nextButton()).toBeDisabled();
+    });
   });
 
   describe("If–then composition", () => {
@@ -250,7 +282,10 @@ describe("WizardStep3", () => {
       await goToStep3();
       addDriver("Discipline");
       addBarrier("Distractions");
-      fireEvent.change(ifInput(), { target: { value: "it is 7am" } });
+      fireEvent.click(screen.getByRole("button", { name: "Add if–then plan" }));
+      fireEvent.change(screen.getByLabelText("If … (plan 1)"), {
+        target: { value: "it is 7am" },
+      });
       expect(nextButton()).toBeDisabled();
     });
 
@@ -258,7 +293,10 @@ describe("WizardStep3", () => {
       await goToStep3();
       addDriver("Discipline");
       addBarrier("Distractions");
-      fireEvent.change(thenInput(), { target: { value: "practise" } });
+      fireEvent.click(screen.getByRole("button", { name: "Add if–then plan" }));
+      fireEvent.change(screen.getByLabelText("then I will … (plan 1)"), {
+        target: { value: "practise" },
+      });
       expect(nextButton()).toBeDisabled();
     });
 
@@ -266,8 +304,51 @@ describe("WizardStep3", () => {
       await goToStep3();
       addDriver("Discipline");
       addBarrier("Distractions");
-      fillIfThen("it is 7am", "practise for 10 minutes");
+      addIfThenPlan("it is 7am", "practise for 10 minutes");
       expect(nextButton()).not.toBeDisabled();
+    });
+  });
+
+  describe("Multiple if–then plans", () => {
+    it("adds two plans, composes each in order, and lists both", async () => {
+      await goToStep3();
+      addIfThenPlan("it is 7am", "practise for 10 minutes");
+      addIfThenPlan("I feel distracted", "close every extra tab", 2);
+
+      expect(
+        screen.getByRole("button", {
+          name: "Remove if–then: If it is 7am, then I will practise for 10 minutes",
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", {
+          name: "Remove if–then: If I feel distracted, then I will close every extra tab",
+        }),
+      ).toBeInTheDocument();
+    });
+
+    it("keeps both plans after removing an unrelated one (order preserved)", async () => {
+      await goToStep3();
+      addIfThenPlan("it is 7am", "practise for 10 minutes");
+      addIfThenPlan("I feel distracted", "close every extra tab", 2);
+
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "Remove if–then: If it is 7am, then I will practise for 10 minutes",
+        }),
+      );
+
+      // The second plan survives and is now the only one.
+      expect(
+        screen.getByRole("button", {
+          name: "Remove if–then: If I feel distracted, then I will close every extra tab",
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", {
+          name: "Remove if–then: If it is 7am, then I will practise for 10 minutes",
+        }),
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -283,7 +364,7 @@ describe("WizardStep3", () => {
       addBarrier("Distractions");
       expect(nextButton()).toBeDisabled();
 
-      fillIfThen("it is 7am", "practise for 10 minutes");
+      addIfThenPlan("it is 7am", "practise for 10 minutes");
       expect(nextButton()).not.toBeDisabled();
     });
 
@@ -298,7 +379,7 @@ describe("WizardStep3", () => {
       await goToStep3();
       addDriver("Discipline");
       addBarrier("Distractions");
-      fillIfThen("it is 7am", "practise for 10 minutes");
+      addIfThenPlan("it is 7am", "practise for 10 minutes");
       fireEvent.click(nextButton());
       expect(
         screen.getByRole("heading", { name: "Review & Generate" }),
@@ -311,7 +392,7 @@ describe("WizardStep3", () => {
       await goToStep3();
       addDriver("Discipline");
       addBarrier("Distractions");
-      fillIfThen("it is 7am", "practise for 10 minutes");
+      addIfThenPlan("it is 7am", "practise for 10 minutes");
 
       // Back to Step 2, then forward again to Step 3.
       fireEvent.click(backButton());
@@ -332,12 +413,20 @@ describe("WizardStep3", () => {
       // The if–then INPUT FIELDS are re-hydrated from the composed state (not
       // blank), so re-editing one half can't recompose from an empty other
       // half and silently wipe the saved plan.
-      expect(ifInput().value).toBe("it is 7am");
-      expect(thenInput().value).toBe("practise for 10 minutes");
+      expect(
+        (screen.getByLabelText("If … (plan 1)") as HTMLInputElement).value,
+      ).toBe("it is 7am");
+      expect(
+        (screen.getByLabelText("then I will … (plan 1)") as HTMLInputElement).value,
+      ).toBe("practise for 10 minutes");
 
       // And editing just one half after return keeps the other intact.
-      fireEvent.change(ifInput(), { target: { value: "it is 6am" } });
-      expect(thenInput().value).toBe("practise for 10 minutes");
+      fireEvent.change(screen.getByLabelText("If … (plan 1)"), {
+        target: { value: "it is 6am" },
+      });
+      expect(
+        (screen.getByLabelText("then I will … (plan 1)") as HTMLInputElement).value,
+      ).toBe("practise for 10 minutes");
       expect(nextButton()).not.toBeDisabled();
     });
   });

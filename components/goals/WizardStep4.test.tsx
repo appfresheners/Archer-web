@@ -85,10 +85,11 @@ async function goToStep4() {
     target: { value: "Distractions" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Add barrier" }));
-  fireEvent.change(screen.getByLabelText("If …"), {
+  fireEvent.click(screen.getByRole("button", { name: "Add if–then plan" }));
+  fireEvent.change(screen.getByLabelText("If … (plan 1)"), {
     target: { value: "it is 7am" },
   });
-  fireEvent.change(screen.getByLabelText("then I will …"), {
+  fireEvent.change(screen.getByLabelText("then I will … (plan 1)"), {
     target: { value: "practise for 10 minutes" },
   });
   fireEvent.click(nextButton()); // → Step 4
@@ -203,7 +204,7 @@ describe("WizardStep4", () => {
         step: "generate",
         goal: "Become a speaker",
         why: "I want to communicate ideas that matter to my community.",
-        ifThen: "If it is 7am, then I will practise for 10 minutes",
+        ifThens: ["If it is 7am, then I will practise for 10 minutes"],
       });
       expect(body.framework).toHaveLength(3);
       expect(body.drivers).toEqual(["Discipline"]);

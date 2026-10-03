@@ -22,7 +22,9 @@ const goal: LoadedGoal = {
   ],
   drivers: ["health"],
   barriers: ["time"],
-  if_then_plan: "If tired, then rest.",
+  if_then_plans: ["If tired, then rest."],
+  goal_statement: null,
+  success_criteria: null,
 };
 
 function mockFetchOnce(ok: boolean, body: unknown = { id: "g1" }, status = 200) {
@@ -74,6 +76,7 @@ describe("GoalDetailClient", () => {
     expect(sent.goal_text).toBe("Run a marathon");
     expect(sent.why).toBe("I want to build confidence and endurance.");
     expect(sent.drivers).toEqual(["health"]);
+    expect(sent.if_then_plans).toEqual(["If tired, then rest."]);
     expect(sent.skill_framework[0].user_rating).toBe(7);
     await waitFor(() => expect(refresh).toHaveBeenCalled());
   });

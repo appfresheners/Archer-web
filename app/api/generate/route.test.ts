@@ -501,7 +501,7 @@ describe("/api/generate route — Pattern C (goal generate)", () => {
             framework: sampleFramework(),
             drivers: ["I love a challenge"],
             barriers: ["I get nervous"],
-            ifThen: "If it is 7am, then I will rehearse for 10 minutes",
+            ifThens: ["If it is 7am, then I will rehearse for 10 minutes"],
             ...overrides,
         };
     }
@@ -556,14 +556,21 @@ describe("/api/generate route — Pattern C (goal generate)", () => {
         expect(fn).toBe("save_goal_breakdown");
 
         // Goal payload: goal_text, target_date, skill_framework (with
-        // user_rating), drivers/barriers/if_then_plan verbatim.
+        // user_rating), drivers/barriers/if_then_plans verbatim.
         const pGoal = args.p_goal;
         expect(pGoal.goal_text).toBe("Become a confident public speaker");
         expect(pGoal.why).toBe("I want to share ideas clearly with my community.");
         expect(typeof pGoal.target_date).toBe("string");
-        expect(pGoal.if_then_plan).toBe(
-            "If it is 7am, then I will rehearse for 10 minutes"
-        );
+        expect(pGoal.if_then_plans).toEqual([
+            "If it is 7am, then I will rehearse for 10 minutes",
+        ]);
+        // The AI-refined statement + criteria are persisted (previously thrown away).
+        expect(pGoal.goal_statement).toBe("In 3 months I will speak confidently.");
+        expect(pGoal.success_criteria).toEqual([
+            "Gave a talk",
+            "No notes",
+            "Positive feedback",
+        ]);
         // Drivers/barriers persisted verbatim from the user payload (the
         // AI-never-owns invariant): these come from the wizard, not the model.
         expect(pGoal.drivers).toEqual(["I love a challenge"]);
@@ -638,9 +645,16 @@ describe("/api/generate route — Pattern C (goal generate)", () => {
         expect(generateGoal).not.toHaveBeenCalled();
     });
 
-    it("returns 400 for an empty ifThen", async () => {
+    it("returns 400 for an empty ifThens list", async () => {
         authed();
-        const res = await call(validPayload({ ifThen: "  " }));
+        const res = await call(validPayload({ ifThens: [] }));
+        expect(res.status).toBe(400);
+        expect(generateGoal).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 for a whitespace-only if–then entry", async () => {
+        authed();
+        const res = await call(validPayload({ ifThens: ["   "] }));
         expect(res.status).toBe(400);
         expect(generateGoal).not.toHaveBeenCalled();
     });
@@ -727,7 +741,7 @@ describe("/api/generate route — Pattern C (goal generate)", () => {
 
     it("returns 400 for an over-cap if–then plan (>2000 chars)", async () => {
         authed();
-        const res = await call(validPayload({ ifThen: "x".repeat(2001) }));
+        const res = await call(validPayload({ ifThens: ["x".repeat(2001)] }));
         expect(res.status).toBe(400);
         expect(generateGoal).not.toHaveBeenCalled();
     });

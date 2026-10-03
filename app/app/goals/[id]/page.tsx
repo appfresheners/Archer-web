@@ -46,7 +46,9 @@ export interface LoadedGoal {
   skill_framework: SkillFrameworkItem[] | null;
   drivers: string[] | null;
   barriers: string[] | null;
-  if_then_plan: string | null;
+  if_then_plans: string[] | null;
+  goal_statement: string | null;
+  success_criteria: string[] | null;
 }
 
 interface LoadedProjectCard {
@@ -68,7 +70,7 @@ async function loadGoalDetail(id: string): Promise<ReadResult<LoadResult>> {
     const { data: goal, error } = await supabase
       .from("goals")
       .select(
-        "id, goal_text, why, status, target_date, last_checked_at, skill_framework, drivers, barriers, if_then_plan",
+        "id, goal_text, why, status, target_date, last_checked_at, skill_framework, drivers, barriers, if_then_plans, goal_statement, success_criteria",
       )
       .eq("id", id)
       .maybeSingle();
@@ -189,12 +191,13 @@ function GapAnalysis({ goal }: { goal: LoadedGoal }) {
   const framework = goal.skill_framework ?? [];
   const drivers = goal.drivers ?? [];
   const barriers = goal.barriers ?? [];
+  const ifThenPlans = goal.if_then_plans ?? [];
 
   const hasContent =
     framework.length > 0 ||
     drivers.length > 0 ||
     barriers.length > 0 ||
-    Boolean(goal.if_then_plan);
+    ifThenPlans.length > 0;
 
   if (!hasContent) return null;
 
@@ -260,15 +263,52 @@ function GapAnalysis({ goal }: { goal: LoadedGoal }) {
         </div>
       )}
 
-      {goal.if_then_plan && (
+      {ifThenPlans.length > 0 && (
         <div className="flex flex-col gap-1">
           <h3 className="text-[length:var(--font-size-small)] font-semibold text-text-secondary">
-            If–then plan
+            If–then plans
           </h3>
-          <p className="text-text-primary">{goal.if_then_plan}</p>
+          <ul className="list-disc pl-6 text-text-primary">
+            {ifThenPlans.map((plan, i) => (
+              <li key={i}>{plan}</li>
+            ))}
+          </ul>
         </div>
       )}
     </Collapsible>
+  );
+}
+
+/**
+ * The unnumbered "My Goal" section: the AI-refined goal statement (falling
+ * back to the user's original `goal_text` for goals generated before this
+ * change) plus the success criteria, hidden when there are none. Deliberately
+ * NOT a "Step 1" heading — the target horizon comes from `target_date`, not a
+ * hardcoded "3-Month" label.
+ */
+function MyGoalSection({ goal }: { goal: LoadedGoal }) {
+  const statement = goal.goal_statement ?? goal.goal_text;
+  const criteria = goal.success_criteria ?? [];
+
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className="text-[length:var(--font-size-subheading)] font-semibold text-text-primary">
+        My Goal
+      </h2>
+      <p className="whitespace-pre-wrap text-text-primary">{statement}</p>
+      {criteria.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <h3 className="text-[length:var(--font-size-small)] font-semibold text-text-secondary">
+            Success criteria
+          </h3>
+          <ul className="list-disc pl-6 text-text-primary">
+            {criteria.map((c, i) => (
+              <li key={i}>{c}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -330,6 +370,8 @@ export default async function GoalDetailPage({ params }: GoalDetailPageProps) {
   return (
     <article className="flex flex-col gap-[var(--spacing-section-y)]">
       <GoalDetailClient goal={goal} />
+
+      <MyGoalSection goal={goal} />
 
       <section className="flex flex-col gap-2">
         <h2 className="text-[length:var(--font-size-subheading)] font-semibold text-text-primary">

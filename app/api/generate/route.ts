@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    const { mode, input, depth, step, goal, why, framework, drivers, barriers, ifThen } =
+    const { mode, input, depth, step, goal, why, framework, drivers, barriers, ifThens } =
         (body ?? {}) as {
             mode?: unknown;
             input?: unknown;
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
             framework?: unknown;
             drivers?: unknown;
             barriers?: unknown;
-            ifThen?: unknown;
+            ifThens?: unknown;
         };
 
     if (!isKnownMode(mode)) {
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
             framework,
             drivers,
             barriers,
-            ifThen,
+            ifThens,
         }, request.signal);
     }
 
@@ -310,7 +310,7 @@ interface GoalRequestFields {
     framework: unknown;
     drivers: unknown;
     barriers: unknown;
-    ifThen: unknown;
+    ifThens: unknown;
 }
 
 async function handleGoal(
@@ -387,7 +387,7 @@ async function handleGoalGenerate(
     fields: GoalRequestFields,
     signal: AbortSignal
 ): Promise<NextResponse> {
-    const { framework, drivers, barriers, ifThen } = fields;
+    const { framework, drivers, barriers, ifThens } = fields;
 
     const validFramework = validateFramework(framework);
     if (!validFramework) {
@@ -414,13 +414,9 @@ async function handleGoalGenerate(
         );
     }
 
-    if (
-        typeof ifThen !== "string" ||
-        ifThen.trim() === "" ||
-        ifThen.length > MAX_INPUT_LENGTH
-    ) {
+    if (!isBoundedStringList(ifThens)) {
         return NextResponse.json(
-            { error: "A valid if–then plan is required." },
+            { error: "At least one valid if–then plan is required." },
             { status: 400 }
         );
     }
@@ -435,7 +431,7 @@ async function handleGoalGenerate(
             framework: validFramework,
             drivers: drivers.map((d) => d.trim()),
             barriers: barriers.map((b) => b.trim()),
-            ifThen: ifThen.trim(),
+            ifThens: ifThens.map((plan) => plan.trim()),
         }, { signal });
     } catch (error) {
         return mapGenerateError(error);
@@ -449,7 +445,7 @@ async function handleGoalGenerate(
         validFramework,
         drivers,
         barriers,
-        ifThen,
+        ifThens,
         generated,
     );
 }
@@ -466,7 +462,7 @@ async function saveGoalBreakdown(
     framework: SkillFrameworkItem[],
     drivers: string[],
     barriers: string[],
-    ifThen: string,
+    ifThens: string[],
     generated: Awaited<ReturnType<typeof generateGoal>>
 ): Promise<NextResponse> {
     const targetDate = computeTargetDate();
@@ -498,7 +494,9 @@ async function saveGoalBreakdown(
                 skill_framework: framework,
                 drivers: drivers.map((d) => d.trim()),
                 barriers: barriers.map((b) => b.trim()),
-                if_then_plan: ifThen.trim(),
+                if_then_plans: ifThens.map((plan) => plan.trim()),
+                goal_statement: generated.goal_statement,
+                success_criteria: generated.success_criteria,
             },
             p_projects: projects,
         });

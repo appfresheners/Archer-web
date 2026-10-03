@@ -25,7 +25,10 @@ const GOAL_STATUSES: readonly GoalStatus[] = [
 
 export const MAX_GOAL_TEXT = 500;
 export const MAX_GOAL_WHY = 2000;
+/** Per-item character cap for a single if–then plan. */
 export const MAX_IF_THEN = 2000;
+/** Safety cap on the number of if–then plans accepted in a PATCH. */
+export const MAX_IF_THEN_ITEMS = 30;
 const MIN_LEVEL = 1;
 const MAX_LEVEL = 10;
 
@@ -127,13 +130,17 @@ export function sanitizeGoalPatch(body: unknown): GoalUpdate | null {
     patch.barriers = obj.barriers.map((b) => b.trim()).filter((b) => b !== "");
   }
 
-  if ("if_then_plan" in obj) {
-    const v = obj.if_then_plan;
+  if ("if_then_plans" in obj) {
+    const v = obj.if_then_plans;
     if (v !== null) {
-      if (typeof v !== "string" || v.length > MAX_IF_THEN) return null;
-      patch.if_then_plan = v.trim();
+      if (!isStringArray(v)) return null;
+      if (v.length > MAX_IF_THEN_ITEMS) return null;
+      const plans = v.map((p) => p.trim()).filter((p) => p !== "");
+      if (plans.some((p) => p.length > MAX_IF_THEN)) return null;
+      // An empty list means "clear the plans" — stored as null, like before.
+      patch.if_then_plans = plans.length > 0 ? plans : null;
     } else {
-      patch.if_then_plan = null;
+      patch.if_then_plans = null;
     }
   }
 

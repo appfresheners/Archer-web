@@ -93,7 +93,9 @@ describe("GoalDetailPage", () => {
         ],
         drivers: ["health"],
         barriers: ["time"],
-        if_then_plan: "If tired, then rest.",
+        if_then_plans: ["If tired, then rest.", "If sore, then stretch."],
+        goal_statement: "In 3 months I will have finished the marathon.",
+        success_criteria: ["Ran 26.2 miles", "Finished under 5 hours"],
       },
       error: null,
     });
@@ -110,6 +112,17 @@ describe("GoalDetailPage", () => {
 
     expect(screen.getByTestId("goal-client")).toHaveTextContent("Run a marathon");
     expect(screen.getByText("I want to build confidence and endurance.")).toBeInTheDocument();
+    // Unnumbered My Goal section: AI-refined statement + criteria.
+    expect(screen.getByRole("heading", { name: "My Goal" })).toBeInTheDocument();
+    expect(
+      screen.getByText("In 3 months I will have finished the marathon."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Success criteria")).toBeInTheDocument();
+    expect(screen.getByText("Ran 26.2 miles")).toBeInTheDocument();
+    expect(screen.getByText("Finished under 5 hours")).toBeInTheDocument();
+    // Gap analysis renders the if–then plans as a list.
+    expect(screen.getByText("If tired, then rest.")).toBeInTheDocument();
+    expect(screen.getByText("If sore, then stretch.")).toBeInTheDocument();
     expect(screen.getByText("Gap analysis")).toBeInTheDocument();
     expect(screen.getByText("Pacing")).toBeInTheDocument();
     // required 9, rating 5, gap = 4 (unique among the row's cells)
@@ -125,6 +138,36 @@ describe("GoalDetailPage", () => {
       "href",
       "/app/review/monthly/g1",
     );
+  });
+
+  it("falls back to goal_text and hides criteria for a legacy goal", async () => {
+    goalMaybeSingle.mockResolvedValue({
+      data: {
+        id: "g1",
+        goal_text: "Run a marathon",
+        why: "I want to build confidence and endurance.",
+        status: "active",
+        target_date: "2026-12-31",
+        last_checked_at: null,
+        skill_framework: null,
+        drivers: null,
+        barriers: null,
+        if_then_plans: null,
+        goal_statement: null,
+        success_criteria: null,
+      },
+      error: null,
+    });
+
+    await renderPage("g1");
+
+    expect(screen.getByRole("heading", { name: "My Goal" })).toBeInTheDocument();
+    // The "My Goal" section falls back to the original goal_text.
+    expect(
+      screen.getByRole("heading", { name: "My Goal" }).closest("section"),
+    ).toHaveTextContent("Run a marathon");
+    // No empty success-criteria section for a legacy goal.
+    expect(screen.queryByText("Success criteria")).not.toBeInTheDocument();
   });
 
   it("calls notFound() when the goal is absent", async () => {
@@ -154,7 +197,9 @@ describe("GoalDetailPage", () => {
         skill_framework: null,
         drivers: null,
         barriers: null,
-        if_then_plan: null,
+        if_then_plans: null,
+        goal_statement: null,
+        success_criteria: null,
       },
       error: null,
     });

@@ -89,7 +89,9 @@ export interface Database {
           skill_framework: SkillFrameworkItem[] | null;
           drivers: string[] | null;
           barriers: string[] | null;
-          if_then_plan: string | null;
+          if_then_plans: string[] | null;
+          goal_statement: string | null;
+          success_criteria: string[] | null;
           last_checked_at: string | null;
           created_at: string;
           updated_at: string;
@@ -104,7 +106,9 @@ export interface Database {
           skill_framework?: SkillFrameworkItem[] | null;
           drivers?: string[] | null;
           barriers?: string[] | null;
-          if_then_plan?: string | null;
+          if_then_plans?: string[] | null;
+          goal_statement?: string | null;
+          success_criteria?: string[] | null;
           last_checked_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -119,7 +123,9 @@ export interface Database {
           skill_framework?: SkillFrameworkItem[] | null;
           drivers?: string[] | null;
           barriers?: string[] | null;
-          if_then_plan?: string | null;
+          if_then_plans?: string[] | null;
+          goal_statement?: string | null;
+          success_criteria?: string[] | null;
           last_checked_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -361,7 +367,9 @@ export interface Database {
             skill_framework: SkillFrameworkItem[] | null;
             drivers: string[] | null;
             barriers: string[] | null;
-            if_then_plan: string | null;
+            if_then_plans: string[] | null;
+            goal_statement: string | null;
+            success_criteria: string[] | null;
           };
           p_projects: Array<{
             name: string;

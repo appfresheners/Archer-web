@@ -7,7 +7,7 @@
  *
  * What it owns:
  *   - `WizardState`: all step data as optional fields (goalText, why, framework,
- *     drivers, barriers, ifThen). Self-assessment ratings live inline on each
+ *     drivers, barriers, ifThens). Self-assessment ratings live inline on each
  *     framework item as `user_rating` (Step 2), so there is no separate ratings
  *     map. Later stories populate their slices.
  *   - A `steps` config: each step declares an id, a label, an `isComplete`
@@ -60,7 +60,7 @@ export interface WizardState {
   framework: SkillFrameworkItem[] | null;
   drivers: string[];
   barriers: string[];
-  ifThen: string;
+  ifThens: string[];
 }
 
 /** Context handed to each step's `render` so it can read/update wizard state. */
@@ -108,7 +108,7 @@ const INITIAL_STATE: WizardState = {
   framework: null,
   drivers: [],
   barriers: [],
-  ifThen: "",
+  ifThens: [],
 };
 
 /**
@@ -179,14 +179,15 @@ const STEPS: WizardStep[] = [
     id: "drivers",
     label: "Drivers & Barriers",
     // Advance from Step 3 requires the user's own inputs: at least one driver,
-    // at least one barrier, and a complete if–then plan. The if–then is a
-    // single composed string that is `""` unless BOTH halves are filled (see
-    // `composeIfThen` in WizardStep3), so a non-empty trimmed value is exactly
-    // "both parts present" — the gate stays a simple non-empty check.
+    // at least one barrier, and at least one complete if–then plan. Each plan
+    // is a composed string added only when BOTH halves are filled (see
+    // `composeIfThen` in WizardStep3), so a non-empty `ifThens` array is
+    // exactly "at least one complete plan" — the gate stays a simple length
+    // check.
     isComplete: (s) =>
       s.drivers.length >= 1 &&
       s.barriers.length >= 1 &&
-      s.ifThen.trim() !== "",
+      s.ifThens.length >= 1,
     nextLabel: "Next: Review →",
     render: (ctx) => <WizardStep3 ctx={ctx} />,
   },

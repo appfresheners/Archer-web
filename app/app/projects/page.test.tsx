@@ -66,16 +66,21 @@ describe("ProjectsPage", () => {
     expect(screen.getByText("Standalone")).toBeInTheDocument();
   });
 
-  it("filters to a specific goal and marks the active filter link", async () => {
+  it("filters to a specific goal and reflects the selection in the dropdown", async () => {
     await renderPage({ goal: "goal-2" });
 
     expect(screen.getByText("Write issue #1")).toBeInTheDocument();
     expect(screen.queryByText("Base training")).not.toBeInTheDocument();
     expect(screen.queryByText("Standalone")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Launch a newsletter" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+
+    // The dropdown is the single control; its value mirrors the URL filter.
+    const select = screen.getByRole("combobox", {
+      name: "Filter by goal",
+    }) as HTMLSelectElement;
+    expect(select.value).toBe("goal-2");
+    expect(
+      screen.getByRole("option", { name: "Launch a newsletter" }),
+    ).toBeInTheDocument();
   });
 
   it("filters to goal-less projects via ?goal=none", async () => {
@@ -84,6 +89,10 @@ describe("ProjectsPage", () => {
     expect(screen.getByText("Standalone")).toBeInTheDocument();
     expect(screen.queryByText("Base training")).not.toBeInTheDocument();
     expect(screen.queryByText("Write issue #1")).not.toBeInTheDocument();
+    expect(
+      (screen.getByRole("combobox", { name: "Filter by goal" }) as HTMLSelectElement)
+        .value,
+    ).toBe("none");
   });
 
   it("falls back to All for an unknown goal filter", async () => {
@@ -92,6 +101,29 @@ describe("ProjectsPage", () => {
     expect(screen.getByText("Base training")).toBeInTheDocument();
     expect(screen.getByText("Write issue #1")).toBeInTheDocument();
     expect(screen.getByText("Standalone")).toBeInTheDocument();
+    expect(
+      (screen.getByRole("combobox", { name: "Filter by goal" }) as HTMLSelectElement)
+        .value,
+    ).toBe("all");
+  });
+
+  it("renders All goals, each goal, and No goal as dropdown options", async () => {
+    await renderPage();
+
+    expect(screen.getByRole("option", { name: "All goals" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Run a marathon" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Launch a newsletter" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "No goal" })).toBeInTheDocument();
+  });
+
+  it("hides the dropdown when there are no goals", async () => {
+    goalsOrder.mockResolvedValue({ data: [], error: null });
+    await renderPage();
+
+    expect(
+      screen.queryByRole("combobox", { name: "Filter by goal" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Base training")).toBeInTheDocument();
   });
 
   it("shows the goal name under a linked project", async () => {

@@ -76,7 +76,9 @@ describe("sanitizeGoalPatch", () => {
       status: "paused",
       drivers: ["health", "  ", "pride"],
       barriers: ["time"],
-      if_then_plan: "If tired, then rest.",
+      if_then_plans: ["If tired, then rest.", "  ", "If hungry, then eat."],
+      goal_statement: "AI-owned — must be ignored",
+      success_criteria: ["AI-owned"],
       unknown_field: "ignored",
     });
     expect(patch).toEqual({
@@ -86,10 +88,12 @@ describe("sanitizeGoalPatch", () => {
       status: "paused",
       drivers: ["health", "pride"],
       barriers: ["time"],
-      if_then_plan: "If tired, then rest.",
+      if_then_plans: ["If tired, then rest.", "If hungry, then eat."],
     });
-    // Unknown fields never leak through.
+    // Unknown AND AI-owned fields never leak through.
     expect(patch && "unknown_field" in patch).toBe(false);
+    expect(patch && "goal_statement" in patch).toBe(false);
+    expect(patch && "success_criteria" in patch).toBe(false);
   });
 
   it("rejects an invalid status", () => {
@@ -113,10 +117,30 @@ describe("sanitizeGoalPatch", () => {
     expect(sanitizeGoalPatch({ target_date: "2026-99-99" })).toBeNull();
   });
 
-  it("allows clearing if_then_plan to null", () => {
-    expect(sanitizeGoalPatch({ if_then_plan: null })).toEqual({
-      if_then_plan: null,
+  it("allows clearing if_then_plans to null", () => {
+    expect(sanitizeGoalPatch({ if_then_plans: null })).toEqual({
+      if_then_plans: null,
     });
+  });
+
+  it("treats an empty if_then_plans list as clearing (null)", () => {
+    expect(sanitizeGoalPatch({ if_then_plans: [] })).toEqual({
+      if_then_plans: null,
+    });
+    expect(sanitizeGoalPatch({ if_then_plans: ["  "] })).toEqual({
+      if_then_plans: null,
+    });
+  });
+
+  it("rejects an oversized or non-string if_then_plans list", () => {
+    expect(sanitizeGoalPatch({ if_then_plans: "not a list" })).toBeNull();
+    expect(sanitizeGoalPatch({ if_then_plans: [1, 2] })).toBeNull();
+    expect(
+      sanitizeGoalPatch({
+        if_then_plans: Array.from({ length: 31 }, (_, i) => `plan ${i}`),
+      }),
+    ).toBeNull();
+    expect(sanitizeGoalPatch({ if_then_plans: ["x".repeat(2001)] })).toBeNull();
   });
 
   it("returns null for an empty or non-object patch", () => {

@@ -57,17 +57,17 @@ export interface GenerateGoalPayload {
   framework: SkillFrameworkItem[];
   drivers: string[];
   barriers: string[];
-  ifThen: string;
+  ifThens: string[];
 }
 
 /**
  * Build the user message the model reasons over. The framework is rendered with
  * each attribute's required level, the user's current rating, and the computed
  * gap so the model can prioritise the largest gaps first. Drivers, barriers,
- * and the if–then plan are included verbatim as context.
+ * and the if–then plans (one per line) are included verbatim as context.
  */
 export function buildUserMessage(payload: GenerateGoalPayload): string {
-  const { goal, why, framework, drivers, barriers, ifThen } = payload;
+  const { goal, why, framework, drivers, barriers, ifThens } = payload;
 
   const frameworkLines = framework
     .map((item) => {
@@ -78,6 +78,7 @@ export function buildUserMessage(payload: GenerateGoalPayload): string {
 
   const driverLines = drivers.map((d) => `- ${d}`).join("\n");
   const barrierLines = barriers.map((b) => `- ${b}`).join("\n");
+  const ifThenLines = ifThens.map((plan) => `- ${plan}`).join("\n");
 
   return [
     `My goal: ${goal}`,
@@ -92,7 +93,8 @@ export function buildUserMessage(payload: GenerateGoalPayload): string {
     "My barriers (what gets in my way):",
     barrierLines,
     "",
-    `My if–then plan: ${ifThen}`,
+    "My if–then plans (one or more):",
+    ifThenLines,
   ].join("\n");
 }
 

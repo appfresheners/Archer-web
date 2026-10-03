@@ -7,6 +7,7 @@ import type { ProjectStatus } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
 import Link from "next/link";
+import ProjectFilterSelect from "./ProjectFilterSelect";
 
 export const metadata: Metadata = {
   title: "Projects — Archer",
@@ -75,30 +76,6 @@ function resolveFilter(
   return "all";
 }
 
-function FilterLink({
-  href,
-  active,
-  children,
-}: {
-  href: string;
-  active: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? "page" : undefined}
-      className={`inline-flex min-h-[44px] items-center rounded-[var(--radius-full)] border px-4 py-2 text-[length:var(--font-size-small)] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] ${
-        active
-          ? "border-primary bg-primary text-text-inverse"
-          : "border-border-strong bg-surface-raised text-text-primary hover:bg-surface"
-      }`}
-    >
-      {children}
-    </Link>
-  );
-}
-
 function EmptyState() {
   return (
     <div className="flex flex-col items-start gap-4 rounded-[var(--radius-md)] border border-border bg-surface p-[var(--spacing-card-p)]">
@@ -153,26 +130,7 @@ export default async function ProjectsPage({
       </header>
 
       {goals.length > 0 && (
-        <nav aria-label="Filter projects by goal" className="flex flex-wrap gap-2">
-          <FilterLink href="/app/projects" active={filter === "all"}>
-            All
-          </FilterLink>
-          {goals.map((goal) => (
-            <FilterLink
-              key={goal.id}
-              href={`/app/projects?goal=${goal.id}`}
-              active={filter === goal.id}
-            >
-              {goal.goal_text}
-            </FilterLink>
-          ))}
-          <FilterLink
-            href="/app/projects?goal=none"
-            active={filter === "none"}
-          >
-            No goal
-          </FilterLink>
-        </nav>
+        <ProjectFilterSelect goals={goals} value={filter} />
       )}
 
       {projects.length === 0 ? (

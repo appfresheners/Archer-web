@@ -9,11 +9,11 @@
  *   - A review summary of every Step 1–3 input: the goal text, the confirmed
  *     framework with each item's required level, the user's rating, and the
  *     computed gap (amber when ≥ 4, mirroring Step 2), the drivers, the
- *     barriers, and the if–then plan. Each section has an "Edit" link that
+ *     barriers, and the if–then plans. Each section has an "Edit" link that
  *     returns to the relevant step via `ctx.goToStep`.
  *   - "Generate my breakdown": a Pattern C POST to `/api/generate`
  *     `{ mode:'goal', step:'generate', goal, why, framework, drivers,
- *     barriers, ifThen }`. While in flight the button shows "Generating your
+ *     barriers, ifThens }`. While in flight the button shows "Generating your
  *     GTD breakdown…" under the endpoint's 30-second timeout. On a 200 `{ id }`
  *     it navigates to `/app/goals/{id}` (the row is already saved server-side,
  *     so the flow never leaves the user on an unsaved result). On error it
@@ -49,7 +49,7 @@ interface WizardStep4Props {
 
 export default function WizardStep4({ ctx }: WizardStep4Props) {
   const { state, goToStep, headingRef } = ctx;
-  const { goalText, why, framework, drivers, barriers, ifThen } = state;
+  const { goalText, why, framework, drivers, barriers, ifThens } = state;
 
   const router = useRouter();
   const [inFlight, setInFlight] = useState(false);
@@ -86,7 +86,7 @@ export default function WizardStep4({ ctx }: WizardStep4Props) {
           framework,
           drivers,
           barriers,
-          ifThen,
+          ifThens,
         }),
         signal: controller.signal,
       });
@@ -219,13 +219,13 @@ export default function WizardStep4({ ctx }: WizardStep4Props) {
         <ReviewList values={barriers} emptyText="No barriers added." />
       </ReviewSection>
 
-      {/* If–then plan */}
+      {/* If–then plans */}
       <ReviewSection
-        title="If–then plan"
+        title="If–then plans"
         onEdit={() => goToStep(STEP_DRIVERS)}
         editLabel="Edit if–then plan"
       >
-        <p className="text-text-primary">{ifThen}</p>
+        <ReviewList values={ifThens} emptyText="No if–then plans added." />
       </ReviewSection>
 
       <div className="flex flex-col gap-3">
