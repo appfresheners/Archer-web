@@ -474,6 +474,11 @@ export interface Database {
         Args: { p_project_id: string; p_action_ids: string[] };
         Returns: undefined;
       };
+      /** Atomic active-Area reorder: verify the complete id set, then write sort_order. */
+      reorder_areas_of_focus: {
+        Args: { p_area_ids: string[] };
+        Returns: undefined;
+      };
     };
     Enums: {
       goal_status: GoalStatus;

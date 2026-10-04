@@ -21,7 +21,7 @@ describe("Sidebar", () => {
     const links = within(nav).getAllByRole("link");
     const labels = links.map((link) => link.getAttribute("title"));
 
-    expect(labels).toEqual(["Inbox", "Goals", "Projects", "Engage", "Weekly Review"]);
+    expect(labels).toEqual(["Inbox", "Goals", "Focus", "Projects", "Engage", "Weekly Review"]);
   });
 
   it("links each nav item to its /app/* route", () => {
@@ -36,6 +36,7 @@ describe("Sidebar", () => {
 
     expect(byTitle("Inbox")).toHaveAttribute("href", "/app/inbox");
     expect(byTitle("Goals")).toHaveAttribute("href", "/app/goals");
+    expect(byTitle("Focus")).toHaveAttribute("href", "/app/focus");
     expect(byTitle("Projects")).toHaveAttribute("href", "/app/projects");
     expect(byTitle("Engage")).toHaveAttribute("href", "/app/engage");
     expect(byTitle("Weekly Review")).toHaveAttribute("href", "/app/review");
@@ -76,6 +77,21 @@ describe("Sidebar", () => {
       .getAllByRole("link")
       .find((link) => link.getAttribute("title") === "Goals")!;
     expect(goals).toHaveAttribute("aria-current", "page");
+  });
+
+  it("marks Focus active on its route and nested pages", () => {
+    mockUsePathname.mockReturnValue("/app/focus");
+    const { rerender } = render(<Sidebar />);
+    const nav = screen.getByRole("navigation", { name: "Primary" });
+    const focusLink = () =>
+      within(nav)
+        .getAllByRole("link")
+        .find((link) => link.getAttribute("title") === "Focus")!;
+
+    expect(focusLink()).toHaveAttribute("aria-current", "page");
+    mockUsePathname.mockReturnValue("/app/focus/area-1");
+    rerender(<Sidebar />);
+    expect(focusLink()).toHaveAttribute("aria-current", "page");
   });
 
   it("renders a settings/avatar footer link", () => {

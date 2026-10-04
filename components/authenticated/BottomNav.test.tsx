@@ -22,7 +22,7 @@ describe("BottomNav", () => {
     const labels = links.map((link) => link.textContent?.trim());
 
     // "Weekly Review" collapses to "Review" in the bottom bar.
-    expect(labels).toEqual(["Inbox", "Goals", "Projects", "Engage", "Review"]);
+    expect(labels).toEqual(["Inbox", "Goals", "Focus", "Projects", "Engage", "Review"]);
   });
 
   it("links each destination to its /app/* route", () => {
@@ -37,6 +37,7 @@ describe("BottomNav", () => {
 
     expect(byText("Inbox")).toHaveAttribute("href", "/app/inbox");
     expect(byText("Goals")).toHaveAttribute("href", "/app/goals");
+    expect(byText("Focus")).toHaveAttribute("href", "/app/focus");
     expect(byText("Projects")).toHaveAttribute("href", "/app/projects");
     expect(byText("Engage")).toHaveAttribute("href", "/app/engage");
     expect(byText("Review")).toHaveAttribute("href", "/app/review");
@@ -78,5 +79,20 @@ describe("BottomNav", () => {
       .find((link) => link.textContent?.trim() === "Engage")!;
 
     expect(engage).not.toHaveAttribute("aria-current");
+  });
+
+  it("marks Focus active on its route and nested pages", () => {
+    mockUsePathname.mockReturnValue("/app/focus");
+    const { rerender } = render(<BottomNav />);
+    const nav = screen.getByRole("navigation", { name: "Primary" });
+    const focusLink = () =>
+      within(nav)
+        .getAllByRole("link")
+        .find((link) => link.textContent?.trim() === "Focus")!;
+
+    expect(focusLink()).toHaveAttribute("aria-current", "page");
+    mockUsePathname.mockReturnValue("/app/focus/area-1");
+    rerender(<BottomNav />);
+    expect(focusLink()).toHaveAttribute("aria-current", "page");
   });
 });

@@ -8,8 +8,8 @@ import { createElement } from "react";
  * about the destinations, their order, or their labels. Icons are minimal
  * inline SVGs (no icon library) so the shell has no external UI dependency.
  *
- * Order note: DESIGN.md and the spec list the primary nav as
- * **Inbox, Goals, Engage, Weekly Review**. The bottom-nav label for the
+ * Order note: the primary nav follows the GTD workflow, with Focus alongside
+ * the core destinations. The bottom-nav label for the
  * review surface is shortened to "Review" to fit small viewports, but both
  * point at the same `/app/review` href from this shared list.
  */
@@ -63,6 +63,19 @@ function GoalsIcon(): ReactNode {
     createElement("circle", { key: "c1", cx: 12, cy: 12, r: 10 }),
     createElement("circle", { key: "c2", cx: 12, cy: 12, r: 6 }),
     createElement("circle", { key: "c3", cx: 12, cy: 12, r: 2 }),
+  );
+}
+
+/** Focus — an eye glyph for higher-horizon context. */
+function FocusIcon(): ReactNode {
+  return createElement(
+    "svg",
+    iconProps,
+    createElement("path", {
+      key: "eye",
+      d: "M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z",
+    }),
+    createElement("circle", { key: "pupil", cx: 12, cy: 12, r: 3 }),
   );
 }
 
@@ -124,6 +137,12 @@ export const navItems: NavItem[] = [
     shortLabel: "Goals",
     href: "/app/goals",
     icon: GoalsIcon(),
+  },
+  {
+    label: "Focus",
+    shortLabel: "Focus",
+    href: "/app/focus",
+    icon: FocusIcon(),
   },
   {
     label: "Projects",

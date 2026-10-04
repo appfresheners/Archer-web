@@ -23,6 +23,11 @@
 # misc
 .DS_Store
 *.pem
+/.vscode/settings.json
+
+# Supabase local state
+/supabase/.branches/
+/supabase/.temp/
 
 # debug
 npm-debug.log*
