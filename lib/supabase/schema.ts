@@ -78,10 +78,74 @@ export interface PlanningDetail {
 export interface Database {
   public: {
     Tables: {
+      focus_profiles: {
+        Row: {
+          id: string;
+          user_id: string;
+          vision: string | null;
+          purpose: string | null;
+          principles: string[];
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          vision?: string | null;
+          purpose?: string | null;
+          principles?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          vision?: string | null;
+          purpose?: string | null;
+          principles?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      areas_of_focus: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          description: string | null;
+          sort_order: number;
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          description?: string | null;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          description?: string | null;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       goals: {
         Row: {
           id: string;
           user_id: string;
+          area_id: string | null;
           goal_text: string;
           why: string | null;
           target_date: string;
@@ -99,6 +163,7 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
+          area_id?: string | null;
           goal_text: string;
           why?: string | null;
           target_date: string;
@@ -116,6 +181,7 @@ export interface Database {
         Update: {
           id?: string;
           user_id?: string;
+          area_id?: string | null;
           goal_text?: string;
           why?: string | null;
           target_date?: string;
@@ -137,6 +203,7 @@ export interface Database {
           id: string;
           user_id: string;
           goal_id: string | null;
+          area_id: string | null;
           name: string;
           purpose: string | null;
           successful_outcome: string | null;
@@ -151,6 +218,7 @@ export interface Database {
           id?: string;
           user_id: string;
           goal_id?: string | null;
+          area_id?: string | null;
           name: string;
           purpose?: string | null;
           successful_outcome?: string | null;
@@ -165,6 +233,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           goal_id?: string | null;
+          area_id?: string | null;
           name?: string;
           purpose?: string | null;
           successful_outcome?: string | null;
@@ -423,6 +492,14 @@ export interface Database {
 // -----------------------------------------------------------------------------
 
 type PublicTables = Database['public']['Tables'];
+
+export type FocusProfile = PublicTables['focus_profiles']['Row'];
+export type FocusProfileInsert = PublicTables['focus_profiles']['Insert'];
+export type FocusProfileUpdate = PublicTables['focus_profiles']['Update'];
+
+export type AreaOfFocus = PublicTables['areas_of_focus']['Row'];
+export type AreaOfFocusInsert = PublicTables['areas_of_focus']['Insert'];
+export type AreaOfFocusUpdate = PublicTables['areas_of_focus']['Update'];
 
 export type Goal = PublicTables['goals']['Row'];
 export type GoalInsert = PublicTables['goals']['Insert'];
