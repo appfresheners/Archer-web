@@ -2,7 +2,7 @@
 title: "Archer — Architecture Spine"
 status: final
 created: 2026-08-20
-updated: 2026-09-27
+updated: 2026-10-04
 altitude: initiative→features
 scope: Archer v1-full system
 ---
@@ -39,12 +39,12 @@ The experimental vault is an independent client-side layer (AES-GCM + PBKDF2, `l
 - **Prevents:** Unauthenticated access to any feature; a two-layout system; sidebar on sign-in pages
 - **Rule:** Unauthenticated requests to any `/app/*` route are redirected to `/sign-in` by Next.js middleware. The root `/` redirects to `/app/engage` if authenticated, `/sign-in` if not.
 
-### AD-9: Goal → Project → Action Hierarchy [ADOPTED]
+### AD-9: Focus Area → Goal → Project → Action Hierarchy [ADOPTED]
 
-- **Binds:** The three-level hierarchy is enforced by the data model. An action must have a parent project; a project must have a parent goal. Supabase FK constraints encode this. UI navigation mirrors it at every level.
-- **Prevents:** Standalone action creation without a project; project creation without a goal (Project Mode creates a project linked to the signed-in user but not to a goal — this is the one permitted exception, explicitly modelled in the schema); flat task-list behaviour
+- **Binds:** Actions require a parent project. A project may have a parent goal or, when no goal is assigned, a direct Life Area. A goal may have an optional Life Area. Goal-linked projects inherit their Area through the Goal and cannot store a conflicting direct Area. Supabase constraints and authenticated route validation enforce the relationships.
+- **Prevents:** Standalone action creation without a project; duplicate or conflicting Area links; flat task-list behaviour.
 - **Rule:** The Engage view shows committed actions only — never the raw action list. The weekly review surfaces projects, not actions directly.
-- Project Mode may create a manual project without AI. A selected `goal_id` must belong to the signed-in user; a project has at most one parent goal and may be unlinked.
+- Project Mode may create a manual or AI-generated project without a Goal and may link it directly to an Area. A selected `goal_id` or `area_id` must belong to the signed-in user. A project has at most one direct parent; when it has a Goal, its Area is inherited.
 
 ### AD-10: Single Committed Next Action Per Project [ADOPTED]
 
@@ -61,6 +61,7 @@ The experimental vault is an independent client-side layer (AES-GCM + PBKDF2, `l
   - Provider selected by `AI_PROVIDER` env var (`gemini` | `groq` | `openai`). Default: `gemini` (`gemini-3.1-flash-lite`). 30s timeout on all calls. No streaming.
 - **Prevents:** Client-side AI calls; unauthenticated generation; copy/download as an output path; hardcoded models; multiple endpoints duplicating auth/provider/timeout plumbing
 - **Rule:** One endpoint, one auth check, one provider-selection path, one timeout handler. The three patterns differ only in which system prompt they load and what they return. Pattern B is the only one that does not write to Supabase — it returns the framework for the wizard to hold in memory (per AD-15). Patterns A and C write to Supabase before returning; the client receives the row ID and navigates to the saved resource. There is no "show output then save" flow.
+- **Course-correction extension (2026-10-04):** Standalone Project Mode accepts an optional `area_id`; Goal generation accepts an optional Area ID for the Goal. Both IDs are validated against the signed-in user before any provider call. Goal-generated Projects inherit the Goal's Area and do not store a direct `area_id`. All newly inserted Projects explicitly use `status = 'paused'`; the migration changes the database default for future inserts only and does not update existing rows.
 
 ### AD-12: AI Invariant — User Owns All Self-Assessment Data [ADOPTED]
 
@@ -76,7 +77,7 @@ The experimental vault is an independent client-side layer (AES-GCM + PBKDF2, `l
 
 ### AD-14: Supabase Schema — Tables, Relationships, RLS [ADOPTED]
 
-- **Binds:** Six core tables (full DDL in Schema section below). FK constraints enforce the Goal → Project → Action hierarchy. Row-level security (RLS) on all tables — users read/write only their own rows. All tables carry `user_id uuid references auth.users(id) on delete cascade`.
+- **Binds:** Eight core tables (full DDL in Schema section below), including per-user Focus profiles and Areas of Focus. FK constraints enforce Focus Area → Goal/Project and Goal → Project → Action relationships. Row-level security (RLS) on all tables — users read/write only their own rows. All user-owned tables carry `user_id uuid references auth.users(id) on delete cascade`.
 - **Prevents:** Cross-user data leakage; clientside-only data model for authenticated data; tables without RLS
 - **Rule:** No table is created without RLS enabled and a `user_id` policy. Schema DDL is the authoritative definition — TypeScript types in `lib/supabase/schema.ts` are generated from it.
 
@@ -149,6 +150,7 @@ The following ADs from the original MVP1 spine (2026-08-20) are superseded and m
 - RLS enabled on every table; default-deny policy; `user_id = auth.uid()` grants access.
 - Soft deletes via `status` column — no hard `DELETE` for goals, projects, or actions. Inbox items and review sessions can be hard-deleted.
 - Enum types defined at DB level for status fields.
+- Areas are ongoing responsibilities: archive them when no longer current, but never mark them completed. A project is linked either to a Goal or directly to an Area; a Goal-linked project inherits its Area.
 
 ### Enum types
 
@@ -174,12 +176,70 @@ create type review_phase as enum (
 );
 ```
 
+### `focus_profiles` and `areas_of_focus`
+
+```sql
+create table focus_profiles (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null unique references auth.users(id) on delete cascade,
+  vision      text,
+  purpose     text,
+  principles  text[] not null default '{}',
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+alter table focus_profiles enable row level security;
+create policy "users read own focus profile"
+  on focus_profiles for select to authenticated
+  using ((select auth.uid()) = user_id);
+create policy "users create own focus profile"
+  on focus_profiles for insert to authenticated
+  with check ((select auth.uid()) = user_id);
+create policy "users update own focus profile"
+  on focus_profiles for update to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+grant select, insert, update on focus_profiles to authenticated;
+
+create table areas_of_focus (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  name        text not null,
+  description text,
+  sort_order  integer not null default 0,
+  archived_at timestamptz,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  constraint areas_of_focus_owner_id_unique unique (user_id, id)
+);
+
+alter table areas_of_focus enable row level security;
+create policy "users read own areas of focus"
+  on areas_of_focus for select to authenticated
+  using ((select auth.uid()) = user_id);
+create policy "users create own areas of focus"
+  on areas_of_focus for insert to authenticated
+  with check ((select auth.uid()) = user_id);
+create policy "users update own areas of focus"
+  on areas_of_focus for update to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+grant select, insert, update on areas_of_focus to authenticated;
+
+create index areas_of_focus_user_order_idx
+  on areas_of_focus (user_id, sort_order);
+```
+
+Area references on Goals and Projects must resolve to an Area owned by the same user. Enforce owner matching in the database integrity layer and re-check ownership in authenticated mutation routes.
+
 ### `goals`
 
 ```sql
 create table goals (
   id              uuid primary key default gen_random_uuid(),
   user_id         uuid not null references auth.users(id) on delete cascade,
+  area_id         uuid,
 
   -- core content
   goal_text       text not null check (char_length(goal_text) between 1 and 500),
@@ -196,7 +256,9 @@ create table goals (
   breakdown_md    text,    -- full generated markdown (goal breakdown)
 
   created_at      timestamptz not null default now(),
-  updated_at      timestamptz not null default now()
+  updated_at      timestamptz not null default now(),
+  constraint goals_area_owner_fk
+    foreign key (user_id, area_id) references areas_of_focus(user_id, id)
 );
 
 -- RLS
@@ -209,6 +271,7 @@ create policy "users manage own goals"
 
 -- Index
 create index goals_user_id_status_idx on goals (user_id, status);
+create index goals_area_id_idx on goals (area_id);
 ```
 
 ### `projects`
@@ -218,13 +281,15 @@ create table projects (
   id               uuid primary key default gen_random_uuid(),
   user_id          uuid not null references auth.users(id) on delete cascade,
   goal_id          uuid references goals(id) on delete set null,
+  area_id          uuid,
   -- goal_id nullable: Project Mode creates projects not linked to a goal
+  -- area_id nullable: a standalone project may link directly to an Area
 
   -- core content
   name             text not null check (char_length(name) between 1 and 200),
   purpose          text,
   successful_outcome text,
-  status           project_status not null default 'active',
+  status           project_status not null default 'paused',
 
   -- AI output
   breakdown_md     text,   -- raw generated markdown for this project
@@ -233,7 +298,10 @@ create table projects (
   sort_order       integer not null default 0,
 
   created_at       timestamptz not null default now(),
-  updated_at       timestamptz not null default now()
+  updated_at       timestamptz not null default now(),
+  constraint projects_area_owner_fk
+    foreign key (user_id, area_id) references areas_of_focus(user_id, id),
+  constraint project_has_one_direct_parent check (goal_id is null or area_id is null)
 );
 
 -- RLS
@@ -247,6 +315,10 @@ create policy "users manage own projects"
 -- Indexes
 create index projects_user_id_status_idx on projects (user_id, status);
 create index projects_goal_id_idx on projects (goal_id);
+create index projects_area_id_idx on projects (area_id);
+
+-- Existing deployments: change the future default only; do not update existing rows.
+alter table projects alter column status set default 'paused';
 ```
 
 ### `actions`
@@ -419,6 +491,10 @@ $$;
 -- Apply to each table:
 create trigger set_updated_at before update on goals
   for each row execute function fn_set_updated_at();
+create trigger set_updated_at before update on focus_profiles
+  for each row execute function fn_set_updated_at();
+create trigger set_updated_at before update on areas_of_focus
+  for each row execute function fn_set_updated_at();
 create trigger set_updated_at before update on projects
   for each row execute function fn_set_updated_at();
 create trigger set_updated_at before update on actions
@@ -475,6 +551,8 @@ app/
     │   └── page.tsx          # Default post-login view — committed next actions
     ├── inbox/
     │   └── page.tsx
+    ├── focus/
+    │   └── page.tsx          # Vision, Purpose, Principles, and Life Areas
     ├── goals/
     │   ├── page.tsx          # Goals list
     │   ├── new/

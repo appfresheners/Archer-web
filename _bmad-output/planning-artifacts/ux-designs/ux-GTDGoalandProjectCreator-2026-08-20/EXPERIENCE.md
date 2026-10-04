@@ -1,7 +1,7 @@
 ---
 status: draft
 created: 2026-08-20
-updated: 2026-09-27
+updated: 2026-10-04
 sources:
   - prd: ../../../prds/prd-GTDGoalandProjectCreator-2026-08-20/prd.md
   - gtd-method-reference: ../../../docs/gtd-method-reference.md
@@ -41,6 +41,7 @@ There is no unauthenticated layout. Project Mode generation, goal creation, and 
 | **Goal Creation Wizard**           | Yes           | 4-step guided goal + gap analysis + AI generation                                          | "New goal" CTA                                              |
 | **Goals list**                     | Yes           | All goals with statuses; entry to goal detail                                              | Sidebar → Goals                                             |
 | **Goal detail**                    | Yes           | Full breakdown: projects, gap analysis, monthly check                                      | Goals list row                                              |
+| **Focus**                           | Yes           | Vision, Purpose, Principles, and Life Areas with linked work                               | Sidebar / bottom navigation → Focus                         |
 | **Project detail**                 | Yes           | Actions list, edit, regenerate                                                             | Goal detail → project                                       |
 | **Inbox**                          | Yes           | Frictionless capture + processing                                                          | Sidebar → Inbox; floating capture button                    |
 | **Engage**                         | Yes           | Committed next actions across active goals                                                 | Sidebar → Engage (default post-login view)                  |
@@ -59,6 +60,7 @@ There is no unauthenticated layout. Project Mode generation, goal creation, and 
 /app (authenticated shell — sidebar present on all routes below)
 ├── /app/engage                     ← default post-login view
 ├── /app/inbox
+├── /app/focus                      ← Vision, Purpose, Principles, and Life Areas
 ├── /app/goals
 │   ├── /app/goals/new              ← Goal Creation Wizard
 │   └── /app/goals/[id]             ← Goal detail
@@ -73,13 +75,25 @@ There is no unauthenticated layout. Project Mode generation, goal creation, and 
 
 **Goal:** goal text · target date (auto: 3 months from creation) · status (Active / Paused / Not now / Someday / Completed / Archived) · skill framework (items with required levels) · user gap ratings · drivers · barriers · if–then plan · linked projects · creation date
 
-**Project:** outcome-based name · purpose · successful outcome · status (Active / Paused / Completed / Archived) · parent goal · action list · creation date
+**Project:** outcome-based name · purpose · successful outcome · status (Active / Paused / Completed / Archived; new projects start Paused) · optional parent goal or direct Life Area · action list · creation date
+
+**Focus profile:** one per user · optional Vision · Purpose · Principles list
+
+**Life Area:** name · optional description · display order · archive timestamp · linked Goals or standalone Projects · never completed
 
 **Action:** verb-first text · status (available / committed / done) · optional context tags (@energy / @location / @tool) · parent project
 
 **Inbox item:** raw text · capture timestamp · processing status (unprocessed / processed / trashed)
 
 **Weekly Review session:** start timestamp · end timestamp · phase progress · completion status · opening retrospective (free text) · closing intention (free text) · closing blocker (free text) · week number · week date range
+
+## Focus Page
+
+The authenticated `/app/focus` view is the home for higher-horizon context and ongoing responsibilities. It contains three editable sections: Vision; Purpose and Principles; and Life Areas. Vision, Purpose, and Principles are user-level context and have no status or target date.
+
+Each Life Area row shows its name, optional description, linked Goals, and standalone Projects. Users can create, edit, reorder with keyboard-accessible controls, and archive Areas. Archived Areas are hidden from new assignment pickers but remain visible on existing linked records; Areas have no Completed state.
+
+Goal-linked Projects inherit the Area shown for their Goal and cannot have a second direct Area assignment. A Project with no Goal may link directly to one Area. The Focus page links to existing Goal and Project detail views rather than duplicating their editors.
 
 ---
 
@@ -208,6 +222,7 @@ Four sequential steps. Cannot skip forward. Can navigate back (prior inputs pres
 ## Goal Detail
 
 - Header: goal text + status badge + target date + "Edit" menu.
+- The Goal editor offers an optional Life Area selector; the selected Area appears on the detail view.
 - Gap analysis section: collapsed by default, expandable — shows priority gaps, framework tables.
 - Projects section: list of project cards (see Project Card below).
 - Provide an "Attach existing project" control. Selecting a project links it to this goal; if it already belongs to another goal, the user confirms moving the single association.
@@ -222,8 +237,9 @@ Four sequential steps. Cannot skip forward. Can navigate back (prior inputs pres
 
 ## Project Detail
 
-- Header: project name + parent goal breadcrumb + status badge.
+- Header: project name + parent Goal or inherited/direct Area breadcrumb + status badge.
 - Provide a parent-goal selector that lists the user's goals and a "No goal" option; changes persist immediately and refresh the breadcrumb. A project can link to only one goal.
+- When "No goal" is selected, offer an optional direct Area selector. Linking to a Goal clears any direct Area; Goal-linked Projects inherit their Area, with no conflicting second Area assignment.
 - Purpose and Successful Outcome sections (collapsible).
 - Action list: all actions with status (available / committed / done).
 - "Commit" button on each available action sets it as committed (decommits any previous committed action on this project).
@@ -284,6 +300,7 @@ The first thing shown when a review begins. Surfaces the previous week's closing
 - Someday/Maybe list: surface each item, user can activate (move to Active goal), delete, or keep.
 - "Anything missing?" — free text capture for new ideas → inbox.
 - Goal alignment check: list Active goals, prompt "Still the right goals for this month?"
+- Optional Focus review: show Life Areas and linked work with a "Review Focus" link to `/app/focus`. This is skippable and does not block the phase or review completion; Vision and Purpose do not require weekly edits.
 - Phase does NOT complete until the closing snapshot is filled in (see below).
 
 ### Weekly Snapshot — Closing (end of Get Creative)
@@ -352,6 +369,8 @@ Completes per-goal, not as a batch. No "completion" event — it's a review, not
 | **Error**      | Error toast + "Try again" button                       | Try again → Generating; Dismiss → Ready |
 
 ## Manual project creation states
+All newly created projects start Paused across manual, standalone AI, and goal-generated paths. Manual creation and standalone Project Mode may accept an optional direct Life Area when no Goal is selected. Goal-generated Projects inherit their Goal's Area. The user activates a Project when ready; a Goal-linked Project cannot carry a second, conflicting Area.
+
 
 The project creator offers two explicit paths: "Generate with AI" (selected by default) and "Create manually". Manual mode requires a project name and accepts optional purpose, successful outcome, and parent goal. Saving creates the project without an AI request and navigates to project detail; the user can add and commit actions there. If arriving from Inbox Clarify, manual save also links the new project to the inbox item and marks the item processed, using the same completion behavior as AI creation.
 

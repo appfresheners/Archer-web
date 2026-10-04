@@ -70,6 +70,12 @@ FR31: On successful generation, the project breakdown SHALL be saved automatical
 FR93: Project Mode SHALL offer AI generation (default) or manual project creation; manual creation saves without making an AI request.
 FR94: A user SHALL be able to set, change, or clear a project's parent goal from project detail and attach an existing project from goal detail; each project has at most one parent goal.
 FR95: The Projects view SHALL support filtering by all projects, a selected goal, or projects with no goal.
+FR96: A user SHALL be able to create, view, and edit one personal Focus profile containing an optional Vision statement, Purpose statement, and Principles list.
+FR97: A user SHALL be able to create, view, edit, reorder, and archive Life Areas of Focus; Areas have a name and optional description and are never completed.
+FR98: A Goal MAY be linked to one Life Area.
+FR99: A Project MAY be linked to a Goal or, when it has no Goal, directly to one Life Area. Goal-linked Projects inherit their Area through the Goal and SHALL NOT store a conflicting direct Area.
+FR100: The authenticated app SHALL provide a Focus view to manage the Focus profile and Areas and inspect linked Goals and Projects.
+FR101: Get Creative SHALL offer an optional Focus review entry point that does not block review completion.
 
 **AI Provider**
 
@@ -102,7 +108,7 @@ FR48: Changing a goal's status to Paused SHALL remove its linked projects from t
 
 **Project Management [NOT YET BUILT]**
 
-FR49: Each project SHALL have an outcome-based name, a purpose, a successful outcome (definition of done), a status (Active, Paused, Completed, Archived), and a parent goal.
+FR49: Each project SHALL have an outcome-based name, a purpose, a successful outcome (definition of done), a status (Active, Paused, Completed, Archived), and an optional parent goal. New projects SHALL default to Paused across manual, standalone AI, and goal-generated creation; existing statuses SHALL NOT be changed.
 FR50: A user SHALL be able to edit any part of an AI-generated project: name, purpose, successful outcome, and action list.
 FR51: A user SHALL be able to regenerate the AI output for a specific project without affecting other projects; regeneration replaces only the explicitly regenerated project.
 FR52: Completing all actions in a project does NOT auto-complete the project — the user confirms completion explicitly.
@@ -152,10 +158,10 @@ FR77: The user SHALL be able to change any goal's status directly from the month
 
 **Data Persistence [NOT YET BUILT]**
 
-FR78: All goals, projects, actions, inbox items, and review history SHALL be persisted to Supabase; no data lost between sessions.
+FR78: Focus profiles, Life Areas, goals, projects, actions, inbox items, and review history SHALL be persisted to Supabase; no data lost between sessions.
 FR79: Data SHALL be backed up by Supabase's built-in backup mechanism (frequency/PITR SLA TBD).
-FR80: The user SHALL be able to export all data on demand in a portable format (JSON and/or Markdown), including goals, projects, actions, and review history.
-FR81: Archiving a goal or project preserves the data in Supabase; archived data is included in exports.
+FR80: The user SHALL be able to export all data on demand in a portable format (JSON and/or Markdown), including Focus profiles, Life Areas, goals, projects, actions, inbox items, and review history.
+FR81: Archiving a Focus Area, goal, or project preserves the data in Supabase; archived data is included in exports.
 
 **Experimental Vault (Saved Breakdowns) [SHIPPED — EXPERIMENTAL]**
 
@@ -241,6 +247,9 @@ UX-DR23: Implement the Vault UI (SavedBreakdowns) — header lock icon accessibl
 UX-DR24: Implement app-wide accessibility floor — full keyboard tab order across every surface, focus management (to output after generation, to first field on wizard step advance, into/out of modals, to next action row after Engage completion), screen-reader support (aria-live output region, stepper aria-current, slider aria-valuetext, stuck `role="alert"`), reduced-motion suppression of all decorative animation, 44×44px minimum touch targets, and inline validation linked via `aria-describedby` (never color-only).
 UX-DR25: Enforce GTD Template Integrity as a generation-quality gate — outcome-based project names; depth-aware Project Mode structure (Minimal = Purpose + Successful Outcome + Next Actions; Full GTD = Purpose & Principles → Vision/Outcome → Ideas/Brainstorming → Organizing → Next Actions per FR29); physical-verb tiny (2–5 min) actions referencing real tools; first action lowest-friction; priority gaps linked to projects by exact name; no "Open Notion" references; generation failures surfaced as quality errors, not suppressed.
 UX-DR26: Enabled clickable controls SHALL show a pointer cursor and disabled controls SHALL show a not-allowed cursor. Cursor shape supplements semantic controls, visible focus, hover, and selected states; it is never the sole interaction signal.
+UX-DR27: Implement the authenticated Focus page at `/app/focus` with editable Vision, Purpose, and Principles; Life Area create/edit/reorder/archive; and linked Goal/Project roll-ups. Archived Areas are hidden from new assignment choices but retained on existing records.
+UX-DR28: Provide optional Area selectors on Goal create/edit and standalone Project create/detail. Goal-linked Projects show the Area inherited from their Goal and do not offer a conflicting direct Area selector.
+UX-DR29: Add a non-blocking Focus review entry in Get Creative, showing Areas and linked work with a link to `/app/focus`; skipping it never blocks the phase or review completion.
 
 ### FR Coverage Map
 
@@ -327,8 +336,8 @@ UX-DR26: Enabled clickable controls SHALL show a pointer cursor and disabled con
 | FR75  | Epic 5 | Monthly goal check (prompted + manual)                                                        |
 | FR76  | Epic 5 | Monthly check surfaces projects/stuck/missing                                                 |
 | FR77  | Epic 5 | Change goal status from monthly check                                                         |
-| FR80  | Epic 6 | On-demand data export (JSON/Markdown)                                                         |
-| FR81  | Epic 6 | Archived data retained + in exports                                                           |
+| FR80  | Epic 6 | On-demand export of all user data, including Focus profiles and Areas                        |
+| FR81  | Epic 6 | Archived Areas, Goals, and Projects retained + included in exports                           |
 | FR82  | Epic 6 | Vault open button                                                                             |
 | FR83  | Epic 6 | Vault passphrase unlock                                                                       |
 | FR84  | Epic 6 | Auto-save to vault when unlocked                                                              |
@@ -342,16 +351,22 @@ UX-DR26: Enabled clickable controls SHALL show a pointer cursor and disabled con
 | FR93  | Epic 2 | Optional manual project creation without an AI request                                        |
 | FR94  | Epic 4 | Set/change/clear parent goal and attach an existing project                                   |
 | FR95  | Epic 4 | Filter projects by goal or no-goal status                                                     |
+| FR96  | Epic 7 | User-owned Vision, Purpose, and Principles profile                                            |
+| FR97  | Epic 7 | Ongoing, archivable Life Areas                                                                |
+| FR98  | Epic 7 | Optional Area association for Goals                                                          |
+| FR99  | Epic 7 | Goal-linked or directly Area-linked standalone Projects                                       |
+| FR100 | Epic 7 | Focus page and Area roll-ups                                                                  |
+| FR101 | Epic 7 | Optional, non-blocking Focus review in Get Creative                                           |
 
 **NFR coverage:** NFR2 (Node runtime/Vercel), NFR6 (privacy), NFR7 (vault security), NFR9 (data integrity) anchor in Epic 1 and Epic 6. NFR1 (performance), NFR3 (responsive), NFR4 (accessibility), NFR5 (browser support), NFR8 (error resilience) are cross-cutting — verified within every epic that ships UI, with the baseline established in Epic 1.
 
-**AR coverage:** AR1, AR2, AR3, AR7, AR8, AR12, AR14, AR15, AR20 → Epic 1 (foundation). AR4, AR13, AR16, AR17, AR19, AR25 → Epic 2 (generation endpoint + render stack + dead-code cleanup). AR9, AR16 → Epic 3 (wizard transient state, user-owned data). AR5, AR6, AR18 → Epic 4 (hierarchy, commit trigger, stuck detection). AR10 → Epic 5 (review persistence). AR11 → Epic 6 (vault independence).
+**AR coverage:** AR1, AR2, AR3, AR7, AR8, AR12, AR14, AR15, AR20 → Epic 1 (foundation; Focus tables extended in Epic 7). AR4, AR13, AR16, AR17, AR19, AR25 → Epic 2 (generation endpoint + render stack + dead-code cleanup). AR9, AR16 → Epic 3 (wizard transient state, user-owned data). AR5, AR6, AR18 → Epic 4 (hierarchy, commit trigger, stuck detection). AR10 → Epic 5 (review persistence). AR8, AR15 → Epic 7 (Focus profile and Areas remain owner-scoped); AR11 → Epic 6 (vault independence).
 
 ## Epic List
 
 ### Epic 1: Authenticated Foundation & Persistence Backbone
 
-A user can create an account, sign in with email and password, reset a forgotten password, and land in the authenticated app shell — with their data backed by a fully provisioned, RLS-protected Supabase schema that restores on every sign-in. This epic establishes the standalone, no-unauthenticated-surface foundation every other epic builds on: the Next.js standalone runtime, middleware auth guard, single authenticated layout with responsive sidebar/bottom-nav, Tailwind v4 design tokens, the six-table schema (plus the `last_checked_at` and `planning_depth` additions) with the `fn_commit_action` and `fn_set_updated_at` triggers, the Supabase client/server/middleware wiring, the AI provider configuration layer, and the environment contract.
+A user can create an account, sign in with email and password, reset a forgotten password, and land in the authenticated app shell — with their data backed by a fully provisioned, RLS-protected Supabase schema that restores on every sign-in. This epic establishes the standalone, no-unauthenticated-surface foundation every other epic builds on: the Next.js standalone runtime, middleware auth guard, single authenticated layout with responsive sidebar/bottom-nav, Tailwind v4 design tokens, the six-table GTD base schema (extended by the two Focus tables in Epic 7, plus the `last_checked_at` and `planning_depth` additions) with the `fn_commit_action` and `fn_set_updated_at` triggers, the Supabase client/server/middleware wiring, the AI provider configuration layer, and the environment contract.
 **FRs covered:** FR32, FR33, FR34, FR35, FR40, FR41, FR42, FR43, FR78, FR79
 **NFRs covered:** NFR2, NFR3, NFR4, NFR5, NFR6 (baseline)
 **ARs covered:** AR1, AR2, AR3, AR7, AR8, AR12, AR14, AR15, AR20
@@ -372,7 +387,7 @@ A signed-in user can create a goal through a guided four-step wizard — stating
 
 ### Epic 4: Goal, Project & Action Management
 
-A signed-in user can manage everything the generators produce: view and edit goals with their gap analysis, change goal and project statuses, edit or regenerate individual projects, and manage actions — add, edit, delete, reorder, tag with context, and commit exactly one next action per project (enforced at the database layer). Stuck projects (Active with zero committed actions) are detected and surfaced with an amber indicator everywhere they appear. This epic turns generated breakdowns into a living, editable system of record over the Goal → Project → Action hierarchy.
+A signed-in user can manage everything the generators produce: view and edit goals with their gap analysis, change goal and project statuses, edit or regenerate individual projects, and manage actions — add, edit, delete, reorder, tag with context, and commit exactly one next action per project (enforced at the database layer). New projects default to Paused across all creation paths; the user activates each when ready. Stuck projects (Active with zero committed actions) are detected and surfaced with an amber indicator everywhere they appear. This epic turns generated breakdowns into a living, editable system of record over the Goal → Project → Action hierarchy.
 **FRs covered:** FR44, FR45, FR46, FR47, FR48, FR49, FR50, FR51, FR52, FR53, FR54, FR55, FR56, FR57, FR58, FR59, FR94, FR95
 **NFRs covered:** NFR3, NFR4, NFR9
 **ARs covered:** AR5, AR6, AR18
@@ -383,6 +398,13 @@ A signed-in user can run the full GTD reflect-and-engage loop: capture raw input
 **FRs covered:** FR60, FR61, FR62, FR63, FR64, FR65, FR66, FR67, FR68, FR69, FR70, FR71, FR72, FR73, FR74, FR75, FR76, FR77
 **NFRs covered:** NFR3, NFR4
 **ARs covered:** AR10
+
+### Epic 7: Focus Horizons & Areas of Focus
+
+A signed-in user can record Vision, Purpose, and Principles as persistent personal context, maintain ongoing Life Areas, connect Goals and standalone Projects to those Areas, and optionally review the roll-up from Get Creative. Existing Goal semantics and target-date behavior remain unchanged. Schedule this epic after Epic 5 and before Epic 6; retain Epic 6's existing ID.
+**FRs covered:** FR96, FR97, FR98, FR99, FR100, FR101
+**NFRs covered:** NFR3, NFR4, NFR6, NFR9
+**ARs covered:** AR5, AR8, AR15
 
 ### Epic 6: Data Portability & Experimental Vault
 
@@ -1096,6 +1118,36 @@ So that projects stay organized as my goals change.
 **When** I change a goal association or filter
 **Then** status, action ordering, and stuck detection remain unchanged
 
+### Story 4.7: New Projects Start Paused
+
+As a signed-in user,
+I want every new project to start Paused,
+So that it does not appear as ready-to-engage work until I activate it.
+
+**Acceptance Criteria:**
+
+**Given** a project is created manually, through standalone AI Project Mode, or by Goal generation
+**When** the project row is saved
+**Then** its status is Paused
+**And** each creation path explicitly writes Paused
+
+**Given** the schema migration is applied
+**When** a future project insert omits status
+**Then** the database default is Paused
+**And** no existing project row is updated by this migration
+
+**Given** a newly created Paused project has no committed action
+**When** it appears in Engage or a project list
+**Then** it is not shown in Engage and is not flagged as stuck until the user activates it
+
+**Given** the user activates a project
+**When** it has no committed action
+**Then** the existing stuck-project indicator and resolution flow apply
+
+**Given** all three creation paths
+**When** their focused tests run
+**Then** each asserts the inserted status is Paused, and the migration check confirms the default change does not backfill existing rows
+
 ## Epic 5: The GTD Loop — Inbox, Engage & Reviews
 
 A signed-in user can run the full GTD reflect-and-engage loop: capture to the inbox, engage with committed actions, run a guided three-phase weekly review bookended by weekly snapshots, and run a prompted monthly goal check. Review progress persists to Supabase.
@@ -1283,6 +1335,127 @@ So that goals stay relevant and none quietly drift.
 **When** I finish a goal's check
 **Then** it completes per-goal with no achievement event or streak
 
+## Epic 7: Focus Horizons & Areas of Focus
+
+A signed-in user can record higher-horizon context and maintain ongoing Life Areas without changing the meaning or lifecycle of existing Goals and Projects.
+
+**Relevant UX-DRs:** UX-DR24 (accessibility), UX-DR27 (Focus page), UX-DR28 (Area assignment), UX-DR29 (optional Focus review).
+
+### Story 7.1: Focus Profile and Area Data Model
+
+As a signed-in user,
+I want my Focus profile and Life Areas stored securely,
+So that higher-horizon context and ongoing responsibilities persist with my GTD system.
+
+**Acceptance Criteria:**
+
+**Given** the Supabase migration
+**When** it is applied
+**Then** a user-owned Focus profile stores optional Vision, Purpose, and Principles fields with at most one profile per user
+**And** an `areas_of_focus` table stores each user's named, optionally described, ordered Areas with an archive state
+**And** Areas have no Completed status
+
+**Given** the Goal and Project tables
+**When** the migration is applied
+**Then** Goals may have a nullable `area_id`
+**And** Projects may have a nullable direct `area_id` only when `goal_id` is null
+**And** the database rejects a Project row with both `goal_id` and direct `area_id` set
+
+**Given** any new table or Area reference
+**When** a user reads or mutates it
+**Then** RLS and owner checks prevent access to another user's Focus profile, Area, Goal, or Project
+**And** composite owner-matched foreign keys reject Goal or Project links to another user's Area, including direct Data API writes
+**And** exposed Focus tables grant only required read/insert/update privileges to `authenticated`, with no anonymous access or hard-delete privilege
+
+**Given** generated database types
+**When** the migration lands
+**Then** `lib/supabase/schema.ts` reflects the new tables and nullable Area references
+
+### Story 7.2: Focus Page and Area Management
+
+As a signed-in user,
+I want to manage Vision, Purpose, Principles, and Life Areas in one Focus view,
+So that ongoing responsibilities and higher-horizon context have a discoverable home.
+
+**Acceptance Criteria:**
+
+**Given** the authenticated shell
+**When** it renders
+**Then** Focus is reachable at `/app/focus` from desktop navigation and mobile navigation
+
+**Given** the Focus page
+**When** I edit my profile
+**Then** I can save optional Vision, Purpose, and Principles without creating a Goal or Project
+
+**Given** the Life Areas list
+**When** I manage an Area
+**Then** I can create, edit, reorder, or archive it
+**And** archived Areas are omitted from new assignment pickers but remain visible on existing linked records
+**And** no Area can be marked Completed
+
+**Given** a Life Area with linked work
+**When** it renders
+**Then** its Goals and standalone Projects appear with status and links to their existing detail pages
+
+**Given** the Focus page at every supported breakpoint
+**When** it is operated by keyboard or assistive technology
+**Then** controls are accessible and the page follows Archer's WCAG 2.1 AA floor
+
+### Story 7.3: Assign Goals and Projects to Areas
+
+As a signed-in user,
+I want Goals and standalone Projects to roll up to a Life Area,
+So that work without a Goal still belongs to an ongoing responsibility.
+
+**Acceptance Criteria:**
+
+**Given** Goal creation or editing
+**When** I choose an Area
+**Then** the Goal's optional `area_id` is saved and shown on Goal detail
+
+**Given** manual or AI standalone Project creation
+**When** I optionally choose an Area
+**Then** the Project is saved with that direct `area_id` and no `goal_id`
+**And** choosing no Area remains valid
+
+**Given** a Project linked to a Goal
+**When** it is shown in Focus or Project detail
+**Then** its Area is inherited through its Goal and no direct Area selector is offered
+
+**Given** I change a Project's parent from an Area to a Goal
+**When** the update succeeds
+**Then** its direct `area_id` is cleared and the Goal's Area is inherited
+
+**Given** a create or update request with another user's Area ID
+**When** the request is processed
+**Then** it is rejected without writing data; standalone AI requests validate Area ownership before calling the provider
+
+**Given** project-to-Goal and project-to-Area selectors
+**When** the project has exactly one direct parent
+**Then** the Project detail breadcrumb and Focus roll-up show the correct parent
+
+### Story 7.4: Optional Focus Review in Get Creative
+
+As a signed-in user,
+I want to see my Life Areas and linked work during Get Creative,
+So that I can notice an Area that needs attention without turning the review into another required form.
+
+**Acceptance Criteria:**
+
+**Given** the Get Creative phase
+**When** it renders
+**Then** an optional Focus review entry shows Life Areas and their linked Goals and Projects
+**And** a "Review Focus" link opens `/app/focus`
+
+**Given** I skip Focus review
+**When** I continue Get Creative
+**Then** the phase and weekly review completion rules are unchanged
+
+**Given** I navigate to Focus during an in-progress weekly review and return
+**When** the review view reloads
+**Then** the existing persisted review phase is restored
+**And** Vision, Purpose, and Principles do not require weekly editing
+
 ## Epic 6: Data Portability & Experimental Vault
 
 A signed-in user can export all their data on demand, and any visitor can use the experimental client-side encrypted vault to save, restore, and carry breakdowns across devices. All vault operations are client-side only and independent of Supabase.
@@ -1299,11 +1472,11 @@ So that I own my data and can recover it independently of the backend.
 
 **Given** the export control
 **When** I request an export
-**Then** a portable file (JSON and/or Markdown) is produced containing goals, projects, actions, and review history
+**Then** a portable file (JSON and/or Markdown) is produced containing Focus profiles, Life Areas, goals, projects, actions, inbox items, and review history
 
 **Given** archived items
 **When** the export runs
-**Then** archived goals and projects are retained in Supabase and included in the export
+**Then** archived Areas, goals, and projects are retained in Supabase and included in the export
 
 **Given** export integrity
 **When** I inspect the file

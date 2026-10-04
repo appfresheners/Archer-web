@@ -36,9 +36,10 @@
 # Supabase-backed AI generation system). The prior tracking file described the
 # superseded static-export MVP (template engine, copy/download, local-only vault)
 # and has been preserved as sprint-status-superseded-mvp1.yaml. None of the new
-# 35 stories have been started under the current plan, so all are 'backlog'.
+# Original story statuses are preserved. Stories added by approved course corrections
+# remain 'backlog' until their implementation specs are authored.
 generated: 09-27-2026 16:30
-last_updated: 10-02-2026 (Story H-3 review)
+last_updated: 10-04-2026 (Approved Focus Horizons course correction)
 
 project: GTDGoalandProjectCreator
 project_key: NOKEY
@@ -83,6 +84,7 @@ development_status:
   4-4-action-management-context-tags: review
   4-5-commit-single-next-action-stuck-detection: review
   4-6-project-goal-linking-filtering: review
+  4-7-new-projects-start-paused: backlog
   epic-4-retrospective: optional
 
   epic-5: in-progress
@@ -94,6 +96,14 @@ development_status:
   5-6-weekly-review-phases-get-clear-current-creative: review
   5-7-monthly-goal-check-prompted-manual: review
   epic-5-retrospective: optional
+
+  # Focus Horizons & Areas of Focus; scheduled after Epic 5 and before Epic 6.
+  epic-7: backlog
+  7-1-focus-profile-and-area-data-model: backlog
+  7-2-focus-page-and-area-management: backlog
+  7-3-assign-goals-and-projects-to-areas: backlog
+  7-4-optional-focus-review-in-get-creative: backlog
+  epic-7-retrospective: optional
 
   epic-6: backlog
   6-1-on-demand-data-export: backlog

@@ -2,7 +2,7 @@
 title: "Archer — GTD Goal & Project Creator PRD"
 status: draft
 created: 2026-08-20
-updated: 2026-09-27
+updated: 2026-10-04
 project: GTDGoalandProjectCreator
 version: v1-full
 ---
@@ -216,7 +216,7 @@ Capture → Clarify → Organize → Reflect → Engage
 
 ### FR-Group: Project Management [NOT YET BUILT]
 
-**FR49:** Each project SHALL have: a name (outcome-based), a purpose, a successful outcome (definition of done), a status (Active, Paused, Completed, Archived), and a parent goal.
+**FR49:** Each project SHALL have: a name (outcome-based), a purpose, a successful outcome (definition of done), a status (Active, Paused, Completed, Archived), and an optional parent goal. A newly created project SHALL default to Paused across manual creation, standalone AI Project Mode, and goal-generated creation. The user activates the project when ready; existing project statuses are unchanged.
 
 **FR50:** A user SHALL be able to edit any part of an AI-generated project: name, purpose, successful outcome, and action list.
 
@@ -227,6 +227,20 @@ Capture → Clarify → Organize → Reflect → Engage
 **FR94:** A user SHALL be able to set, change, or clear a project's parent goal from project detail, and attach an existing project from goal detail. Each project has at most one parent goal.
 
 **FR95:** The Projects view SHALL support filtering by all projects, a selected goal, or projects with no goal.
+
+### FR-Group: Focus Horizons & Areas of Focus
+
+**FR96:** A user SHALL be able to create, view, and edit one personal Focus profile containing an optional Vision statement, Purpose statement, and Principles list. These fields are context, not dated goals or completable projects.
+
+**FR97:** A user SHALL be able to create, view, edit, reorder, and archive Life Areas of Focus. Each Area SHALL have a name and may have a description. Areas SHALL NOT have a Completed status.
+
+**FR98:** A Goal MAY be linked to one Life Area. An Area may be archived but not completed; existing Goal and Project records retain their current status and meaning.
+
+**FR99:** A Project MAY be linked to a Goal or, when it has no Goal, directly to one Life Area. A Project linked to a Goal SHALL inherit its Area through that Goal and SHALL NOT store a conflicting direct Area assignment.
+
+**FR100:** The authenticated app SHALL provide a Focus view where a user can manage their Focus profile and Areas and see linked Goals and Projects.
+
+**FR101:** The Get Creative phase of the weekly review SHALL offer an optional Focus review entry point. Skipping it SHALL NOT block phase progression or review completion.
 
 ### FR-Group: Action Management [NOT YET BUILT]
 
@@ -296,13 +310,13 @@ Capture → Clarify → Organize → Reflect → Engage
 
 ### FR-Group: Data Persistence [NOT YET BUILT]
 
-**FR78:** All goals, projects, actions, inbox items, and review history SHALL be persisted to Supabase. No data is lost between sessions.
+**FR78:** All Focus profiles, Life Areas, goals, projects, actions, inbox items, and review history SHALL be persisted to Supabase. No data is lost between sessions.
 
 **FR79:** Data SHALL be backed up by Supabase's built-in backup mechanism. Backup frequency and point-in-time recovery SLA to be confirmed during backend setup (see §8 Open Questions).
 
-**FR80:** The user SHALL be able to export all their data on demand in a portable format (JSON and/or Markdown). Export SHALL include goals, projects, actions, and review history.
+**FR80:** The user SHALL be able to export all their data on demand in a portable format (JSON and/or Markdown). Export SHALL include Focus profiles, Life Areas, goals, projects, actions, inbox items, and review history.
 
-**FR81:** Archiving a goal or project preserves the data in Supabase. Archived data is included in exports.
+**FR81:** Archiving a Focus Area, goal, or project preserves the data in Supabase. Archived data is included in exports.
 
 ### FR-Group: Experimental Vault (Saved Breakdowns) [SHIPPED — EXPERIMENTAL]
 
@@ -390,11 +404,11 @@ Capture → Clarify → Organize → Reflect → Engage
 
 ## 8. Open Questions
 
-1. **Supabase schema** — full table DDL and RLS policies need a dedicated schema design pass. Core tables identified: goals, projects, actions, inbox_items, review_sessions, weekly_snapshots. Column-level detail to be designed in the architecture spine.
+1. **Supabase schema** — the architecture spine defines the six GTD tables plus `focus_profiles` and `areas_of_focus`; migrations and RLS implementation remain to be applied and verified.
 
 2. **Backup / point-in-time recovery** — Supabase free tier has limited PITR. Manual export (FR80) is the acknowledged substitute at this stage. Acceptable recovery window not formally confirmed.
 
-3. **Wizard API contract** — RESOLVED. A single `/api/generate` route handles all three patterns, discriminated by the request body: `{ mode: 'project', input }`, `{ mode: 'goal', step: 'framework', goal }`, and `{ mode: 'goal', step: 'generate', goal, framework, ratings, drivers, barriers, ifThen }`. One auth check, one provider path, one timeout handler; the patterns differ only in system prompt and return shape.
+3. **Generation API contract** — RESOLVED. One `/api/generate` route handles all patterns. Project Mode accepts `{ mode: 'project', input, depth, area_id? }`; Goal framework generation remains `{ mode: 'goal', step: 'framework', goal }`; Goal generation accepts `{ mode: 'goal', step: 'generate', goal, framework, ratings, drivers, barriers, ifThen, area_id? }`. Area IDs are association metadata, validated for ownership before provider calls, and not added to the AI prompt. Goal-generated Projects inherit the Goal's Area.
 
 4. **Context tags scope for v1** — FR56 lists `@energy`, `@location`, `@tool` as optional. Confirm in v1 or explicitly defer. Schema column (`context_tags text[]`) is ready.
 
@@ -420,15 +434,16 @@ Capture → Clarify → Organize → Reflect → Engage
 - Goal creation wizard with interactive gap analysis (FR1–FR24)
 - Supabase backend + schema (FR78–FR81)
 - Goal management — create, edit, delete, status (FR44–FR48)
-- Project management — edit, regenerate, status (FR49–FR52)
+- Project management — edit, regenerate, Paused-by-default creation, status (FR49–FR52)
 - Action management — commit, complete, reorder, context tags (FR53–FR57)
 - Stuck project detection (FR58–FR60)
 - Inbox capture (FR61–FR64)
 - Engage view — daily committed actions (FR65–FR68)
 - Weekly review UI — three-phase guided flow (FR69–FR74)
 - Monthly goal check — separate flow (FR75–FR77)
+- Focus Horizons & Areas of Focus — user-level Vision/Purpose/Principles, Life Areas, Goal/Project Area associations, Focus page, and optional Get Creative review (FR96–FR101)
 - Data export on demand (FR80)
-- Architecture spine update ✅ (completed 2026-09-27)
+- Architecture spine initial update ✅ (2026-09-27); Focus/Area extension updated (2026-10-04)
 
 ### Explicitly out of scope
 
