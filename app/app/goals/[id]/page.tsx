@@ -13,6 +13,7 @@
  */
 
 import StatusBadge from "@/components/goals/StatusBadge";
+import type { AreaOption } from "@/components/focus/AreaSelect";
 import { STUCK_MESSAGE } from "@/components/projects/StuckIndicator";
 import ReadErrorState from "@/components/shared/ReadErrorState";
 import { isProjectStuck } from "@/lib/goals/stuck";
@@ -31,6 +32,7 @@ import AttachProjectControl, {
   type AttachableProject,
 } from "./AttachProjectControl";
 import GoalDetailClient from "./GoalDetailClient";
+import { loadAreasForPicker } from "@/app/app/projects/new/load-goals";
 
 interface GoalDetailPageProps {
   params: Promise<{ id: string }>;
@@ -38,6 +40,7 @@ interface GoalDetailPageProps {
 
 export interface LoadedGoal {
   id: string;
+  area_id: string | null;
   goal_text: string;
   why: string | null;
   status: GoalStatus;
@@ -61,6 +64,7 @@ interface LoadedProjectCard {
 interface LoadResult {
   goal: LoadedGoal;
   projects: LoadedProjectCard[];
+  assignedArea: (AreaOption & { archived: boolean }) | null;
 }
 
 async function loadGoalDetail(id: string): Promise<ReadResult<LoadResult>> {
@@ -70,13 +74,30 @@ async function loadGoalDetail(id: string): Promise<ReadResult<LoadResult>> {
     const { data: goal, error } = await supabase
       .from("goals")
       .select(
-        "id, goal_text, why, status, target_date, last_checked_at, skill_framework, drivers, barriers, if_then_plans, goal_statement, success_criteria",
+        "id, area_id, goal_text, why, status, target_date, last_checked_at, skill_framework, drivers, barriers, if_then_plans, goal_statement, success_criteria",
       )
       .eq("id", id)
       .maybeSingle();
 
     if (error) return { status: "error" };
     if (!goal) return { status: "not-found" };
+
+    let assignedArea: LoadResult["assignedArea"] = null;
+    if (goal.area_id) {
+      const { data: area, error: areaError } = await supabase
+        .from("areas_of_focus")
+        .select("id, name, archived_at")
+        .eq("id", goal.area_id)
+        .maybeSingle();
+      if (areaError) return { status: "error" };
+      if (area) {
+        assignedArea = {
+          id: area.id,
+          name: area.name,
+          archived: area.archived_at !== null,
+        };
+      }
+    }
 
     const { data: projects, error: projectsError } = await supabase
       .from("projects")
@@ -126,7 +147,10 @@ async function loadGoalDetail(id: string): Promise<ReadResult<LoadResult>> {
       }));
     }
 
-    return { status: "ok", data: { goal: goal as LoadedGoal, projects: projectCards } };
+    return {
+      status: "ok",
+      data: { goal: goal as LoadedGoal, projects: projectCards, assignedArea },
+    };
   } catch {
     return { status: "error" };
   }
@@ -353,9 +377,10 @@ function ProjectCards({ projects }: { projects: LoadedProjectCard[] }) {
 
 export default async function GoalDetailPage({ params }: GoalDetailPageProps) {
   const { id } = await params;
-  const [result, attachable] = await Promise.all([
+  const [result, attachable, areas] = await Promise.all([
     loadGoalDetail(id),
     loadAttachableProjects(),
+    loadAreasForPicker(),
   ]);
 
   if (result.status === "error") {
@@ -365,11 +390,15 @@ export default async function GoalDetailPage({ params }: GoalDetailPageProps) {
     notFound();
   }
 
-  const { goal, projects } = result.data;
+  const { goal, projects, assignedArea } = result.data;
 
   return (
     <article className="flex flex-col gap-[var(--spacing-section-y)]">
-      <GoalDetailClient goal={goal} />
+      <GoalDetailClient
+        goal={goal}
+        areas={areas}
+        assignedArea={assignedArea}
+      />
 
       <MyGoalSection goal={goal} />
 

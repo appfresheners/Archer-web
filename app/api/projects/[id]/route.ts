@@ -62,6 +62,56 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
     const supabase = await createClient();
 
+    if (patch.area_id) {
+      const { data: currentProject, error: projectReadError } = await supabase
+        .from("projects")
+        .select("id, goal_id")
+        .eq("id", id)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (projectReadError) {
+        console.error(
+          "[api/projects PATCH] project parent read failed:",
+          projectReadError.message,
+        );
+        return NextResponse.json(
+          { error: "Failed to update the project. Please try again." },
+          { status: 500 },
+        );
+      }
+      if (!currentProject) {
+        return NextResponse.json({ error: "Project not found." }, { status: 404 });
+      }
+      if (currentProject.goal_id && patch.goal_id === undefined) {
+        return NextResponse.json(
+          { error: "A Goal-linked Project inherits its Area from the Goal." },
+          { status: 400 },
+        );
+      }
+
+      const { data: ownedArea, error: areaError } = await supabase
+        .from("areas_of_focus")
+        .select("id")
+        .eq("id", patch.area_id)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (areaError) {
+        console.error(
+          "[api/projects PATCH] Area ownership check failed:",
+          areaError.message,
+        );
+        return NextResponse.json(
+          { error: "Failed to update the project. Please try again." },
+          { status: 500 },
+        );
+      }
+      if (!ownedArea) {
+        return NextResponse.json({ error: "Area not found." }, { status: 404 });
+      }
+    }
+
     // Cross-owner guard (Story 4.6): a non-null goal_id must reference a goal
     // owned by the acting user. RLS on `projects` only scopes the project row;
     // the FK only checks the goal exists — neither prevents linking to another

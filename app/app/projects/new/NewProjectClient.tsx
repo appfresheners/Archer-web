@@ -6,7 +6,7 @@
  *
  * A server component cannot hand a function prop to a client component, so this
  * wrapper owns the submit handlers. In AI mode (the default, unchanged) it
- * POSTs `{ mode: 'project', input, depth }` to `/api/generate`; the route
+ * POSTs `{ mode: 'project', input, depth, areaId }` to `/api/generate`; the route
  * generates AND saves the project (save-before-return) and resolves to
  * `{ id }`. In manual mode (Story 2.7) it POSTs the manual fields to the
  * authenticated `/api/projects` route, which inserts the row without any AI
@@ -24,11 +24,12 @@ import ProjectModeInput, {
   type GoalOption,
   type ManualProjectArgs,
 } from "@/components/projects/ProjectModeInput";
+import type { AreaOption } from "@/components/focus/AreaSelect";
 import type { PlanningDepth } from "@/lib/supabase/schema";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-type SubmitArgs = { input: string; depth: PlanningDepth };
+type SubmitArgs = { input: string; depth: PlanningDepth; areaId: string | null };
 
 const TIMEOUT_MESSAGE =
   "Generation took longer than 30 seconds and timed out. Please try again.";
@@ -41,8 +42,10 @@ const MANUAL_GENERIC_MESSAGE =
 
 export default function NewProjectClient({
   goals = [],
+  areas = [],
 }: {
   goals?: GoalOption[];
+  areas?: AreaOption[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -104,6 +107,7 @@ export default function NewProjectClient({
           mode: "project",
           input: args.input,
           depth: args.depth,
+                  areaId: args.areaId,
         }),
         signal: controller.signal,
       });
@@ -165,6 +169,7 @@ export default function NewProjectClient({
           purpose: args.purpose || null,
           successful_outcome: args.successfulOutcome || null,
           goal_id: args.goalId,
+                  area_id: args.areaId,
         }),
         signal: controller.signal,
       });
@@ -212,6 +217,7 @@ export default function NewProjectClient({
         manualSaving={manualSaving}
         initialInput={seed}
         goals={goals}
+        areas={areas}
       />
       {error && (
         <div

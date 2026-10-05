@@ -8,6 +8,8 @@ const goalMaybeSingle = vi.fn();
 const projectsOrder = vi.fn();
 const actionsIn = vi.fn();
 const attachableProjects = vi.fn();
+const areaOptions = vi.fn();
+const assignedArea = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
@@ -23,6 +25,14 @@ vi.mock("@/lib/supabase/server", () => ({
             then: (resolve: (v: unknown) => void) => resolve(attachableProjects()),
             eq: () => ({ order: () => projectsOrder() }),
           }),
+        };
+      }
+      if (table === "areas_of_focus") {
+        return {
+          select: (columns: string) =>
+            columns === "id, name"
+              ? { is: () => ({ order: () => areaOptions() }) }
+              : { eq: () => ({ maybeSingle: () => assignedArea() }) },
         };
       }
       return { select: () => ({ in: () => actionsIn() }) };
@@ -42,8 +52,23 @@ vi.mock("next/navigation", () => ({
 // The interactive client header is exercised in its own concerns; stub it so
 // the server-page test focuses on the read/render surface.
 vi.mock("./GoalDetailClient", () => ({
-  default: ({ goal }: { goal: { goal_text: string } }) => (
-    <div data-testid="goal-client">{goal.goal_text}</div>
+  default: ({
+    goal,
+    areas = [],
+    assignedArea: area = null,
+  }: {
+    goal: { goal_text: string };
+    areas?: { id: string; name: string }[];
+    assignedArea?: { id: string; name: string; archived: boolean } | null;
+  }) => (
+    <div
+      data-testid="goal-client"
+      data-area-count={areas.length}
+      data-assigned-area={area?.name ?? ""}
+      data-area-archived={area?.archived ? "true" : "false"}
+    >
+      {goal.goal_text}
+    </div>
   ),
 }));
 
@@ -77,12 +102,15 @@ describe("GoalDetailPage", () => {
     projectsOrder.mockResolvedValue({ data: [], error: null });
     actionsIn.mockResolvedValue({ data: [], error: null });
     attachableProjects.mockResolvedValue({ data: [], error: null });
+    areaOptions.mockResolvedValue({ data: [], error: null });
+    assignedArea.mockResolvedValue({ data: null, error: null });
   });
 
   it("renders the gap analysis, projects, and Monthly Check when the goal exists", async () => {
     goalMaybeSingle.mockResolvedValue({
       data: {
         id: "g1",
+        area_id: null,
         goal_text: "Run a marathon",
         why: "I want to build confidence and endurance.",
         status: "active",
@@ -144,6 +172,7 @@ describe("GoalDetailPage", () => {
     goalMaybeSingle.mockResolvedValue({
       data: {
         id: "g1",
+        area_id: null,
         goal_text: "Run a marathon",
         why: "I want to build confidence and endurance.",
         status: "active",
@@ -170,6 +199,73 @@ describe("GoalDetailPage", () => {
     expect(screen.queryByText("Success criteria")).not.toBeInTheDocument();
   });
 
+  it("passes an active assigned Area and active options to Goal detail", async () => {
+    goalMaybeSingle.mockResolvedValue({
+      data: {
+        id: "g1",
+        area_id: "area-active",
+        goal_text: "Run a marathon",
+        why: null,
+        status: "active",
+        target_date: "2026-12-31",
+        last_checked_at: null,
+        skill_framework: null,
+        drivers: null,
+        barriers: null,
+        if_then_plans: null,
+        goal_statement: null,
+        success_criteria: null,
+      },
+      error: null,
+    });
+    assignedArea.mockResolvedValue({
+      data: { id: "area-active", name: "Health", archived_at: null },
+      error: null,
+    });
+    areaOptions.mockResolvedValue({
+      data: [{ id: "area-active", name: "Health" }],
+      error: null,
+    });
+
+    await renderPage("g1");
+
+    expect(screen.getByTestId("goal-client")).toHaveAttribute("data-assigned-area", "Health");
+    expect(screen.getByTestId("goal-client")).toHaveAttribute("data-area-count", "1");
+    expect(screen.getByTestId("goal-client")).toHaveAttribute("data-area-archived", "false");
+  });
+
+  it("passes an archived assigned Area but excludes it from selector options", async () => {
+    goalMaybeSingle.mockResolvedValue({
+      data: {
+        id: "g1",
+        area_id: "area-archived",
+        goal_text: "Run a marathon",
+        why: null,
+        status: "active",
+        target_date: "2026-12-31",
+        last_checked_at: null,
+        skill_framework: null,
+        drivers: null,
+        barriers: null,
+        if_then_plans: null,
+        goal_statement: null,
+        success_criteria: null,
+      },
+      error: null,
+    });
+    assignedArea.mockResolvedValue({
+      data: { id: "area-archived", name: "Work", archived_at: "2026-10-01T00:00:00Z" },
+      error: null,
+    });
+    areaOptions.mockResolvedValue({ data: [], error: null });
+
+    await renderPage("g1");
+
+    expect(screen.getByTestId("goal-client")).toHaveAttribute("data-assigned-area", "Work");
+    expect(screen.getByTestId("goal-client")).toHaveAttribute("data-area-count", "0");
+    expect(screen.getByTestId("goal-client")).toHaveAttribute("data-area-archived", "true");
+  });
+
   it("calls notFound() when the goal is absent", async () => {
     goalMaybeSingle.mockResolvedValue({ data: null, error: null });
     await expect(renderPage("missing")).rejects.toBeInstanceOf(NotFoundError);
@@ -189,6 +285,7 @@ describe("GoalDetailPage", () => {
     goalMaybeSingle.mockResolvedValue({
       data: {
         id: "g1",
+        area_id: null,
         goal_text: "Run a marathon",
         why: null,
         status: "active",

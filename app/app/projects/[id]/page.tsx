@@ -16,6 +16,7 @@
  */
 
 import StatusBadge from "@/components/goals/StatusBadge";
+import type { AreaOption } from "@/components/focus/AreaSelect";
 import type { ActionItemData } from "@/components/projects/ActionItem";
 import ActionList from "@/components/projects/ActionList";
 import StuckIndicator from "@/components/projects/StuckIndicator";
@@ -33,6 +34,7 @@ import { notFound } from "next/navigation";
 import ProjectDetailClient, {
     type ProjectHeaderData,
 } from "./ProjectDetailClient";
+import { loadAreasForPicker } from "@/app/app/projects/new/load-goals";
 
 interface ProjectDetailPageProps {
     params: Promise<{ id: string }>;
@@ -42,13 +44,20 @@ interface LoadedProject {
     id: string;
     name: string;
     goal_id: string | null;
+    area_id: string | null;
     status: ProjectStatus;
     purpose: string | null;
     successful_outcome: string | null;
     planning_depth: "minimal" | "full_gtd";
     planning_detail: PlanningDetail | null;
     goalText: string | null;
+    directArea: (AreaOption & { archived: boolean }) | null;
+    inheritedArea: (AreaOption & { archived: boolean }) | null;
     actions: ActionItemData[];
+}
+
+interface AreaDisplay extends AreaOption {
+    archived: boolean;
 }
 
 interface GoalOption {
@@ -74,7 +83,7 @@ async function loadProject(id: string): Promise<ReadResult<LoadedProject>> {
         const { data, error } = await supabase
             .from("projects")
             .select(
-                "id, name, goal_id, status, purpose, successful_outcome, planning_depth, planning_detail"
+                "id, name, goal_id, area_id, status, purpose, successful_outcome, planning_depth, planning_detail"
             )
             .eq("id", id)
             .maybeSingle();
@@ -88,16 +97,47 @@ async function loadProject(id: string): Promise<ReadResult<LoadedProject>> {
 
         // Parent goal text for the breadcrumb (goal-less projects skip this).
         let goalText: string | null = null;
+        let inheritedArea: AreaDisplay | null = null;
+        let directArea: AreaDisplay | null = null;
         if (data.goal_id) {
             const { data: goal, error: goalError } = await supabase
                 .from("goals")
-                .select("goal_text")
+            .select("goal_text, area_id")
                 .eq("id", data.goal_id)
                 .maybeSingle();
             if (goalError) {
                 return { status: "error" };
             }
             goalText = goal?.goal_text ?? null;
+            if (goal?.area_id) {
+                const { data: area, error: areaError } = await supabase
+                    .from("areas_of_focus")
+                    .select("id, name, archived_at")
+                    .eq("id", goal.area_id)
+                    .maybeSingle();
+                if (areaError) return { status: "error" };
+                if (area) {
+                    inheritedArea = {
+                        id: area.id,
+                        name: area.name,
+                        archived: area.archived_at !== null,
+                    };
+                }
+            }
+        } else if (data.area_id) {
+            const { data: area, error: areaError } = await supabase
+                .from("areas_of_focus")
+                .select("id, name, archived_at")
+                .eq("id", data.area_id)
+                .maybeSingle();
+            if (areaError) return { status: "error" };
+            if (area) {
+                directArea = {
+                    id: area.id,
+                    name: area.name,
+                    archived: area.archived_at !== null,
+                };
+            }
         }
 
         const { data: actions, error: actionsError } = await supabase
@@ -110,7 +150,16 @@ async function loadProject(id: string): Promise<ReadResult<LoadedProject>> {
             return { status: "error" };
         }
 
-        return { status: "ok", data: { ...data, goalText, actions: actions ?? [] } };
+        return {
+            status: "ok",
+            data: {
+                ...data,
+                goalText,
+                directArea,
+                inheritedArea,
+                actions: actions ?? [],
+            },
+        };
     } catch {
         return { status: "error" };
     }
@@ -181,9 +230,10 @@ export default async function ProjectDetailPage({
     params,
 }: ProjectDetailPageProps) {
     const { id } = await params;
-    const [projectResult, goals] = await Promise.all([
+    const [projectResult, goals, areas] = await Promise.all([
         loadProject(id),
         loadGoalOptions(),
+        loadAreasForPicker(),
     ]);
 
     if (projectResult.status === "error") {
@@ -202,6 +252,9 @@ export default async function ProjectDetailPage({
         successful_outcome: project.successful_outcome,
         status: project.status,
         goalId: project.goal_id,
+        areaId: project.area_id,
+        directArea: project.directArea,
+        inheritedArea: project.inheritedArea,
     };
     // Stuck = Active project with zero committed actions (Story 4.5).
     const stuck = isProjectStuck({ status: project.status }, project.actions);
@@ -217,6 +270,13 @@ export default async function ProjectDetailPage({
                             className="hover:text-text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
                         >
                             ← {project.goalText}
+                        </Link>
+                    ) : !project.goal_id && project.directArea ? (
+                        <Link
+                            href="/app/focus"
+                            className="hover:text-text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+                        >
+                            ← {project.directArea.name}{project.directArea.archived ? " (archived)" : ""}
                         </Link>
                     ) : (
                         <Link
@@ -240,7 +300,7 @@ export default async function ProjectDetailPage({
                     </div>
                 </div>
 
-                <ProjectDetailClient project={header} goals={goals} />
+                <ProjectDetailClient project={header} goals={goals} areas={areas} />
             </header>
 
             {stuck && <StuckIndicator />}

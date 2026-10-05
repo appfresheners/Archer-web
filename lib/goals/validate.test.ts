@@ -100,6 +100,14 @@ describe("sanitizeGoalPatch", () => {
     expect(sanitizeGoalPatch({ status: "done" })).toBeNull();
   });
 
+  it("accepts nullable Area IDs and rejects malformed values", () => {
+    const areaId = "66666666-6666-4666-8666-666666666666";
+    expect(sanitizeGoalPatch({ area_id: areaId })).toEqual({ area_id: areaId });
+    expect(sanitizeGoalPatch({ area_id: null })).toEqual({ area_id: null });
+    expect(sanitizeGoalPatch({ area_id: "not-a-uuid" })).toBeNull();
+    expect(sanitizeGoalPatch({ area_id: 5 })).toBeNull();
+  });
+
   it("rejects an out-of-bounds goal_text", () => {
     expect(sanitizeGoalPatch({ goal_text: "" })).toBeNull();
     expect(sanitizeGoalPatch({ goal_text: "x".repeat(501) })).toBeNull();

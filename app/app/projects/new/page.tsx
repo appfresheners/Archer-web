@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import NewProjectClient from "./NewProjectClient";
-import { loadGoalsForPicker } from "./load-goals";
+import { loadAreasForPicker, loadGoalsForPicker } from "./load-goals";
 
 export const metadata: Metadata = {
   title: "New project — Archer",
@@ -15,7 +15,10 @@ export const metadata: Metadata = {
  * `/app` layout already enforces auth, so no auth check is needed here.
  */
 export default async function NewProjectPage() {
-  const goals = await loadGoalsForPicker();
+  const [goals, areas] = await Promise.all([
+    loadGoalsForPicker(),
+    loadAreasForPicker(),
+  ]);
 
   return (
     <div className="flex flex-col gap-[var(--spacing-section-y)]">
@@ -24,7 +27,7 @@ export default async function NewProjectPage() {
       </h1>
       {/* useSearchParams (clarify seed) requires a Suspense boundary. */}
       <Suspense>
-        <NewProjectClient goals={goals} />
+        <NewProjectClient goals={goals} areas={areas} />
       </Suspense>
     </div>
   );

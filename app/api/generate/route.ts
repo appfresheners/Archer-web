@@ -4,10 +4,9 @@
  * This is the ONE authenticated route that every generation flow shares:
  *   1. Auth guard — reject any request without a valid Supabase session with
  *      401 *before* any provider call is made.
- *   2. Validation — parse the discriminated body `{ mode, input, depth }` and
- *      reject empty/whitespace, over-cap (>2000 chars), unknown modes, and
- *      (for `project`) a missing/invalid `depth`, all with 400 before the
- *      provider call.
+ *   2. Validation — parse the discriminated body and optional Area ID,
+ *      rejecting malformed input before provider use. Area IDs are checked
+ *      for ownership but are never included in AI prompt inputs.
  *   3. Dispatch — select the depth-aware system prompt and route the
  *      recognized mode through `generate()` from `lib/ai`, which owns provider
  *      selection and the 30-second timeout.
@@ -132,7 +131,7 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    const { mode, input, depth, step, goal, why, framework, drivers, barriers, ifThens } =
+    const { mode, input, depth, step, goal, why, framework, drivers, barriers, ifThens, areaId } =
         (body ?? {}) as {
             mode?: unknown;
             input?: unknown;
@@ -144,6 +143,7 @@ export async function POST(request: NextRequest) {
             drivers?: unknown;
             barriers?: unknown;
             ifThens?: unknown;
+            areaId?: unknown;
         };
 
     if (!isKnownMode(mode)) {
@@ -165,6 +165,7 @@ export async function POST(request: NextRequest) {
             drivers,
             barriers,
             ifThens,
+            areaId,
         }, request.signal);
     }
 
@@ -204,6 +205,20 @@ export async function POST(request: NextRequest) {
     }
     const planningDepth: PlanningDepth = depth;
 
+    if (!isOptionalUuid(areaId)) {
+        return NextResponse.json({ error: "A valid Area is required." }, { status: 400 });
+    }
+    const areaOwnership = await checkAreaOwnership(userId, areaId ?? null);
+    if (areaOwnership === "error") {
+        return NextResponse.json(
+            { error: "Failed to validate the Area. Please try again." },
+            { status: 500 },
+        );
+    }
+    if (areaOwnership === "missing") {
+        return NextResponse.json({ error: "Area not found." }, { status: 400 });
+    }
+
     // 4. Generate a STRUCTURED project (JSON) via lib/projects (which owns the
     //    prompt selection, the provider call, the 30s timeout, and JSON
     //    validation). No markdown is produced or stored.
@@ -223,6 +238,7 @@ export async function POST(request: NextRequest) {
     const projectRow: ProjectInsert = {
         user_id: userId,
         goal_id: null, // Project Mode is the permitted null-goal case.
+        area_id: areaId ?? null,
         planning_depth: planningDepth,
         name: generated.name,
         purpose: generated.purpose,
@@ -311,6 +327,7 @@ interface GoalRequestFields {
     drivers: unknown;
     barriers: unknown;
     ifThens: unknown;
+    areaId: unknown;
 }
 
 async function handleGoal(
@@ -345,6 +362,10 @@ async function handleGoal(
         );
     }
 
+    if (!isOptionalUuid(fields.areaId)) {
+        return NextResponse.json({ error: "A valid Area is required." }, { status: 400 });
+    }
+
     if (why.length > MAX_INPUT_LENGTH) {
         return NextResponse.json(
             { error: `Why must be ${MAX_INPUT_LENGTH} characters or fewer.` },
@@ -365,7 +386,14 @@ async function handleGoal(
 
     // Pattern C (`generate`) — validate the full payload, generate the
     // breakdown, then persist goals→projects→actions with rollback.
-    return handleGoalGenerate(userId, goal.trim(), why.trim(), fields, signal);
+    return handleGoalGenerate(
+        userId,
+        goal.trim(),
+        why.trim(),
+        fields,
+        fields.areaId ?? null,
+        signal,
+    );
 }
 
 /**
@@ -385,6 +413,7 @@ async function handleGoalGenerate(
     goal: string,
     why: string,
     fields: GoalRequestFields,
+    areaId: string | null,
     signal: AbortSignal
 ): Promise<NextResponse> {
     const { framework, drivers, barriers, ifThens } = fields;
@@ -421,6 +450,17 @@ async function handleGoalGenerate(
         );
     }
 
+    const areaOwnership = await checkAreaOwnership(userId, areaId);
+    if (areaOwnership === "error") {
+        return NextResponse.json(
+            { error: "Failed to validate the Area. Please try again." },
+            { status: 500 },
+        );
+    }
+    if (areaOwnership === "missing") {
+        return NextResponse.json({ error: "Area not found." }, { status: 400 });
+    }
+
     // Generate the STRUCTURED breakdown (JSON) via lib/goals (which owns the
     // prompt, the provider call, the 30s timeout, and JSON validation).
     let generated;
@@ -446,6 +486,7 @@ async function handleGoalGenerate(
         drivers,
         barriers,
         ifThens,
+        areaId,
         generated,
     );
 }
@@ -463,6 +504,7 @@ async function saveGoalBreakdown(
     drivers: string[],
     barriers: string[],
     ifThens: string[],
+    areaId: string | null,
     generated: Awaited<ReturnType<typeof generateGoal>>
 ): Promise<NextResponse> {
     const targetDate = computeTargetDate();
@@ -489,6 +531,7 @@ async function saveGoalBreakdown(
         const { data, error } = await supabase.rpc("save_goal_breakdown", {
             p_goal: {
                 goal_text: goal,
+                area_id: areaId,
                 why,
                 target_date: targetDate,
                 skill_framework: framework,
@@ -515,6 +558,37 @@ async function saveGoalBreakdown(
             error instanceof Error ? error.message : "unexpected insert error";
         console.error("[api/generate] goal save threw:", message);
         return failure();
+    }
+}
+
+function isUuid(value: unknown): value is string {
+    return (
+        typeof value === "string" &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+    );
+}
+
+function isOptionalUuid(value: unknown): value is string | null | undefined {
+    return value === undefined || value === null || isUuid(value);
+}
+
+async function checkAreaOwnership(
+    userId: string,
+    areaId: string | null,
+): Promise<"owned" | "missing" | "error"> {
+    if (!areaId) return "owned";
+    try {
+        const supabase = await createClient();
+        const { data, error } = await supabase
+            .from("areas_of_focus")
+            .select("id")
+            .eq("id", areaId)
+            .eq("user_id", userId)
+            .maybeSingle();
+        if (error) return "error";
+        return data ? "owned" : "missing";
+    } catch {
+        return "error";
     }
 }
 

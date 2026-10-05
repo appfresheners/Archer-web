@@ -18,6 +18,7 @@ export interface ManualProjectInput {
   purpose: string | null;
   successful_outcome: string | null;
   goal_id: string | null;
+  area_id: string | null;
 }
 
 const UUID_RE =
@@ -77,5 +78,8 @@ export function validateManualProject(
   const goal_id = optionalGoalId(obj.goal_id);
   if (goal_id === INVALID) return null;
 
-  return { name, purpose, successful_outcome, goal_id };
+  const area_id = optionalGoalId(obj.area_id);
+  if (area_id === INVALID || (goal_id !== null && area_id !== null)) return null;
+
+  return { name, purpose, successful_outcome, goal_id, area_id };
 }

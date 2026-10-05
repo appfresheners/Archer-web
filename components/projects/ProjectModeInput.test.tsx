@@ -107,6 +107,29 @@ describe("ProjectModeInput", () => {
       expect(onSubmit).toHaveBeenCalledWith({
         input: "Build a portfolio",
         depth: "minimal",
+        areaId: null,
+      });
+    });
+
+    it("emits an optional Area ID for standalone AI generation", () => {
+      const onSubmit = vi.fn();
+      render(
+        <ProjectModeInput
+          onSubmit={onSubmit}
+          areas={[{ id: "area-1", name: "Health" }]}
+        />,
+      );
+      fireEvent.change(screen.getByRole("textbox"), {
+        target: { value: "Build a portfolio" },
+      });
+      fireEvent.change(screen.getByLabelText("Life Area (optional)"), {
+        target: { value: "area-1" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /break it down/i }));
+      expect(onSubmit).toHaveBeenCalledWith({
+        input: "Build a portfolio",
+        depth: "minimal",
+        areaId: "area-1",
       });
     });
 
@@ -121,6 +144,7 @@ describe("ProjectModeInput", () => {
       expect(onSubmit).toHaveBeenCalledWith({
         input: "Launch a newsletter",
         depth: "full_gtd",
+        areaId: null,
       });
     });
 
@@ -136,10 +160,12 @@ describe("ProjectModeInput", () => {
       expect(onSubmit).toHaveBeenNthCalledWith(1, {
         input: "Do a thing",
         depth: "minimal",
+        areaId: null,
       });
       expect(onSubmit).toHaveBeenNthCalledWith(2, {
         input: "Do a thing",
         depth: "minimal",
+        areaId: null,
       });
     });
   });
@@ -290,6 +316,7 @@ describe("ProjectModeInput", () => {
         purpose: "Grow an audience",
         successfulOutcome: "500 subscribers",
         goalId: null,
+        areaId: null,
       });
     });
 
@@ -319,7 +346,36 @@ describe("ProjectModeInput", () => {
         purpose: "",
         successfulOutcome: "",
         goalId: "g2",
+        areaId: null,
       });
+    });
+
+    it("emits an Area for a standalone manual Project and hides it for Goal-linked Projects", () => {
+      const onManualSubmit = vi.fn();
+      render(
+        <ProjectModeInput
+          onSubmit={vi.fn()}
+          onManualSubmit={onManualSubmit}
+          goals={[{ id: "g1", goal_text: "A goal" }]}
+          areas={[{ id: "a1", name: "Health" }]}
+        />,
+      );
+      fireEvent.click(screen.getByRole("radio", { name: "Create manually" }));
+      fireEvent.change(screen.getByLabelText(/project name/i), {
+        target: { value: "A project" },
+      });
+      fireEvent.change(screen.getByLabelText("Life Area (optional)"), {
+        target: { value: "a1" },
+      });
+      fireEvent.change(screen.getByLabelText(/parent goal/i), {
+        target: { value: "g1" },
+      });
+      expect(screen.queryByLabelText("Life Area (optional)")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: /create project/i }));
+      expect(onManualSubmit).toHaveBeenCalledWith(expect.objectContaining({
+        goalId: "g1",
+        areaId: null,
+      }));
     });
 
     it("shows 'Saving…' and disables while manualSaving", () => {

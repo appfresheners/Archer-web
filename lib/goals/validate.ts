@@ -31,6 +31,8 @@ export const MAX_IF_THEN = 2000;
 export const MAX_IF_THEN_ITEMS = 30;
 const MIN_LEVEL = 1;
 const MAX_LEVEL = 10;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function isGoalStatus(value: unknown): value is GoalStatus {
   return typeof value === "string" && (GOAL_STATUSES as string[]).includes(value);
@@ -118,6 +120,15 @@ export function sanitizeGoalPatch(body: unknown): GoalUpdate | null {
   if ("status" in obj) {
     if (!isGoalStatus(obj.status)) return null;
     patch.status = obj.status;
+  }
+
+  if ("area_id" in obj) {
+    if (obj.area_id === null) patch.area_id = null;
+    else if (typeof obj.area_id === "string" && UUID_RE.test(obj.area_id)) {
+      patch.area_id = obj.area_id;
+    } else {
+      return null;
+    }
   }
 
   if ("drivers" in obj) {

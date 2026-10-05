@@ -19,6 +19,7 @@
 
 import GoalStatusSelect from "@/components/goals/GoalStatusSelect";
 import StatusBadge from "@/components/goals/StatusBadge";
+import AreaSelect, { type AreaOption } from "@/components/focus/AreaSelect";
 import type { GoalStatus, SkillFrameworkItem } from "@/lib/supabase/schema";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -37,7 +38,15 @@ function fromListText(text: string): string[] {
     .filter((l) => l !== "");
 }
 
-export default function GoalDetailClient({ goal }: { goal: LoadedGoal }) {
+export default function GoalDetailClient({
+  goal,
+  areas = [],
+  assignedArea = null,
+}: {
+  goal: LoadedGoal;
+  areas?: AreaOption[];
+  assignedArea?: (AreaOption & { archived: boolean }) | null;
+}) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -46,6 +55,7 @@ export default function GoalDetailClient({ goal }: { goal: LoadedGoal }) {
 
   // Edit form state (seeded from the server-provided goal).
   const [goalText, setGoalText] = useState(goal.goal_text);
+  const [areaId, setAreaId] = useState(goal.area_id ?? "");
   const [why, setWhy] = useState(goal.why ?? "");
   const [targetDate, setTargetDate] = useState(goal.target_date);
   const [drivers, setDrivers] = useState(toListText(goal.drivers));
@@ -116,6 +126,7 @@ export default function GoalDetailClient({ goal }: { goal: LoadedGoal }) {
     // A required date: don't send an empty value (it would be rejected). Fall
     // back to the current target date so a cleared field is a no-op, not a 400.
     const body: Record<string, unknown> = {
+      area_id: areaId || null,
       goal_text: goalText,
       why,
       target_date: targetDate.trim() === "" ? goal.target_date : targetDate,
@@ -135,6 +146,7 @@ export default function GoalDetailClient({ goal }: { goal: LoadedGoal }) {
 
   function handleCancel() {
     setGoalText(goal.goal_text);
+    setAreaId(goal.area_id ?? "");
     setWhy(goal.why ?? "");
     setTargetDate(goal.target_date);
     setDrivers(toListText(goal.drivers));
@@ -186,6 +198,9 @@ export default function GoalDetailClient({ goal }: { goal: LoadedGoal }) {
           <div className="flex flex-wrap items-center gap-3 text-[length:var(--font-size-small)] text-text-secondary">
             <StatusBadge status={goal.status} />
             <span>Target {goal.target_date}</span>
+            <span>
+              Life Area: {assignedArea ? `${assignedArea.name}${assignedArea.archived ? " (archived)" : ""}` : "None"}
+            </span>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-[length:var(--font-size-small)] text-text-secondary">
@@ -217,6 +232,14 @@ export default function GoalDetailClient({ goal }: { goal: LoadedGoal }) {
         </>
       ) : (
         <div className="flex flex-col gap-4">
+          <AreaSelect
+            id="goal-area"
+            value={areaId}
+            areas={areas}
+            currentArchivedArea={assignedArea?.archived ? assignedArea : null}
+            disabled={busy}
+            onChange={setAreaId}
+          />
           <div className="flex flex-col gap-1">
             <label htmlFor="goal-text" className="font-medium text-text-primary">
               Goal statement

@@ -18,6 +18,7 @@
  */
 
 import ProjectStatusSelect from "@/components/projects/ProjectStatusSelect";
+import AreaSelect, { type AreaOption } from "@/components/focus/AreaSelect";
 import type { ProjectStatus } from "@/lib/supabase/schema";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -29,6 +30,9 @@ export interface ProjectHeaderData {
   successful_outcome: string | null;
   status: ProjectStatus;
   goalId: string | null;
+  areaId: string | null;
+  directArea: (AreaOption & { archived: boolean }) | null;
+  inheritedArea: (AreaOption & { archived: boolean }) | null;
 }
 
 /** A goal option shown in the parent-goal selector. */
@@ -44,9 +48,11 @@ const TIMEOUT_ERROR =
 export default function ProjectDetailClient({
   project,
   goals = [],
+  areas = [],
 }: {
   project: ProjectHeaderData;
   goals?: ParentGoalOption[];
+  areas?: AreaOption[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -57,6 +63,7 @@ export default function ProjectDetailClient({
   const [name, setName] = useState(project.name);
   const [purpose, setPurpose] = useState(project.purpose ?? "");
   const [outcome, setOutcome] = useState(project.successful_outcome ?? "");
+  const [areaId, setAreaId] = useState(project.areaId ?? "");
 
   const dialogRef = useRef<HTMLDivElement>(null);
   const regenTriggerRef = useRef<HTMLButtonElement>(null);
@@ -110,7 +117,9 @@ export default function ProjectDetailClient({
   async function handleGoalChange(goalId: string) {
     const next = goalId === "" ? null : goalId;
     if (next === (project.goalId ?? null) || busy) return;
+    const previousAreaId = areaId;
     setError("");
+    if (next) setAreaId("");
     setBusy(true);
 
     const controller = new AbortController();
@@ -129,6 +138,7 @@ export default function ProjectDetailClient({
           error?: string;
         } | null;
         setError(payload?.error || GENERIC_ERROR);
+        setAreaId(previousAreaId);
         setBusy(false);
         return;
       }
@@ -137,6 +147,47 @@ export default function ProjectDetailClient({
     } catch {
       if (controller.signal.aborted) return;
       setError(GENERIC_ERROR);
+      setAreaId(previousAreaId);
+      setBusy(false);
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
+    }
+  }
+
+  async function handleAreaChange(selectedAreaId: string) {
+    const next = selectedAreaId === "" ? null : selectedAreaId;
+    if (next === project.areaId || busy) return;
+    const previousAreaId = areaId;
+    setError("");
+    setAreaId(next ?? "");
+    setBusy(true);
+
+    const controller = new AbortController();
+    abortRef.current?.abort();
+    abortRef.current = controller;
+
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ area_id: next }),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        setError(payload?.error || GENERIC_ERROR);
+        setAreaId(previousAreaId);
+        setBusy(false);
+        return;
+      }
+      setBusy(false);
+      router.refresh();
+    } catch {
+      if (controller.signal.aborted) return;
+      setError(GENERIC_ERROR);
+      setAreaId(previousAreaId);
       setBusy(false);
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
@@ -310,6 +361,20 @@ export default function ProjectDetailClient({
               ))}
             </select>
           </label>
+          {project.goalId ? (
+            <p className="text-[length:var(--font-size-small)] text-text-secondary">
+              Life Area: {project.inheritedArea ? `${project.inheritedArea.name}${project.inheritedArea.archived ? " (archived)" : ""}` : "None"}
+            </p>
+          ) : (
+            <AreaSelect
+              id="project-area"
+              value={areaId}
+              areas={areas}
+              currentArchivedArea={project.directArea?.archived ? project.directArea : null}
+              disabled={busy}
+              onChange={handleAreaChange}
+            />
+          )}
           <button type="button" className={btnSecondary} onClick={() => setEditing(true)} disabled={busy}>
             Edit project
           </button>

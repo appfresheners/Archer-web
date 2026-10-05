@@ -25,6 +25,7 @@
  */
 
 import type { StepContext } from "@/app/app/goals/new/GoalWizard";
+import AreaSelect from "@/components/focus/AreaSelect";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -48,8 +49,8 @@ interface WizardStep4Props {
 }
 
 export default function WizardStep4({ ctx }: WizardStep4Props) {
-  const { state, goToStep, headingRef } = ctx;
-  const { goalText, why, framework, drivers, barriers, ifThens } = state;
+  const { state, areas, patchState, goToStep, headingRef } = ctx;
+  const { goalText, areaId, why, framework, drivers, barriers, ifThens } = state;
 
   const router = useRouter();
   const [inFlight, setInFlight] = useState(false);
@@ -80,6 +81,7 @@ export default function WizardStep4({ ctx }: WizardStep4Props) {
           step: "generate",
           goal: goalText.trim(),
           why: why.trim(),
+          areaId: areaId || null,
           // `framework` carries each item's `user_rating` inline and is the
           // single source of truth for ratings — the server reads them off
           // `framework`, so no separate `ratings` field is sent.
@@ -150,6 +152,16 @@ export default function WizardStep4({ ctx }: WizardStep4Props) {
       >
         <p className="text-text-primary">{why}</p>
       </ReviewSection>
+
+      <section className="flex flex-col gap-3">
+        <h3 className="font-bold text-text-primary">Life Area</h3>
+        <AreaSelect
+          id="goal-area"
+          value={areaId}
+          areas={areas}
+          onChange={(value) => patchState({ areaId: value })}
+        />
+      </section>
 
       {/* Skill framework + ratings */}
       <ReviewSection

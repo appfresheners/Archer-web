@@ -367,6 +367,7 @@ describe("GoalWizard", () => {
   describe("applyGoalText (framework invalidation contract)", () => {
     const withFramework: WizardState = {
       goalText: "Learn guitar",
+      areaId: "",
       why: "I want to make music with friends.",
       framework: [
         { name: "Chords", required_level: 7, description: "…", user_rating: 4 },

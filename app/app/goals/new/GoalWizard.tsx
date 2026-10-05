@@ -32,6 +32,7 @@ import WizardStep2 from "@/components/goals/WizardStep2";
 import WizardStep3 from "@/components/goals/WizardStep3";
 import WizardStep4 from "@/components/goals/WizardStep4";
 import WizardStepper from "@/components/goals/WizardStepper";
+import type { AreaOption } from "@/components/focus/AreaSelect";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
@@ -56,6 +57,7 @@ export interface SkillFrameworkItem {
  */
 export interface WizardState {
   goalText: string;
+  areaId: string;
   why: string;
   framework: SkillFrameworkItem[] | null;
   drivers: string[];
@@ -66,6 +68,7 @@ export interface WizardState {
 /** Context handed to each step's `render` so it can read/update wizard state. */
 export interface StepContext {
   state: WizardState;
+  areas: AreaOption[];
   /** Update Step 1 goal text; clears the framework when the text changes. */
   setGoalText: (text: string) => void;
   /** Update the user's reason for pursuing the goal; invalidates its framework. */
@@ -104,6 +107,7 @@ export interface WizardStep {
 
 const INITIAL_STATE: WizardState = {
   goalText: "",
+  areaId: "",
   why: "",
   framework: null,
   drivers: [],
@@ -202,7 +206,11 @@ const STEPS: WizardStep[] = [
   },
 ];
 
-export default function GoalWizard() {
+export default function GoalWizard({
+  areas = [],
+}: {
+  areas?: AreaOption[];
+}) {
   const [state, setState] = useState<WizardState>(INITIAL_STATE);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [completed, setCompleted] = useState<number[]>([]);
@@ -327,6 +335,7 @@ export default function GoalWizard() {
       >
         {currentStep.render({
           state,
+          areas,
           setGoalText,
           setGoalWhy,
           patchState,

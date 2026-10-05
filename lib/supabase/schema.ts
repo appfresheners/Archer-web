@@ -430,6 +430,7 @@ export interface Database {
       save_goal_breakdown: {
         Args: {
           p_goal: {
+            area_id: string | null;
             goal_text: string;
             why: string | null;
             target_date: string;
