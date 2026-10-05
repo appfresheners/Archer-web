@@ -20,6 +20,7 @@ const priorSnapshotEq: Array<[string, unknown]> = [];
 // a test can drive buildReviewData through the loader with real data.
 const reviewDataSelect = vi.fn();
 const reviewDataRows: Record<string, unknown[]> = {};
+const reviewDataErrors: Record<string, unknown> = {};
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
@@ -45,12 +46,26 @@ vi.mock("@/lib/supabase/server", () => ({
         // buildReviewData source reads: .select(...) or .select(...).neq(...),
         // awaited directly → resolve to a thenable that also supports .neq().
         // Per-table rows come from `reviewDataRows` so a test can supply data.
-        const result = { data: reviewDataRows[table] ?? [], error: null };
+        const result = {
+          data: reviewDataRows[table] ?? [],
+          error: reviewDataErrors[table] ?? null,
+        };
         const thenable = {
           neq: () => Promise.resolve(result),
           then: (resolve: (v: typeof result) => unknown) => resolve(result),
         };
         return { select: () => (reviewDataSelect(table), thenable) };
+      }
+      if (table === "areas_of_focus") {
+        const result = {
+          data: reviewDataRows[table] ?? [],
+          error: reviewDataErrors[table] ?? null,
+        };
+        return {
+          select: () => ({
+            order: () => (reviewDataSelect(table), Promise.resolve(result)),
+          }),
+        };
       }
       // review_sessions: two chains distinguished by .eq (current) vs .not (last).
       return {
@@ -88,6 +103,7 @@ describe("ReviewPage", () => {
     priorSnapshotMaybeSingle.mockResolvedValue({ data: null, error: null });
     priorSnapshotEq.length = 0;
     for (const k of Object.keys(reviewDataRows)) delete reviewDataRows[k];
+    for (const k of Object.keys(reviewDataErrors)) delete reviewDataErrors[k];
   });
 
   it("queries the PRIOR ISO week for the closed-loop snapshot across a year boundary", async () => {
@@ -162,21 +178,67 @@ describe("ReviewPage", () => {
       { id: "i1", raw_text: "learn to sail", processing_status: "someday" },
     ];
     reviewDataRows.projects = [
-      { id: "p1", name: "Fitness plan", status: "active", updated_at: "2026-09-01T00:00:00Z", goal_id: "g1" },
+      { id: "p1", name: "Fitness plan", status: "active", updated_at: "2026-09-01T00:00:00Z", goal_id: "g1", area_id: null },
     ];
     reviewDataRows.actions = [];
     reviewDataRows.goals = [
-      { id: "g1", goal_text: "Get fit", status: "active" },
+      { id: "g1", goal_text: "Get fit", status: "active", area_id: "a1" },
+    ];
+    reviewDataRows.areas_of_focus = [
+      { id: "a1", name: "Health", sort_order: 0, archived_at: null },
     ];
 
     await renderPage();
 
-    // The 4 review-data reads ran, and buildReviewData output reached the shell:
+    // The five review-data reads ran, and buildReviewData output reached the shell:
     // the someday item + goal-alignment (1 project, 1 stuck) render.
     expect(reviewDataSelect).toHaveBeenCalledWith("inbox_items");
     expect(reviewDataSelect).toHaveBeenCalledWith("projects");
+    expect(reviewDataSelect).toHaveBeenCalledWith("areas_of_focus");
     expect(screen.getByText("learn to sail")).toBeInTheDocument();
-    expect(screen.getByText("Get fit")).toBeInTheDocument();
+    expect(screen.getAllByText("Get fit")).toHaveLength(2);
+    expect(screen.getByRole("heading", { name: "Health" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Review Focus" })).toHaveAttribute(
+      "href",
+      "/app/focus",
+    );
+    expect(screen.getByLabelText("Phase 4 of 5: Get Creative, current")).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+  });
+
+  it("restores Get Creative with the Focus link and reports an Area read failure", async () => {
+    currentMaybeSingle.mockResolvedValue({
+      data: {
+        id: "rev-1",
+        current_phase: "get_creative",
+        completed_at: null,
+        week_number: 40,
+        week_start_date: "2026-09-28",
+        week_end_date: "2026-10-04",
+        opening_retrospective: "moved a",
+        closing_intention: null,
+        closing_blocker: null,
+      },
+      error: null,
+    });
+    reviewDataErrors.areas_of_focus = { message: "offline" };
+
+    await renderPage();
+
+    expect(screen.getByLabelText("Phase 4 of 5: Get Creative, current")).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+    expect(screen.getByRole("link", { name: "Review Focus" })).toHaveAttribute(
+      "href",
+      "/app/focus",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Life Areas could not be loaded",
+    );
+    expect(screen.queryByText("No Areas yet.")).not.toBeInTheDocument();
   });
 
   it("shows the last-review date on the landing", async () => {

@@ -11,6 +11,8 @@ const EMPTY_REVIEW_DATA: ReviewData = {
   currentProjects: [],
   somedayItems: [],
   goalAlignment: [],
+  focusAreas: [],
+  focusAreasError: false,
 };
 
 const refresh = vi.fn();
@@ -222,6 +224,26 @@ describe("ReviewShell", () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
+  it("persists Get Creative before offering navigation to Focus", async () => {
+    const user = userEvent.setup();
+    renderShell({ initialPhase: "get_current" });
+
+    await user.click(screen.getByRole("button", { name: "Next" }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText("Phase 4 of 5: Get Creative, current"),
+      ).toHaveAttribute("aria-current", "step"),
+    );
+    expect(JSON.parse(lastCall()[1].body)).toEqual({
+      current_phase: "get_creative",
+    });
+    expect(screen.getByRole("link", { name: "Review Focus" })).toHaveAttribute(
+      "href",
+      "/app/focus",
+    );
+  });
+
   it("Back moves to the previous phase (persisting it) without skipping", async () => {
     const user = userEvent.setup();
     renderShell({ initialPhase: "get_current" });
@@ -405,11 +427,30 @@ describe("ReviewShell", () => {
         goalAlignment: [
           { id: "g1", goalText: "Get fit", projectCount: 2, stuckCount: 1 },
         ],
+        focusAreas: [
+          {
+            id: "area-1",
+            name: "Health",
+            archived_at: null,
+            goals: [{ id: "g1", goalText: "Get fit", status: "active" }],
+            projects: [{ id: "p1", name: "Weekly training", status: "paused" }],
+          },
+        ],
       },
     });
     expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
     expect(screen.getByText("learn to sail")).toBeInTheDocument();
-    expect(screen.getByText("Get fit")).toBeInTheDocument();
+    expect(screen.getAllByText("Get fit")).toHaveLength(2);
+    expect(screen.getByRole("heading", { name: "Focus review (optional)" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Review Focus" })).toHaveAttribute(
+      "href",
+      "/app/focus",
+    );
+    expect(screen.getByRole("link", { name: /Weekly training/ })).toHaveAttribute(
+      "href",
+      "/app/projects/p1",
+    );
+    expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
   });
 
   it("Get Creative: activating a someday item PATCHes it to unprocessed", async () => {

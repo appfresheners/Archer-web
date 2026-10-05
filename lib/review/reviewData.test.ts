@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildReviewData,
   type ReviewActionInput,
+  type ReviewAreaInput,
   type ReviewGoalInput,
   type ReviewInboxInput,
   type ReviewProjectInput,
@@ -19,6 +20,7 @@ const project = (over: Partial<ReviewProjectInput>): ReviewProjectInput => ({
   status: "active",
   updated_at: "2026-09-20T00:00:00Z",
   goal_id: null,
+  area_id: null,
   ...over,
 });
 const action = (over: Partial<ReviewActionInput>): ReviewActionInput => ({
@@ -33,6 +35,14 @@ const goal = (over: Partial<ReviewGoalInput>): ReviewGoalInput => ({
   id: "g1",
   goal_text: "Goal",
   status: "active",
+  area_id: null,
+  ...over,
+});
+const area = (over: Partial<ReviewAreaInput>): ReviewAreaInput => ({
+  id: "area-1",
+  name: "Health",
+  sort_order: 0,
+  archived_at: null,
   ...over,
 });
 
@@ -151,5 +161,58 @@ describe("buildReviewData — goalAlignment (Get Creative)", () => {
     expect(
       buildReviewData([], [], [], [goal({ status: "paused" })]).goalAlignment,
     ).toEqual([]);
+  });
+});
+
+describe("buildReviewData — Focus roll-up (Get Creative)", () => {
+  it("orders Areas and linked records, includes archived Areas, and avoids duplicating Goal projects", () => {
+    const data = buildReviewData(
+      [],
+      [
+        project({ id: "direct-z", name: "Zeta standalone", area_id: "area-1" }),
+        project({ id: "direct-a", name: "Alpha standalone", area_id: "area-1" }),
+        project({ id: "inherited", name: "Goal project", area_id: "area-1", goal_id: "goal-1" }),
+        project({ id: "archived-project", name: "Old project", area_id: "area-old" }),
+      ],
+      [],
+      [
+        goal({ id: "goal-z", goal_text: "Zeta goal", area_id: "area-1" }),
+        goal({ id: "goal-1", goal_text: "Alpha goal", area_id: "area-1" }),
+        goal({ id: "old-goal", goal_text: "Old goal", area_id: "area-old", status: "completed" }),
+      ],
+      [
+        area({ id: "area-old", name: "Archived", sort_order: 1, archived_at: "2026-10-01" }),
+        area({ id: "area-1", name: "Health", sort_order: 0 }),
+      ],
+    );
+
+    expect(data.focusAreas).toEqual([
+      {
+        id: "area-1",
+        name: "Health",
+        archived_at: null,
+        goals: [
+          { id: "goal-1", goalText: "Alpha goal", status: "active" },
+          { id: "goal-z", goalText: "Zeta goal", status: "active" },
+        ],
+        projects: [
+          { id: "direct-a", name: "Alpha standalone", status: "active" },
+          { id: "direct-z", name: "Zeta standalone", status: "active" },
+        ],
+      },
+      {
+        id: "area-old",
+        name: "Archived",
+        archived_at: "2026-10-01",
+        goals: [{ id: "old-goal", goalText: "Old goal", status: "completed" }],
+        projects: [{ id: "archived-project", name: "Old project", status: "active" }],
+      },
+    ]);
+  });
+
+  it("returns an empty Area roll-up when the user has no Areas", () => {
+    const data = buildReviewData([], [], [], []);
+    expect(data.focusAreas).toEqual([]);
+    expect(data.focusAreasError).toBe(false);
   });
 });

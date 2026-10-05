@@ -39,6 +39,8 @@ export interface ReviewProjectInput {
   updated_at: string;
   /** Parent goal, for the alignment counts (null = goal-less project). */
   goal_id: string | null;
+  /** Direct Area parent; Goal-linked projects inherit their Area instead. */
+  area_id: string | null;
 }
 
 export interface ReviewActionInput {
@@ -53,6 +55,22 @@ export interface ReviewGoalInput {
   id: string;
   goal_text: string;
   status: GoalStatus;
+  area_id: string | null;
+}
+
+export interface ReviewAreaInput {
+  id: string;
+  name: string;
+  sort_order: number;
+  archived_at: string | null;
+}
+
+export interface ReviewAreaRollup {
+  id: string;
+  name: string;
+  archived_at: string | null;
+  goals: { id: string; goalText: string; status: GoalStatus }[];
+  projects: { id: string; name: string; status: ProjectStatus }[];
 }
 
 /** An available action offered when committing a new next action. */
@@ -93,6 +111,8 @@ export interface ReviewData {
   currentProjects: ReviewCurrentProject[];
   somedayItems: ReviewSomedayItem[];
   goalAlignment: ReviewGoalAlignment[];
+  focusAreas: ReviewAreaRollup[];
+  focusAreasError: boolean;
 }
 
 function sortBySortOrder<T extends { sort_order: number }>(items: T[]): T[] {
@@ -112,6 +132,7 @@ export function buildReviewData(
   projects: readonly ReviewProjectInput[],
   actions: readonly ReviewActionInput[],
   goals: readonly ReviewGoalInput[],
+  areas: readonly ReviewAreaInput[] = [],
 ): ReviewData {
   // Index actions by project.
   const actionsByProject = new Map<string, ReviewActionInput[]>();
@@ -183,5 +204,36 @@ export function buildReviewData(
       };
     });
 
-  return { unprocessedCount, currentProjects, somedayItems, goalAlignment };
+  const focusAreas: ReviewAreaRollup[] = [...areas]
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((area) => ({
+      id: area.id,
+      name: area.name,
+      archived_at: area.archived_at,
+      goals: goals
+        .filter((goal) => goal.area_id === area.id)
+        .sort((a, b) => a.goal_text.localeCompare(b.goal_text))
+        .map((goal) => ({
+          id: goal.id,
+          goalText: goal.goal_text,
+          status: goal.status,
+        })),
+      projects: projects
+        .filter((project) => project.area_id === area.id && project.goal_id === null)
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((project) => ({
+          id: project.id,
+          name: project.name,
+          status: project.status,
+        })),
+    }));
+
+  return {
+    unprocessedCount,
+    currentProjects,
+    somedayItems,
+    goalAlignment,
+    focusAreas,
+    focusAreasError: false,
+  };
 }

@@ -39,7 +39,7 @@
 # Original story statuses are preserved. Stories added by approved course corrections
 # remain 'backlog' until their implementation specs are authored.
 generated: 09-27-2026 16:30
-last_updated: 10-04-2026 (Story 7.3 implementation ready for review)
+last_updated: 10-05-2026 (Story 7.4 implementation ready for review)
 
 project: GTDGoalandProjectCreator
 project_key: NOKEY
@@ -102,7 +102,7 @@ development_status:
   7-1-focus-profile-and-area-data-model: review
   7-2-focus-page-and-area-management: review
   7-3-assign-goals-and-projects-to-areas: review
-  7-4-optional-focus-review-in-get-creative: backlog
+  7-4-optional-focus-review-in-get-creative: review
   epic-7-retrospective: optional
 
   epic-6: backlog

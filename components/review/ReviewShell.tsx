@@ -336,6 +336,8 @@ export default function ReviewShell({
       <GetCreativePanel
         somedayItems={reviewData.somedayItems}
         goalAlignment={reviewData.goalAlignment}
+        focusAreas={reviewData.focusAreas}
+        focusAreasError={reviewData.focusAreasError}
         onRefresh={refresh}
       />
     );
