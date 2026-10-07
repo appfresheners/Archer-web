@@ -202,7 +202,7 @@ describe("ProjectDetailPage", () => {
 
     await renderPage("project-area");
 
-    expect(screen.getByRole("link", { name: "← Health" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Health" })).toHaveAttribute(
       "href",
       "/app/focus",
     );

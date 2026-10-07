@@ -12,6 +12,8 @@
  *     `updatedAt`, and whether it is stuck (active + zero committed).
  *   - `somedayItems` — inbox items with `processing_status = 'someday'` (the
  *     Get Creative activate/delete/keep list).
+ *   - `somedayProjects` — projects with `status = 'someday'` (the distinct
+ *     Get Creative activation list).
  *   - `goalAlignment` — ACTIVE goals with their project + stuck counts (the
  *     read-only Get Creative alignment summary).
  *
@@ -98,6 +100,12 @@ export interface ReviewSomedayItem {
   raw_text: string;
 }
 
+/** One Someday/Maybe project as surfaced in Get Creative. */
+export interface ReviewSomedayProject {
+  id: string;
+  name: string;
+}
+
 /** One ACTIVE goal in the alignment summary. */
 export interface ReviewGoalAlignment {
   id: string;
@@ -110,6 +118,7 @@ export interface ReviewData {
   unprocessedCount: number;
   currentProjects: ReviewCurrentProject[];
   somedayItems: ReviewSomedayItem[];
+  somedayProjects: ReviewSomedayProject[];
   goalAlignment: ReviewGoalAlignment[];
   focusAreas: ReviewAreaRollup[];
   focusAreasError: boolean;
@@ -152,6 +161,9 @@ export function buildReviewData(
   const somedayItems: ReviewSomedayItem[] = inbox
     .filter((i) => i.processing_status === "someday")
     .map((i) => ({ id: i.id, raw_text: i.raw_text }));
+  const somedayProjects: ReviewSomedayProject[] = projects
+    .filter((project) => project.status === "someday")
+    .map((project) => ({ id: project.id, name: project.name }));
 
   // Get Current: each ACTIVE project with committed/available/stuck + updatedAt.
   const currentProjects: ReviewCurrentProject[] = [];
@@ -232,6 +244,7 @@ export function buildReviewData(
     unprocessedCount,
     currentProjects,
     somedayItems,
+    somedayProjects,
     goalAlignment,
     focusAreas,
     focusAreasError: false,

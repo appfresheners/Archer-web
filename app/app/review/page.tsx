@@ -74,6 +74,7 @@ const EMPTY_REVIEW_DATA: ReviewData = {
   unprocessedCount: 0,
   currentProjects: [],
   somedayItems: [],
+  somedayProjects: [],
   goalAlignment: [],
   focusAreas: [],
   focusAreasError: false,

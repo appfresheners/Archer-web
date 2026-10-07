@@ -22,6 +22,7 @@ import type {
   ReviewAreaRollup,
   ReviewGoalAlignment,
   ReviewSomedayItem,
+  ReviewSomedayProject,
 } from "@/lib/review/reviewData";
 import Link from "next/link";
 import { useState } from "react";
@@ -30,6 +31,7 @@ const GENERIC_ERROR = "Something went wrong. Please try again.";
 
 interface GetCreativePanelProps {
   somedayItems: ReviewSomedayItem[];
+  somedayProjects: ReviewSomedayProject[];
   goalAlignment: ReviewGoalAlignment[];
   focusAreas: ReviewAreaRollup[];
   focusAreasError: boolean;
@@ -39,6 +41,7 @@ interface GetCreativePanelProps {
 
 export default function GetCreativePanel({
   somedayItems,
+  somedayProjects,
   goalAlignment,
   focusAreas,
   focusAreasError,
@@ -77,6 +80,14 @@ export default function GetCreativePanel({
     if (ok) onRefresh();
   }
 
+  async function activateProject(id: string) {
+    if (busyId) return;
+    setBusyId(id);
+    const ok = await call(`/api/projects/${id}`, "PATCH", { status: "paused" });
+    setBusyId(null);
+    if (ok) onRefresh();
+  }
+
   async function remove(id: string) {
     if (busyId) return;
     setBusyId(id);
@@ -108,7 +119,7 @@ export default function GetCreativePanel({
       )}
 
       <section className="flex flex-col gap-2">
-        <h3 className="font-medium text-text-primary">Someday / Maybe</h3>
+        <h3 className="font-medium text-text-primary">Someday / Maybe inbox items</h3>
         {somedayItems.length === 0 ? (
           <p className="text-text-secondary" role="status">
             Nothing on the someday list.
@@ -145,6 +156,44 @@ export default function GetCreativePanel({
                 </li>
               );
             })}
+          </ul>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h3 className="font-medium text-text-primary">Someday projects</h3>
+        {somedayProjects.length === 0 ? (
+          <p className="text-text-secondary" role="status">
+            No Someday projects.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {somedayProjects.map((project) => (
+              <li
+                key={project.id}
+                className="flex flex-col gap-2 rounded-[var(--radius-sm)] border border-border bg-surface-raised p-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link
+                    href={`/app/projects/${project.id}`}
+                    className="min-h-[44px] break-words text-text-primary underline-offset-4 hover:underline focus-visible:rounded-[var(--radius-sm)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+                  >
+                    {project.name}
+                  </Link>
+                  <StatusBadge status="someday" />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => activateProject(project.id)}
+                  disabled={busyId !== null}
+                  aria-busy={busyId === project.id}
+                  aria-label={`Activate ${project.name}`}
+                  className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-border-strong px-3 py-2 text-[length:var(--font-size-small)] font-medium text-text-primary transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
+                >
+                  Activate
+                </button>
+              </li>
+            ))}
           </ul>
         )}
       </section>

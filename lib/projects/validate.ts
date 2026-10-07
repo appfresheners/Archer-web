@@ -12,6 +12,7 @@ import type { ProjectStatus, ProjectUpdate } from "@/lib/supabase/schema";
 const PROJECT_STATUSES: readonly ProjectStatus[] = [
   "active",
   "paused",
+  "someday",
   "completed",
   "archived",
 ];

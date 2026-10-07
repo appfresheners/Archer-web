@@ -26,7 +26,12 @@ export type GoalStatus =
   | 'completed'
   | 'archived';
 
-export type ProjectStatus = 'active' | 'paused' | 'completed' | 'archived';
+export type ProjectStatus =
+  | 'active'
+  | 'paused'
+  | 'someday'
+  | 'completed'
+  | 'archived';
 
 export type ActionStatus = 'available' | 'committed' | 'done' | 'waiting';
 

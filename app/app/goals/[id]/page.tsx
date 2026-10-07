@@ -16,6 +16,8 @@ import StatusBadge from "@/components/goals/StatusBadge";
 import type { AreaOption } from "@/components/focus/AreaSelect";
 import { STUCK_MESSAGE } from "@/components/projects/StuckIndicator";
 import ReadErrorState from "@/components/shared/ReadErrorState";
+import Breadcrumbs from "@/components/shared/Breadcrumbs";
+import { labelForPath, safeFrom } from "@/lib/navigation/from";
 import { isProjectStuck } from "@/lib/goals/stuck";
 import type { ReadResult } from "@/lib/read-result";
 import type {
@@ -36,6 +38,7 @@ import { loadAreasForPicker } from "@/app/app/projects/new/load-goals";
 
 interface GoalDetailPageProps {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ from?: string | string[] }>;
 }
 
 export interface LoadedGoal {
@@ -375,8 +378,9 @@ function ProjectCards({ projects }: { projects: LoadedProjectCard[] }) {
   );
 }
 
-export default async function GoalDetailPage({ params }: GoalDetailPageProps) {
+export default async function GoalDetailPage({ params, searchParams }: GoalDetailPageProps) {
   const { id } = await params;
+  const from = safeFrom((await searchParams)?.from);
   const [result, attachable, areas] = await Promise.all([
     loadGoalDetail(id),
     loadAttachableProjects(),
@@ -394,6 +398,15 @@ export default async function GoalDetailPage({ params }: GoalDetailPageProps) {
 
   return (
     <article className="flex flex-col gap-[var(--spacing-section-y)]">
+      <Breadcrumbs
+        items={[
+          ...(from && !from.startsWith("/app/goals")
+            ? [{ label: labelForPath(from) ?? "Back", href: from }]
+            : []),
+          { label: "Goals", href: "/app/goals" },
+          { label: "Goal" },
+        ]}
+      />
       <GoalDetailClient
         goal={goal}
         areas={areas}

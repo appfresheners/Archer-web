@@ -80,12 +80,14 @@ describe("buildReviewData — currentProjects (Get Current)", () => {
         project({ id: "p1", name: "Alpha", status: "active", updated_at: "2026-09-01T00:00:00Z" }),
         project({ id: "p2", name: "Paused", status: "paused" }),
         project({ id: "p3", name: "Beta", status: "active" }),
+        project({ id: "p4", name: "Someday", status: "someday" }),
       ],
       [
         action({ id: "a1", project_id: "p1", status: "committed", text: "Do X" }),
         action({ id: "a2", project_id: "p1", status: "available", text: "Later", sort_order: 1 }),
         // p3 has only available actions → stuck.
         action({ id: "a3", project_id: "p3", status: "available", text: "Start", sort_order: 0 }),
+        action({ id: "a4", project_id: "p4", status: "available", text: "Explore" }),
       ],
       [],
     );
@@ -135,6 +137,21 @@ describe("buildReviewData — somedayItems (Get Creative)", () => {
     );
     expect(data.somedayItems).toEqual([{ id: "i1", raw_text: "learn piano" }]);
   });
+
+  it("returns Someday projects separately from inbox items", () => {
+    const data = buildReviewData(
+      [inbox({ id: "i1", processing_status: "someday", raw_text: "learn piano" })],
+      [
+        project({ id: "p1", name: "Learn Italian", status: "someday" }),
+        project({ id: "p2", name: "Paused", status: "paused" }),
+      ],
+      [],
+      [],
+    );
+
+    expect(data.somedayItems).toEqual([{ id: "i1", raw_text: "learn piano" }]);
+    expect(data.somedayProjects).toEqual([{ id: "p1", name: "Learn Italian" }]);
+  });
 });
 
 describe("buildReviewData — goalAlignment (Get Creative)", () => {
@@ -145,6 +162,7 @@ describe("buildReviewData — goalAlignment (Get Creative)", () => {
         project({ id: "p1", status: "active", goal_id: "g1" }), // committed → not stuck
         project({ id: "p2", status: "active", goal_id: "g1" }), // stuck
         project({ id: "p3", status: "paused", goal_id: "g1" }), // excluded (not active)
+        project({ id: "p4", status: "someday", goal_id: "g1" }), // excluded (not active)
       ],
       [action({ id: "a1", project_id: "p1", status: "committed" })],
       [

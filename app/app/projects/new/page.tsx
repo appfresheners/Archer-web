@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import NewProjectClient from "./NewProjectClient";
+import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import { loadAreasForPicker, loadGoalsForPicker } from "./load-goals";
 
 export const metadata: Metadata = {
@@ -22,6 +23,9 @@ export default async function NewProjectPage() {
 
   return (
     <div className="flex flex-col gap-[var(--spacing-section-y)]">
+      <Breadcrumbs
+        items={[{ label: "Projects", href: "/app/projects" }, { label: "New project" }]}
+      />
       <h1 className="text-[length:var(--font-size-section)] font-bold text-text-primary">
         New project
       </h1>

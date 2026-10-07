@@ -25,7 +25,7 @@ describe("isProjectStuck", () => {
   });
 
   it("is NOT stuck when not active, even with zero committed", () => {
-    for (const status of ["paused", "completed", "archived"] as const) {
+    for (const status of ["paused", "someday", "completed", "archived"] as const) {
       expect(isProjectStuck({ status }, [{ status: "available" }])).toBe(false);
     }
   });
@@ -38,6 +38,7 @@ describe("countStuckProjects", () => {
       { status: "active", actions: [{ status: "committed" }] }, // ok
       { status: "active", actions: [{ status: "available" }] }, // stuck
       { status: "paused", actions: [] }, // not stuck (paused)
+      { status: "someday", actions: [{ status: "available" }] }, // not stuck
       { status: "completed", actions: [{ status: "done" }] }, // not stuck
     ]);
     expect(count).toBe(2);

@@ -20,7 +20,9 @@ import type { AreaOption } from "@/components/focus/AreaSelect";
 import type { ActionItemData } from "@/components/projects/ActionItem";
 import ActionList from "@/components/projects/ActionList";
 import StuckIndicator from "@/components/projects/StuckIndicator";
+import Breadcrumbs, { type BreadcrumbItem } from "@/components/shared/Breadcrumbs";
 import ReadErrorState from "@/components/shared/ReadErrorState";
+import { labelForPath, safeFrom } from "@/lib/navigation/from";
 import { isProjectStuck } from "@/lib/goals/stuck";
 import type { ReadResult } from "@/lib/read-result";
 import type {
@@ -29,7 +31,6 @@ import type {
 } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import ProjectDetailClient, {
     type ProjectHeaderData,
@@ -38,6 +39,7 @@ import { loadAreasForPicker } from "@/app/app/projects/new/load-goals";
 
 interface ProjectDetailPageProps {
     params: Promise<{ id: string }>;
+    searchParams?: Promise<{ from?: string | string[] }>;
 }
 
 interface LoadedProject {
@@ -228,8 +230,10 @@ function ListSection({ title, items }: { title: string; items: string[] }) {
 
 export default async function ProjectDetailPage({
     params,
+    searchParams,
 }: ProjectDetailPageProps) {
     const { id } = await params;
+    const from = safeFrom((await searchParams)?.from);
     const [projectResult, goals, areas] = await Promise.all([
         loadProject(id),
         loadGoalOptions(),
@@ -259,34 +263,29 @@ export default async function ProjectDetailPage({
     // Stuck = Active project with zero committed actions (Story 4.5).
     const stuck = isProjectStuck({ status: project.status }, project.actions);
 
+    // Trail: origin (if any) > parent goal/area/projects list > this project.
+    const parent: BreadcrumbItem =
+        project.goal_id && project.goalText
+            ? { label: project.goalText, href: `/app/goals/${project.goal_id}` }
+            : !project.goal_id && project.directArea
+              ? {
+                    label: `${project.directArea.name}${project.directArea.archived ? " (archived)" : ""}`,
+                    href: "/app/focus",
+                }
+              : { label: "Projects", href: "/app/projects" };
+    const crumbs: BreadcrumbItem[] = [];
+    if (from) {
+        crumbs.push({ label: labelForPath(from) ?? "Back", href: from });
+    }
+    if (!from || from.split(/[?#]/)[0] !== parent.href) {
+        crumbs.push(parent);
+    }
+    crumbs.push({ label: project.name });
+
     return (
         <article className="flex flex-col gap-[var(--spacing-section-y)]">
             <header className="flex flex-col gap-3">
-                {/* Parent-goal breadcrumb (only for goal-linked projects). */}
-                <nav aria-label="Breadcrumb" className="text-[length:var(--font-size-small)] text-text-secondary">
-                    {project.goal_id && project.goalText ? (
-                        <Link
-                            href={`/app/goals/${project.goal_id}`}
-                            className="hover:text-text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
-                        >
-                            ← {project.goalText}
-                        </Link>
-                    ) : !project.goal_id && project.directArea ? (
-                        <Link
-                            href="/app/focus"
-                            className="hover:text-text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
-                        >
-                            ← {project.directArea.name}{project.directArea.archived ? " (archived)" : ""}
-                        </Link>
-                    ) : (
-                        <Link
-                            href="/app/projects"
-                            className="hover:text-text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
-                        >
-                            ← Projects
-                        </Link>
-                    )}
-                </nav>
+                <Breadcrumbs items={crumbs} />
 
                 <div className="flex flex-col gap-2">
                     <h1 className="text-[length:var(--font-size-section)] font-bold text-text-primary">

@@ -56,6 +56,23 @@ describe("ProjectDetailClient", () => {
     await waitFor(() => expect(refresh).toHaveBeenCalled());
   });
 
+  it("offers and PATCHes the Someday/Maybe status", async () => {
+    mockFetch(true);
+    const user = userEvent.setup();
+    render(<ProjectDetailClient project={project} />);
+
+    const statusSelect = screen.getByLabelText("Project status");
+    expect(screen.getByRole("option", { name: "Someday/Maybe" })).toBeInTheDocument();
+    await user.selectOptions(statusSelect, "someday");
+
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    const [url, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(url).toBe("/api/projects/p1");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body)).toEqual({ status: "someday" });
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
   it("PATCHes a parent-goal change and refreshes", async () => {
     mockFetch(true);
     const user = userEvent.setup();

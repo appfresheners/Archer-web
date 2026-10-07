@@ -4,15 +4,15 @@
  * (Story 4.5), and the Engage view (Epic 5).
  *
  * A project is **stuck** when it is `active` and has zero `committed` actions.
- * Only `active` projects can be stuck (a paused/completed/archived project is
- * not expected to have a committed next action). Only the `committed` action
+ * Only `active` projects can be stuck (a paused/Someday/completed/archived
+ * project is not expected to have a committed next action). Only the `committed` action
  * status matters — available/done actions are irrelevant to stuckness.
  *
  * These are intentionally pure functions over already-loaded rows so callers
  * can aggregate in memory and avoid N+1 queries.
  */
 
-import type { ProjectStatus, ActionStatus } from "@/lib/supabase/schema";
+import type { ActionStatus, ProjectStatus } from "@/lib/supabase/schema";
 
 /** Minimal project shape needed to decide stuckness. */
 export interface StuckProjectInput {

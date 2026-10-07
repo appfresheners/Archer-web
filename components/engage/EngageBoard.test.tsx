@@ -200,7 +200,7 @@ describe("EngageBoard", () => {
     const user = userEvent.setup();
     render(<EngageBoard model={fullModel()} />);
     await user.click(screen.getByRole("button", { name: "Commit one now" }));
-    expect(push).toHaveBeenCalledWith("/app/projects/p2#actions");
+    expect(push).toHaveBeenCalledWith("/app/projects/p2?from=%2Fapp%2Fengage#actions");
   });
 
   it("narrows visible rows with the energy filter", async () => {

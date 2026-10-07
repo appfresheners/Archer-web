@@ -10,6 +10,7 @@ const EMPTY_REVIEW_DATA: ReviewData = {
   unprocessedCount: 0,
   currentProjects: [],
   somedayItems: [],
+  somedayProjects: [],
   goalAlignment: [],
   focusAreas: [],
   focusAreasError: false,
@@ -309,8 +310,7 @@ describe("ReviewShell", () => {
     ).toBeInTheDocument();
   });
 
-  it("Get Current: committing an available action clears the block and marks reviewed", async () => {
-    const user = userEvent.setup();
+  it("Get Current: a stuck project links to its detail page with a breadcrumb back to the review", () => {
     renderShell({
       initialPhase: "get_current",
       reviewData: {
@@ -327,19 +327,37 @@ describe("ReviewShell", () => {
       },
     });
 
-    await user.click(
-      screen.getByRole("button", { name: /Commit "Outline the intro"/ }),
+    expect(screen.queryByText("Outline the intro")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Commit one now" })).toHaveAttribute(
+      "href",
+      "/app/projects/p1?from=%2Fapp%2Freview#actions",
     );
+  });
 
-    await waitFor(() => expect(fetch).toHaveBeenCalled());
-    const [url, init] = lastCall();
-    expect(url).toBe("/api/actions/a1/commit");
-    expect(init.method).toBe("POST");
-    // Reviewing (via commit) clears the gate even though the reloaded data
-    // still shows the project stuck (server refetch happens via router.refresh).
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Next" })).toBeEnabled(),
+  it("Get Current: Confirm next action shows a confirmed state", async () => {
+    const user = userEvent.setup();
+    renderShell({
+      initialPhase: "get_current",
+      reviewData: {
+        currentProjects: [
+          {
+            id: "p1",
+            name: "Blog relaunch",
+            updatedAt: "2026-09-20T00:00:00Z",
+            committedActionText: "Draft post",
+            availableActions: [],
+            isStuck: false,
+          },
+        ],
+      },
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: "Confirm the next action for Blog relaunch" }),
     );
+    expect(
+      screen.getByRole("button", { name: "Next action confirmed for Blog relaunch" }),
+    ).toBeDisabled();
   });
 
   it("Get Current: changing a stuck project's status PATCHes it and clears the block", async () => {
@@ -371,6 +389,33 @@ describe("ReviewShell", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Next" })).toBeEnabled(),
     );
+  });
+
+  it("Get Current: parking a project as Someday/Maybe uses the project PATCH route", async () => {
+    const user = userEvent.setup();
+    renderShell({
+      initialPhase: "get_current",
+      reviewData: {
+        currentProjects: [
+          {
+            id: "p1",
+            name: "Blog relaunch",
+            updatedAt: "2026-09-20T00:00:00Z",
+            committedActionText: null,
+            availableActions: [],
+            isStuck: true,
+          },
+        ],
+      },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Someday/Maybe Blog relaunch" }));
+
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    const [url, init] = lastCall();
+    expect(url).toBe("/api/projects/p1");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body)).toEqual({ status: "someday" });
   });
 
   it("Get Current: Confirm marks a non-stuck project reviewed without a mutation", async () => {
@@ -424,6 +469,7 @@ describe("ReviewShell", () => {
       initialPhase: "get_creative",
       reviewData: {
         somedayItems: [{ id: "i1", raw_text: "learn to sail" }],
+        somedayProjects: [{ id: "p2", name: "Learn Italian" }],
         goalAlignment: [
           { id: "g1", goalText: "Get fit", projectCount: 2, stuckCount: 1 },
         ],
@@ -440,6 +486,9 @@ describe("ReviewShell", () => {
     });
     expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
     expect(screen.getByText("learn to sail")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Someday projects" })).toBeInTheDocument();
+    expect(screen.getByText("Learn Italian")).toBeInTheDocument();
+    expect(screen.getByText("Someday")).toBeInTheDocument();
     expect(screen.getAllByText("Get fit")).toHaveLength(2);
     expect(screen.getByRole("heading", { name: "Focus review (optional)" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Review Focus" })).toHaveAttribute(
@@ -467,6 +516,42 @@ describe("ReviewShell", () => {
     expect(url).toBe("/api/inbox/i1");
     expect(init.method).toBe("PATCH");
     expect(JSON.parse(init.body)).toEqual({ status: "unprocessed" });
+  });
+
+  it("Get Creative: activating a Someday project PATCHes it to paused", async () => {
+    const user = userEvent.setup();
+    renderShell({
+      initialPhase: "get_creative",
+      reviewData: {
+        somedayProjects: [{ id: "p1", name: "Learn Italian" }],
+      },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Activate Learn Italian" }));
+
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    const [url, init] = lastCall();
+    expect(url).toBe("/api/projects/p1");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body)).toEqual({ status: "paused" });
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("Get Creative: keeps a Someday project and shows an inline error when activation fails", async () => {
+    mockFetch(false, { error: "Project update failed." }, 500);
+    const user = userEvent.setup();
+    renderShell({
+      initialPhase: "get_creative",
+      reviewData: {
+        somedayProjects: [{ id: "p1", name: "Learn Italian" }],
+      },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Activate Learn Italian" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Project update failed.");
+    expect(screen.getByText("Learn Italian")).toBeInTheDocument();
+    expect(refresh).not.toHaveBeenCalled();
   });
 
   it("Get Creative: deleting a someday item DELETEs it", async () => {

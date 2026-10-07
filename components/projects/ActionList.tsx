@@ -181,7 +181,7 @@ export default function ActionList({
   }
 
   return (
-    <section className="flex flex-col gap-3">
+    <section id="actions" className="flex flex-col gap-3">
       <h2 className="text-[length:var(--font-size-subheading)] font-semibold text-text-primary">
         Next Actions
       </h2>

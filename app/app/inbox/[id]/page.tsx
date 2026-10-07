@@ -13,6 +13,7 @@
 
 import ClarifyWizard from "@/components/inbox/clarify/ClarifyWizard";
 import ReadErrorState from "@/components/shared/ReadErrorState";
+import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import type { ReadResult } from "@/lib/read-result";
 import type { InboxProcessingStatus } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
@@ -89,6 +90,9 @@ export default async function ClarifyPage({ params }: ClarifyPageProps) {
 
   return (
     <section className="flex flex-col gap-[var(--spacing-section-y)]">
+      <Breadcrumbs
+        items={[{ label: "Inbox", href: "/app/inbox" }, { label: "Clarify" }]}
+      />
       <header className="flex flex-col gap-1">
         <h1 className="text-[length:var(--font-size-section)] font-bold text-text-primary">
           Clarify

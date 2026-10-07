@@ -7,8 +7,8 @@
  *   - Only `committed` next actions appear in the do-now lists — never the full
  *     action list.
  *   - Scope is `active` goals and `active` projects only. A paused / someday /
- *     not_now / completed / archived goal, or a paused / completed / archived
- *     project, is excluded.
+ *     not_now / completed / archived goal, or a paused / someday / completed /
+ *     archived project, is excluded.
  *   - Rows are grouped by goal (goal order preserved from the input). Each goal
  *     group also carries its `stuckProjects` (active + zero committed, via the
  *     shared `isProjectStuck`) at the bottom. Goal-less active projects have

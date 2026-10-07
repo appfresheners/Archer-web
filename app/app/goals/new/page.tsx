@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { loadAreasForPicker } from "@/app/app/projects/new/load-goals";
 import GoalWizard from "./GoalWizard";
+import Breadcrumbs from "@/components/shared/Breadcrumbs";
 
 export const metadata: Metadata = {
   title: "New goal — Archer",
@@ -18,6 +19,9 @@ export default async function NewGoalPage() {
 
   return (
     <div className="flex flex-col gap-[var(--spacing-section-y)]">
+      <Breadcrumbs
+        items={[{ label: "Goals", href: "/app/goals" }, { label: "New goal" }]}
+      />
       <h1 className="text-[length:var(--font-size-section)] font-bold text-text-primary">
         New goal
       </h1>

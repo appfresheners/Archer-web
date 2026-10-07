@@ -2,7 +2,7 @@
  * Authenticated project-edit endpoint (Story 4.3).
  *
  *   PATCH /api/projects/[id] — edit the project's name/purpose/successful
- *   outcome, change its status (active/paused/completed/archived), or
+ *   outcome, change its status (active/paused/someday/completed/archived), or
  *   link/unlink a parent goal (Story 4.6).
  *
  * Follows the Epic 4 mutation convention established by `/api/goals/[id]`:

@@ -84,9 +84,16 @@ describe("PATCH /api/projects/[id]", () => {
   });
 
   it("400s on an invalid patch (goal-only status)", async () => {
-    const res = await PATCH(patchReq({ status: "someday" }) as never, ctx());
+    const res = await PATCH(patchReq({ status: "not_now" }) as never, ctx());
     expect(res.status).toBe(400);
     expect(projectUpdate).not.toHaveBeenCalled();
+  });
+
+  it("accepts Someday as a project status", async () => {
+    projectUpdateMaybeSingle.mockResolvedValue({ data: { id: "p1" }, error: null });
+    const res = await PATCH(patchReq({ status: "someday" }) as never, ctx());
+    expect(res.status).toBe(200);
+    expect(projectUpdate).toHaveBeenCalledWith({ status: "someday" });
   });
 
   it("updates and returns the id on a valid patch", async () => {
