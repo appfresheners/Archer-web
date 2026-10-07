@@ -216,7 +216,7 @@ Capture → Clarify → Organize → Reflect → Engage
 
 ### FR-Group: Project Management [NOT YET BUILT]
 
-**FR49:** Each project SHALL have: a name (outcome-based), a purpose, a successful outcome (definition of done), a status (Active, Paused, Completed, Archived), and an optional parent goal. A newly created project SHALL default to Paused across manual creation, standalone AI Project Mode, and goal-generated creation. The user activates the project when ready; existing project statuses are unchanged.
+**FR49:** Each project SHALL have: a name (outcome-based), a purpose, a successful outcome (definition of done), a status (Active, Paused, Someday/Maybe, Completed, Archived), and an optional parent goal. A newly created project SHALL default to Paused across manual creation, standalone AI Project Mode, and goal-generated creation. The user activates the project when ready; existing project statuses are unchanged.
 
 **FR50:** A user SHALL be able to edit any part of an AI-generated project: name, purpose, successful outcome, and action list.
 
@@ -241,6 +241,18 @@ Capture → Clarify → Organize → Reflect → Engage
 **FR100:** The authenticated app SHALL provide a Focus view where a user can manage their Focus profile and Areas and see linked Goals and Projects.
 
 **FR101:** The Get Creative phase of the weekly review SHALL offer an optional Focus review entry point. Skipping it SHALL NOT block phase progression or review completion.
+
+### FR-Group: Someday/Maybe & List Scalability
+
+**FR102:** The system SHALL provide a Someday/Maybe page listing parked inbox items, Someday projects, and Someday goals, with reactivation.
+
+**FR103:** Projects MAY have status Someday/Maybe alongside Active, Paused, Completed, and Archived. A Someday project SHALL be excluded from Engage and stuck detection and SHALL appear on the Someday page and in the Get Creative review. Someday as a project status is an Archer product choice; David Allen's GTD keeps a single Someday/Maybe list.
+
+**FR104:** The Projects, Goals, Inbox, and Someday lists SHALL support server-side text search.
+
+**FR105:** The same lists SHALL paginate at 20 per page with numbered navigation and a result count.
+
+**FR106:** The Inbox clarify project link and the goal-detail attach-project control SHALL let the user find a project by typing.
 
 ### FR-Group: Action Management [NOT YET BUILT]
 
@@ -442,6 +454,7 @@ Capture → Clarify → Organize → Reflect → Engage
 - Weekly review UI — three-phase guided flow (FR69–FR74)
 - Monthly goal check — separate flow (FR75–FR77)
 - Focus Horizons & Areas of Focus — user-level Vision/Purpose/Principles, Life Areas, Goal/Project Area associations, Focus page, and optional Get Creative review (FR96–FR101)
+- Someday/Maybe page, Someday project status, list search and pagination, and searchable project picker (FR102–FR106)
 - Data export on demand (FR80)
 - Architecture spine initial update ✅ (2026-09-27); Focus/Area extension updated (2026-10-04)
 

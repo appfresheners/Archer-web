@@ -63,12 +63,23 @@ describe("FocusPage", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders editable profile fields and the empty Area state", async () => {
+  it("renders profile fields for first-time setup and the empty Area state", async () => {
     await renderPage();
     expect(screen.getByRole("heading", { name: "Focus" })).toBeInTheDocument();
+    expect(screen.getByRole("note")).toHaveTextContent(
+      "This page is for alignment with God, purpose, and long-term direction — not pressure.",
+    );
+    expect(screen.getByRole("note")).toHaveTextContent(
+      "I do not need to solve my whole life here. I only need to reconnect with direction and choose the next faithful step.",
+    );
     expect(screen.getByLabelText("Vision")).toBeInTheDocument();
     expect(screen.getByLabelText("Purpose")).toBeInTheDocument();
     expect(screen.getByLabelText("Principles")).toBeInTheDocument();
+    const profile = screen.getByRole("region", { name: "Purpose, Vision & Principles" });
+    const fields = within(profile).getAllByRole("textbox");
+    expect(fields[0]).toBe(within(profile).getByLabelText("Purpose"));
+    expect(fields[1]).toBe(within(profile).getByLabelText("Vision"));
+    expect(fields[2]).toBe(within(profile).getByLabelText("Principles"));
     expect(screen.getByText("No Areas yet.")).toBeInTheDocument();
     expect(goalsIn).not.toHaveBeenCalled();
     expect(projectsIn).not.toHaveBeenCalled();
@@ -90,7 +101,12 @@ describe("FocusPage", () => {
     });
 
     await renderPage();
-    expect((screen.getByLabelText("Vision") as HTMLTextAreaElement).value).toBe("A meaningful life");
+    expect(screen.queryByLabelText("Vision")).not.toBeInTheDocument();
+    const profile = screen.getByRole("region", { name: "Purpose, Vision & Principles" });
+    expect(within(profile).getByText("Contribute")).toBeInTheDocument();
+    expect(within(profile).getByText("A meaningful life")).toBeInTheDocument();
+    expect(within(profile).getByText("Be kind")).toBeInTheDocument();
+    expect(within(profile).getByRole("button", { name: "Edit profile" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Run a marathon/ })).toHaveAttribute(
       "href",
       "/app/goals/goal-1",
@@ -134,6 +150,9 @@ describe("FocusPage", () => {
 
   it("submits a validated profile and announces a successful save", async () => {
     await renderPage();
+    fireEvent.change(screen.getByLabelText("Purpose"), {
+      target: { value: "A useful purpose" },
+    });
     fireEvent.change(screen.getByLabelText("Vision"), {
       target: { value: "A useful vision" },
     });
@@ -149,7 +168,7 @@ describe("FocusPage", () => {
           method: "PUT",
           body: JSON.stringify({
             vision: "A useful vision",
-            purpose: null,
+            purpose: "A useful purpose",
             principles: ["Be kind", "Be curious"],
           }),
         }),
@@ -157,6 +176,20 @@ describe("FocusPage", () => {
     );
     expect(await screen.findByRole("status")).toHaveTextContent("Profile saved.");
     expect(mockRefresh).toHaveBeenCalled();
+    expect(screen.queryByLabelText("Purpose")).not.toBeInTheDocument();
+    const profile = screen.getByRole("region", { name: "Purpose, Vision & Principles" });
+    expect(within(profile).getByText("A useful purpose")).toBeInTheDocument();
+    expect(within(profile).getByText("A useful vision")).toBeInTheDocument();
+    expect(within(profile).getAllByRole("heading").map((heading) => heading.textContent)).toEqual([
+      "Purpose, Vision & Principles",
+      "Principles",
+    ]);
+
+    fireEvent.click(within(profile).getByRole("button", { name: "Edit profile" }));
+    const fields = within(profile).getAllByRole("textbox");
+    expect(fields[0]).toBe(within(profile).getByLabelText("Purpose"));
+    expect(fields[1]).toBe(within(profile).getByLabelText("Vision"));
+    expect(fields[2]).toBe(within(profile).getByLabelText("Principles"));
   });
 
   it("rejects profile values that exceed server limits before sending", async () => {

@@ -123,6 +123,12 @@ The experimental vault is an independent client-side layer (AES-GCM + PBKDF2, `l
 - **Prevents:** Analytics SDKs, error monitoring services (Sentry etc.), third-party scripts, components that are mouse-only
 - **Rule:** Accessibility is a component-level invariant, not a post-build audit.
 
+### AD-23: List Search, Pagination, and Searchable Pickers [PROPOSED — Epic 8]
+
+- **Binds:** Long list pages (Projects, Goals, Inbox, Someday) read `?q=` and `?page=` in server components. One helper in `lib/` parses and clamps both, builds the range (page size 20), and escapes `%` and `_` for `ilike`. Queries are ranged with an exact count. Goals need status-precedence ordering in the query so order survives paging. Pickers whose options are already loaded filter in the browser through one shared `SearchableSelect` that follows the WAI-ARIA combobox pattern and caps rendered matches at 50.
+- **Prevents:** Unbounded list reads; client-side filtering of paged data; per-page search implementations that diverge; raw search text in SQL strings
+- **Rule:** No list page loads all rows. RLS still scopes every read. Pickers add no API route or write path. `project_status` gains `someday` through an additive enum migration only; existing rows are not updated.
+
 ---
 
 ## Superseded Decisions
@@ -161,6 +167,7 @@ create type goal_status as enum (
 
 create type project_status as enum (
   'active', 'paused', 'completed', 'archived'
+  -- 'someday' added by Epic 8 Story 8.2: alter type project_status add value 'someday';
 );
 
 create type action_status as enum (

@@ -46,6 +46,7 @@ There is no unauthenticated layout. Project Mode generation, goal creation, and 
 | **Inbox**                          | Yes           | Frictionless capture + processing                                                          | Sidebar → Inbox; floating capture button                    |
 | **Engage**                         | Yes           | Committed next actions across active goals                                                 | Sidebar → Engage (default post-login view)                  |
 | **Weekly Review**                  | Yes           | 3-phase guided review: Get Clear / Get Current / Get Creative                              | Sidebar → Weekly Review                                     |
+| **Someday/Maybe**                  | Yes           | Parked inbox items, Someday projects, Someday goals; reactivate; search and pagination     | Sidebar → Someday; mobile placement set in Story 8.1        |
 | **Monthly Goal Check**             | Yes           | Per-goal relevance and status check; separate from weekly review                           | Goal detail or review prompt                                |
 | **Vault**                          | No            | Experimental encrypted local storage — auth-independent                                    | Header button                                               |
 | **Settings**                       | Yes           | Auth, account management                                                                   | Sidebar footer                                              |

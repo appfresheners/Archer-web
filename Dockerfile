@@ -35,7 +35,7 @@ ENV NODE_ENV=production \
 # does NOT include static assets or the public dir, so copy those explicitly.
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
-COPY --from=builder --chown=node:node /app/public ./public
+ 
 
 EXPOSE 3000
 

@@ -105,6 +105,15 @@ development_status:
   7-4-optional-focus-review-in-get-creative: review
   epic-7-retrospective: optional
 
+  # Someday/Maybe & List Scalability; scheduled after Epic 7 and before Epic 6.
+  # Build order: 8.2, 8.3, then 8.1 and 8.4.
+  epic-8: backlog
+  8-1-someday-maybe-page: backlog
+  8-2-someday-project-status: backlog
+  8-3-shared-search-and-pagination-for-long-lists: backlog
+  8-4-searchable-project-picker: backlog
+  epic-8-retrospective: optional
+
   epic-6: backlog
   6-1-on-demand-data-export: backlog
   6-2-vault-unlock-auto-save: backlog

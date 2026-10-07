@@ -361,6 +361,12 @@ Top bar (mobile only): wordmark left, hamburger right. Bottom nav: Inbox, Focus,
 
 A persistent floating capture button (keyboard: `C`) sits bottom-right in all authenticated views. Tapping/clicking it opens the Inbox capture drawer without navigating away.
 
+**Someday destination (Epic 8):** the sidebar adds a Someday item. On mobile it is reached without crowding the bottom nav (a "More" entry by default; final choice in Story 8.1).
+
+**Long lists (Epic 8):** Projects, Goals, Inbox and Someday share one search field and numbered pagination (20 per page). Targets are at least 44px, the current page uses `aria-current="page"`, and "No matches for 'x'" with a Clear search link is distinct from the true empty state.
+
+**Project picker (Epic 8):** where a project is chosen (Inbox Clarify, goal-detail attach), a combobox replaces the native select. It filters by typing, supports Up/Down/Enter/Escape, announces the match count in a polite live region, shows at most 50 matches with a "Keep typing to narrow results" hint, and shows a "No projects match" row when empty.
+
 ## Focus View
 
 The authenticated Focus view uses the same restrained, unframed section layout as the rest of Archer. It presents Vision, Purpose and Principles, then Life Areas with linked Goal and standalone Project rows. Editing follows the existing form patterns; Areas can be reordered with keyboard-operable controls and archived, never completed. Archived Areas remain visible on existing linked records but are not offered for new assignments.

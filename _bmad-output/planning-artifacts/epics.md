@@ -76,6 +76,11 @@ FR98: A Goal MAY be linked to one Life Area.
 FR99: A Project MAY be linked to a Goal or, when it has no Goal, directly to one Life Area. Goal-linked Projects inherit their Area through the Goal and SHALL NOT store a conflicting direct Area.
 FR100: The authenticated app SHALL provide a Focus view to manage the Focus profile and Areas and inspect linked Goals and Projects.
 FR101: Get Creative SHALL offer an optional Focus review entry point that does not block review completion.
+FR102: The system SHALL provide a Someday/Maybe page listing parked inbox items, Someday projects, and Someday goals, with reactivation.
+FR103: Projects MAY have status Someday/Maybe alongside Active, Paused, Completed, and Archived; a Someday project is excluded from Engage and stuck detection and appears on the Someday page and in the Get Creative review.
+FR104: The Projects, Goals, Inbox, and Someday lists SHALL support server-side text search.
+FR105: The same lists SHALL paginate at 20 per page with numbered navigation and a result count.
+FR106: The Inbox clarify project link and the goal-detail attach-project control SHALL let the user find a project by typing.
 
 **AI Provider**
 
@@ -357,6 +362,11 @@ UX-DR29: Add a non-blocking Focus review entry in Get Creative, showing Areas an
 | FR99  | Epic 7 | Goal-linked or directly Area-linked standalone Projects                                       |
 | FR100 | Epic 7 | Focus page and Area roll-ups                                                                  |
 | FR101 | Epic 7 | Optional, non-blocking Focus review in Get Creative                                           |
+| FR102 | Epic 8 | Someday/Maybe page with reactivation                                                          |
+| FR103 | Epic 8 | Someday project status                                                                        |
+| FR104 | Epic 8 | Server-side search on Projects, Goals, Inbox, Someday                                         |
+| FR105 | Epic 8 | Numbered pagination (20 per page) on the same lists                                           |
+| FR106 | Epic 8 | Searchable project picker in Clarify and goal-detail attach                                   |
 
 **NFR coverage:** NFR2 (Node runtime/Vercel), NFR6 (privacy), NFR7 (vault security), NFR9 (data integrity) anchor in Epic 1 and Epic 6. NFR1 (performance), NFR3 (responsive), NFR4 (accessibility), NFR5 (browser support), NFR8 (error resilience) are cross-cutting — verified within every epic that ships UI, with the baseline established in Epic 1.
 
@@ -405,6 +415,12 @@ A signed-in user can record Vision, Purpose, and Principles as persistent person
 **FRs covered:** FR96, FR97, FR98, FR99, FR100, FR101
 **NFRs covered:** NFR3, NFR4, NFR6, NFR9
 **ARs covered:** AR5, AR8, AR15
+
+### Epic 8: Someday/Maybe & List Scalability
+
+A signed-in user can review everything parked as Someday/Maybe in one place, find any goal or project through search, and work through long Inbox, Goals and Projects lists without scrolling through every row. Schedule this epic after Epic 7 and before Epic 6; retain Epic 6's existing ID. Suggested build order: 8.2, 8.3, then 8.1 and 8.4.
+**FRs covered:** FR102, FR103, FR104, FR105, FR106
+**NFRs covered:** NFR1, NFR3, NFR4, NFR9
 
 ### Epic 6: Data Portability & Experimental Vault
 
@@ -1455,6 +1471,184 @@ So that I can notice an Area that needs attention without turning the review int
 **When** the review view reloads
 **Then** the existing persisted review phase is restored
 **And** Vision, Purpose, and Principles do not require weekly editing
+
+## Epic 8: Someday/Maybe & List Scalability
+
+A signed-in user can review everything parked as Someday/Maybe in one place, find any goal or project through search, and work through long Inbox, Goals and Projects lists without scrolling through every row.
+
+### Story 8.1: Someday/Maybe Page
+
+As a signed-in user,
+I want a dedicated Someday/Maybe page,
+So that I can see and revisit everything I have parked.
+
+**Acceptance Criteria:**
+
+**Given** the app shell
+**When** I open navigation
+**Then** a "Someday" destination routes to `/app/someday`
+**And** on mobile it is reachable without crowding the bottom nav (for example a "More" entry); the final choice is made in the story
+
+**Given** the page
+**When** it loads
+**Then** it shows three sections: "Parked items" (inbox items with `processing_status = someday`), "Someday projects" (projects with `status = someday`), and "Someday goals" (goals with `status = someday`)
+**And** each section shows a count and an empty state
+
+**Given** a parked item
+**When** I choose Reactivate
+**Then** it returns to `unprocessed` using the existing Story 5.6 route and ownership rules and leaves the list
+
+**Given** a Someday project
+**When** I choose Activate
+**Then** its status becomes `paused` (consistent with Story 4.7)
+**And** I can set it to Active from the project detail
+
+**Given** a Someday goal
+**When** I open it
+**Then** I land on the goal detail where status can be changed
+
+**Given** many items
+**When** the page loads
+**Then** each section uses the shared search and pagination from Story 8.3
+
+**Given** a read failure
+**When** the page loads
+**Then** it shows `ReadErrorState`, not an empty state
+
+### Story 8.2: Someday Project Status
+
+As a signed-in user,
+I want to park a project as Someday/Maybe,
+So that it leaves my active and paused work without being archived.
+
+**Acceptance Criteria:**
+
+**Given** the database
+**When** the migration runs
+**Then** `ALTER TYPE project_status ADD VALUE 'someday'` is applied, existing rows are unchanged, and `lib/supabase/schema.ts` types are updated
+
+**Given** `lib/projects/validate.ts`
+**When** a PATCH sets `status = someday`
+**Then** it is accepted
+**And** tests that rejected `someday` are updated
+
+**Given** the status selectors (project detail and the Get Current review panel)
+**When** I open them
+**Then** "Someday/Maybe" is offered
+
+**Given** engage, stuck detection, or goal stuck counts
+**When** computed
+**Then** a Someday project is excluded, as Paused projects already are, and is never flagged stuck
+
+**Given** the Weekly Review Get Creative phase
+**When** it lists Someday items
+**Then** it includes Someday projects
+
+**Given** the Projects list
+**When** it renders
+**Then** Someday projects show the existing `StatusBadge`
+
+**Given** data export (Story 6.1)
+**When** it runs
+**Then** the new status is included with no change to the export shape
+
+### Story 8.3: Shared Search and Pagination for Long Lists
+
+As a signed-in user,
+I want to search and page through my Projects, Goals, Inbox and Someday lists,
+So that long lists stay usable.
+
+**Acceptance Criteria:**
+
+**Given** the Projects, Goals, Inbox and Someday pages
+**When** they load
+**Then** each shows a search field (`?q=`) and numbered pagination (`?page=`) with a fixed page size of 20
+
+**Given** the search field
+**When** I submit a term
+**Then** the server filters case-insensitively using `ilike` with escaped `%` and `_` wildcards
+**And** Projects match name and parent-goal text, Goals match goal text, Inbox and parked items match raw text
+
+**Given** a search or page change
+**When** the URL updates
+**Then** other params (including the existing `?goal=` filter) are preserved
+**And** a new search resets `page` to 1
+
+**Given** a page number beyond the last page or invalid
+**When** the page loads
+**Then** it clamps to the nearest valid page and does not error
+
+**Given** a search with no results
+**When** the page loads
+**Then** it shows "No matches for 'x'" with a Clear search link, distinct from the true empty state
+
+**Given** the lists
+**When** they render
+**Then** the page shows a total ("Showing 21-40 of 87")
+**And** pagination is a `<nav aria-label="Pagination">` with `aria-current="page"` on the current page
+**And** controls and the search field are at least 44px tall
+
+**Given** the Goals list
+**When** it computes project and stuck counts
+**Then** it reads projects and actions only for the current page of goals
+
+**Given** the Inbox
+**When** it loads
+**Then** the unbounded query becomes a ranged query with an exact count, newest first
+
+**Given** an authenticated user
+**When** a list is queried
+**Then** RLS still scopes every row and the search term never reaches a raw SQL string
+
+Technical notes: one shared helper in `lib/` parses and clamps `q` and `page`, builds the range and escapes the pattern; shared `ListSearch` and `Pagination` components live in `components/shared/`. Paged Goals ordering needs status precedence in the query (computed sort column or view), decided in the story.
+
+### Story 8.4: Searchable Project Picker
+
+As a signed-in user,
+I want to type to find a project when I assign one,
+So that I am not scrolling a long dropdown.
+
+**Acceptance Criteria:**
+
+**Given** the Inbox Clarify project link and the goal-detail attach-project control
+**When** I open the picker
+**Then** I see a combobox with a text input
+**And** typing filters options case-insensitively by project name, with options showing project name plus parent goal
+
+**Given** the option list
+**When** I use the keyboard
+**Then** Up and Down move the active option, Enter selects, Escape closes, and Tab moves on
+**And** the input follows the WAI-ARIA combobox pattern (`role="combobox"`, `aria-expanded`, `aria-controls`, `aria-activedescendant`, listbox options)
+**And** the match count is announced through a polite live region
+
+**Given** no matches
+**When** I type
+**Then** a "No projects match" row is shown
+
+**Given** Clarify
+**When** I choose no project or clear the field
+**Then** `project_id` stays `null` as today
+**And** selecting a project saves the same `project_id` as the `<select>` did
+
+**Given** the picker data
+**When** it renders
+**Then** it filters the already-loaded options in the browser with no new API route or write path
+**And** archived and completed projects remain excluded as now
+**And** existing ownership checks on save are unchanged
+
+**Given** a very large option list
+**When** the picker renders
+**Then** it shows at most 50 matches with a "Keep typing to narrow results" hint
+
+**Given** the Attach control's "move from another goal" confirmation
+**When** I pick a project that belongs to another goal
+**Then** the confirmation still appears and works
+
+**Given** touch targets and focus
+**When** it renders
+**Then** inputs and options are at least 44px and use the existing design tokens and clickable-cursor affordance (H-4)
+
+Technical notes: one shared hand-written `SearchableSelect` in `components/shared/`. Goal pickers and `AreaSelect` are not changed in this story.
 
 ## Epic 6: Data Portability & Experimental Vault
 

@@ -19,7 +19,7 @@ services:
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
     labels:
       - traefik.enable=true
-      - 'traefik.http.routers.archer.rule=Host(`archer.co.za`)'
+      - 'traefik.http.routers.archer.rule=Host(`archer.homelab`)'
       - traefik.http.routers.archer.service=archer
       - traefik.http.services.archer.loadbalancer.server.port=3000
       - traefik.http.routers.archer.entrypoints=https

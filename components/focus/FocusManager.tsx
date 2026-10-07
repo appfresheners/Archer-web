@@ -243,6 +243,8 @@ export default function FocusManager({
   const [vision, setVision] = useState(profile?.vision ?? "");
   const [purpose, setPurpose] = useState(profile?.purpose ?? "");
   const [principles, setPrinciples] = useState(profile?.principles.join("\n") ?? "");
+  const [savedProfile, setSavedProfile] = useState(profile);
+  const [editingProfile, setEditingProfile] = useState(profile === null);
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [busy, setBusy] = useState(false);
@@ -276,6 +278,8 @@ export default function FocusManager({
       if (error) {
         setProfileError(error);
       } else {
+        setSavedProfile(profile);
+        setEditingProfile(false);
         setProfileSaved(true);
         router.refresh();
       }
@@ -284,6 +288,14 @@ export default function FocusManager({
     } finally {
       setBusy(false);
     }
+  }
+
+  function cancelProfileEdit() {
+    setVision(savedProfile?.vision ?? "");
+    setPurpose(savedProfile?.purpose ?? "");
+    setPrinciples(savedProfile?.principles.join("\n") ?? "");
+    setProfileError("");
+    setEditingProfile(false);
   }
 
   async function addArea(event: React.FormEvent<HTMLFormElement>) {
@@ -338,58 +350,121 @@ export default function FocusManager({
         <h1 className="text-[length:var(--font-size-section)] font-bold text-text-primary">Focus</h1>
       </header>
 
+      <aside
+        role="note"
+        className="flex flex-col gap-2 rounded-[var(--radius-sm)] border-l-4 border-primary bg-primary-subtle px-4 py-3 text-text-primary"
+      >
+        <p>This page is for alignment with God, purpose, and long-term direction — not pressure.</p>
+        <p>I do not need to solve my whole life here. I only need to reconnect with direction and choose the next faithful step.</p>
+      </aside>
+
       <section aria-labelledby="profile-heading" className="flex flex-col gap-4">
-        <h2 id="profile-heading" className="text-[length:var(--font-size-subheading)] font-semibold text-text-primary">Vision, Purpose &amp; Principles</h2>
-        <form onSubmit={saveProfile} className="flex flex-col gap-3">
-          <label className="flex flex-col gap-1 text-[length:var(--font-size-small)] font-medium text-text-secondary">
-            Vision
-            <textarea
-              value={vision}
-              maxLength={10000}
-              rows={4}
-              disabled={busy}
-              onChange={(event) => setVision(event.target.value)}
-              className="min-h-28 rounded-[var(--radius-sm)] border border-border-strong bg-surface-raised px-3 py-2 text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-[length:var(--font-size-small)] font-medium text-text-secondary">
-            Purpose
-            <textarea
-              value={purpose}
-              maxLength={10000}
-              rows={3}
-              disabled={busy}
-              onChange={(event) => setPurpose(event.target.value)}
-              className="min-h-24 rounded-[var(--radius-sm)] border border-border-strong bg-surface-raised px-3 py-2 text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-[length:var(--font-size-small)] font-medium text-text-secondary">
-            Principles
-            <textarea
-              value={principles}
-              maxLength={25049}
-              rows={4}
-              disabled={busy}
-              onChange={(event) => setPrinciples(event.target.value)}
-              className="min-h-28 rounded-[var(--radius-sm)] border border-border-strong bg-surface-raised px-3 py-2 text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
-            />
-          </label>
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="submit"
-              disabled={busy}
-              className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] bg-primary px-4 py-2 font-medium text-text-inverse hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
-            >
-              Save profile
-            </button>
-            {profileError && <p role="alert" className="text-[length:var(--font-size-small)] text-destructive">{profileError}</p>}
-            {profileSaved && (
-              <p role="status" aria-live="polite" className="text-[length:var(--font-size-small)] text-text-secondary">
-                Profile saved.
-              </p>
-            )}
+        <h2 id="profile-heading" className="text-[length:var(--font-size-subheading)] font-semibold text-text-primary">Purpose, Vision &amp; Principles</h2>
+        {editingProfile ? (
+          <form onSubmit={saveProfile} className="flex flex-col gap-3">
+            <label className="flex flex-col gap-1 text-[length:var(--font-size-small)] font-medium text-text-secondary">
+              Purpose
+              <textarea
+                value={purpose}
+                maxLength={10000}
+                rows={3}
+                disabled={busy}
+                onChange={(event) => setPurpose(event.target.value)}
+                className="min-h-24 rounded-[var(--radius-sm)] border border-border-strong bg-surface-raised px-3 py-2 text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-[length:var(--font-size-small)] font-medium text-text-secondary">
+              Vision
+              <textarea
+                value={vision}
+                maxLength={10000}
+                rows={4}
+                disabled={busy}
+                onChange={(event) => setVision(event.target.value)}
+                className="min-h-28 rounded-[var(--radius-sm)] border border-border-strong bg-surface-raised px-3 py-2 text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-[length:var(--font-size-small)] font-medium text-text-secondary">
+              Principles
+              <textarea
+                value={principles}
+                maxLength={25049}
+                rows={4}
+                disabled={busy}
+                onChange={(event) => setPrinciples(event.target.value)}
+                className="min-h-28 rounded-[var(--radius-sm)] border border-border-strong bg-surface-raised px-3 py-2 text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
+              />
+            </label>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="submit"
+                disabled={busy}
+                className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] bg-primary px-4 py-2 font-medium text-text-inverse hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
+              >
+                Save profile
+              </button>
+              {savedProfile && (
+                <button
+                  type="button"
+                  onClick={cancelProfileEdit}
+                  disabled={busy}
+                  className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-border-strong px-4 py-2 font-medium text-text-primary hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+              )}
+              {profileError && <p role="alert" className="text-[length:var(--font-size-small)] text-destructive">{profileError}</p>}
+            </div>
+          </form>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <dl className="grid gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1 rounded-[var(--radius-sm)] border border-border bg-surface-raised p-4">
+                <dt className="text-[length:var(--font-size-small)] font-medium text-text-secondary">Purpose</dt>
+                <dd className="whitespace-pre-wrap break-words text-text-primary">{savedProfile?.purpose || "Not set yet."}</dd>
+              </div>
+              <div className="flex flex-col gap-1 rounded-[var(--radius-sm)] border border-border bg-surface-raised p-4">
+                <dt className="text-[length:var(--font-size-small)] font-medium text-text-secondary">Vision</dt>
+                <dd className="whitespace-pre-wrap break-words text-text-primary">{savedProfile?.vision || "Not set yet."}</dd>
+              </div>
+            </dl>
+            <div className="flex flex-col gap-2">
+              <h3 className="font-medium text-text-primary">Principles</h3>
+              {savedProfile?.principles.length ? (
+                <ul className="flex flex-col gap-2">
+                  {savedProfile.principles.map((principle, index) => (
+                    <li
+                      key={`${index}-${principle}`}
+                      className="rounded-[var(--radius-sm)] border border-border bg-surface-raised px-4 py-3 text-text-primary"
+                    >
+                      {principle}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-text-secondary">No principles added yet.</p>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setProfileSaved(false);
+                  setProfileError("");
+                  setEditingProfile(true);
+                }}
+                className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-border-strong px-4 py-2 font-medium text-text-primary hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+              >
+                Edit profile
+              </button>
+              {profileSaved && (
+                <p role="status" aria-live="polite" className="text-[length:var(--font-size-small)] text-text-secondary">
+                  Profile saved.
+                </p>
+              )}
+            </div>
           </div>
-        </form>
+        )}
       </section>
 
       <section aria-labelledby="areas-heading" className="flex flex-col gap-4">
