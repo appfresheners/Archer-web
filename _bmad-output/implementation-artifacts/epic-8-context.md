@@ -15,28 +15,29 @@ Give signed-in users one place to review parked work, a distinct Someday status 
 
 ## Requirements & Constraints
 
-- The Someday page brings together parked inbox items, Someday projects, and Someday goals, with reactivation.
-- Someday projects are excluded from Engage and stuck detection and appear on the Someday page and in Get Creative review.
-- Projects, Goals, Inbox, and Someday lists support server-side text search and numbered pagination at 20 items per page, with a result count.
-- Inbox Clarify and goal-detail project assignment let users find a project by typing.
-- Preserve row-level security on every list query. Search terms must not be interpolated into raw SQL.
+- The Someday page groups parked inbox items, Someday projects, and Someday goals; show counts and empty states per section. Read failures must remain distinct from empty results. Reactivated items leave the parked list.
+- Someday projects are excluded from Engage and stuck detection, included in Get Creative, and retain the existing status badge and data-export shape.
+- Projects, Goals, Inbox, and Someday use server-side search and numbered pagination at 20 rows per page. Show result totals, distinguish no search matches from a true empty state, and clamp invalid or out-of-range pages.
+- Search is case-insensitive: Projects match project name and parent-goal text; Goals match goal text; Inbox and parked items match raw text.
+- Keep every query scoped by RLS. Escape `%` and `_` for `ilike`; never interpolate search text into raw SQL.
+- Project assignment in Inbox Clarify and goal detail supports typing to find an eligible project while preserving existing ownership checks and save behavior.
 
 ## Technical Decisions
 
-- List pages read `q` and `page` from the URL. A shared helper parses and clamps these values, escapes `%` and `_` for `ilike`, and supports ranged queries with an exact count.
-- Goal ordering must be applied in the query so it remains consistent across pages. Preserve existing URL filters when search or page changes.
-- Add `someday` to `project_status` with an additive enum migration; existing rows remain unchanged.
-- Project pickers filter already-loaded options in the browser through a shared `SearchableSelect`; no new API route or write path is introduced for picker search.
+- Server-rendered list pages read `q` and `page`; one `lib/` helper parses/clamps them, escapes `ilike` wildcards, and builds ranged queries with exact counts. Preserve other URL parameters, including the Goals `goal` filter; a new search resets the page to 1.
+- Apply Goals status-precedence ordering in the query so it is stable across pages. Compute project and stuck counts only for goals on the current page. Inbox uses a ranged, newest-first query with an exact count.
+- Add `someday` to `project_status` through an additive enum migration only; do not change existing rows. Update generated Supabase types and accept the status in validation.
+- A shared `SearchableSelect` filters already-loaded project options in the browser, excludes archived/completed projects as before, and adds no API route or write path. Limit rendered matches to 50.
 
 ## UX & Interaction Patterns
 
-- The Someday destination is in the sidebar; on mobile it must be reachable without crowding the bottom navigation.
-- Shared search and pagination controls use at least 44px targets, mark the current page with `aria-current="page"`, and distinguish no search matches from a genuinely empty list.
-- The project picker follows the WAI-ARIA combobox pattern, supports Up/Down/Enter/Escape, announces match counts politely, caps visible matches at 50, and has a clear no-match state.
+- Add Someday to the sidebar and make it reachable on mobile without crowding the bottom navigation.
+- Search and pagination controls have at least 44px targets. Pagination uses a labeled navigation landmark and `aria-current="page"`; provide a clear-search action for no-match results.
+- The picker follows the WAI-ARIA combobox pattern (`role`, expanded state, controls, active descendant, and listbox options), supports Up/Down/Enter/Escape with Tab moving on, announces match counts in a polite live region, and shows no-match and “keep typing” states.
 
 ## Cross-Story Dependencies
 
-- Story 8.2 adds the project status required by the Someday page and its project actions.
-- Story 8.3 provides the shared search and pagination used by the Someday page in Story 8.1.
-- Story 8.4 updates the project pickers in Inbox Clarify and goal detail while retaining their existing ownership and save behavior.
-- The approved build order is 8.2, 8.3, then 8.1 and 8.4.
+- Story 8.1 depends on 8.2 for Someday project status and on 8.3 for shared section search/pagination. Reactivating parked inbox items reuses Story 5.6 ownership and route behavior; activating a Someday project returns it to Paused, consistent with Story 4.7.
+- Story 8.2 also updates existing project status selectors and Get Creative behavior; Story 6.1 export includes the new status without changing its shape.
+- Story 8.4 replaces the project selectors in Inbox Clarify and goal detail while retaining their current ownership, eligibility, and save semantics.
+- The planned build order is 8.2, 8.3, then 8.1 and 8.4.

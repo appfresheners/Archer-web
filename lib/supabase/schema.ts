@@ -429,7 +429,19 @@ export interface Database {
         Relationships: [];
       };
     };
-    Views: Record<string, never>;
+    Views: {
+      project_search: {
+        Row: {
+          id: string;
+          name: string;
+          status: ProjectStatus;
+          goal_id: string | null;
+          created_at: string;
+          parent_goal_text: string | null;
+        };
+        Relationships: [];
+      };
+    };
     Functions: {
       /** Atomic goal generate-save: goals → projects → actions in one RPC. */
       save_goal_breakdown: {

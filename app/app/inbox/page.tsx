@@ -13,7 +13,17 @@
 
 import InboxCaptureForm from "@/components/inbox/InboxCaptureForm";
 import InboxList, { type InboxListItem } from "@/components/inbox/InboxList";
+import ListSearch from "@/components/shared/ListSearch";
+import Pagination from "@/components/shared/Pagination";
 import ReadErrorState from "@/components/shared/ReadErrorState";
+import {
+  clampPage,
+  escapeIlikePattern,
+  getPageRange,
+  LIST_PAGE_SIZE,
+  parseListQuery,
+  type ListSearchParams,
+} from "@/lib/lists/search-pagination";
 import type { ReadListResult } from "@/lib/read-result";
 import { createClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
@@ -22,32 +32,80 @@ export const metadata: Metadata = {
   title: "Inbox — Archer",
 };
 
-/**
- * Load only items that still need clarification, newest capture first.
- * Returns an empty list on any failure so the page always renders.
- */
-async function loadInboxItems(): Promise<ReadListResult<InboxListItem[]>> {
+interface LoadedInbox {
+  items: InboxListItem[];
+  query: string;
+  page: number;
+  total: number;
+}
+
+async function loadInboxItems(
+  searchParams: ListSearchParams,
+): Promise<ReadListResult<LoadedInbox>> {
   try {
     const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("inbox_items")
-      .select("id, raw_text, processing_status, captured_at")
-      .eq("processing_status", "unprocessed")
-      .order("captured_at", { ascending: false });
+    const { query, page: requestedPage } = parseListQuery(searchParams);
+    const loadPage = (page: number) => {
+      const { from, to } = getPageRange(page);
+      let request = supabase
+        .from("inbox_items")
+        .select("id, raw_text, processing_status, captured_at", {
+          count: "exact",
+        })
+        .eq("processing_status", "unprocessed");
+      if (query) request = request.ilike("raw_text", escapeIlikePattern(query));
+      return request
+        .order("captured_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to);
+    };
 
-    if (error) return { status: "error" };
-    return { status: "ok", data: (data ?? []) as InboxListItem[] };
+    let result = await loadPage(requestedPage);
+    if (result.error || result.count == null) return { status: "error" };
+    let total = result.count;
+    let page = clampPage(requestedPage, total);
+    if (page !== requestedPage) {
+      result = await loadPage(page);
+      if (result.error || result.count == null) return { status: "error" };
+      if (result.count !== total) {
+        total = result.count;
+        const refreshedPage = clampPage(page, total);
+        if (refreshedPage !== page) {
+          page = refreshedPage;
+          result = await loadPage(page);
+          if (result.error || result.count == null) return { status: "error" };
+          total = result.count;
+        }
+      }
+    }
+
+    return {
+      status: "ok",
+      data: {
+        items: (result.data ?? []) as InboxListItem[],
+        query,
+        page,
+        total,
+      },
+    };
   } catch {
     return { status: "error" };
   }
 }
 
-export default async function InboxPage() {
-  const result = await loadInboxItems();
+export default async function InboxPage({
+  searchParams,
+}: {
+  searchParams: Promise<ListSearchParams>;
+}) {
+  const params = await searchParams;
+  const result = await loadInboxItems(params);
 
   if (result.status === "error") {
     return <ReadErrorState />;
   }
+
+  const { items, query, page, total } = result.data;
 
   return (
     <section className="flex flex-col gap-[var(--spacing-section-y)]">
@@ -58,7 +116,28 @@ export default async function InboxPage() {
         <InboxCaptureForm />
       </header>
 
-      <InboxList items={result.data} />
+      <ListSearch
+        action="/app/inbox"
+        label="Search Inbox"
+        query={query}
+        searchParams={params}
+      />
+
+      {query && total === 0 ? (
+        <p className="rounded-[var(--radius-md)] border border-border bg-surface p-[var(--spacing-card-p)] text-text-secondary">
+          No matches for &apos;{query}&apos;.
+        </p>
+      ) : (
+        <InboxList items={items} />
+      )}
+
+      <Pagination
+        action="/app/inbox"
+        page={page}
+        total={total}
+        pageSize={LIST_PAGE_SIZE}
+        searchParams={params}
+      />
     </section>
   );
 }

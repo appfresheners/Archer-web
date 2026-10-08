@@ -436,3 +436,10 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-7-1-focus-profile-and-area-data-model.md`
   summary: Decide whether archived Areas must be rejected for new Goal/standalone Project links at the database layer, not only hidden by future assignment selectors
   evidence: Review (blind-hunter + edge-case-hunter) — the new owner-matched foreign keys allow an authenticated direct write to reference an archived Area. The epic requires archived Areas to remain attached but not be newly selected; Story 7.3 owns assignment behavior, so settle direct-write enforcement there.
+
+## Deferred from: code review of 8-3 (2026-10-07)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-3-shared-search-and-pagination-for-long-lists.md`
+  summary: Bound or replace the Projects page's all-goals read used to populate its existing goal-filter dropdown
+  evidence: Review (blind-hunter) — `ProjectsPage` still loads every Goal to populate and validate `?goal=` options. The unbounded read predates Story 8.3; replacing the current filter with a bounded/searchable control would change its interaction contract and should be handled as a separate list-scaling decision.
+  status: done # 2026-10-08 — user approved and Story 8.3 added selected-goal lookup plus bounded goal-name search.
