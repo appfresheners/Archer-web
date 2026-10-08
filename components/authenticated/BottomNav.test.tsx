@@ -1,6 +1,8 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import BottomNav from "./BottomNav";
+import Sidebar from "./Sidebar";
 
 // usePathname drives the active-state logic; mock it per test.
 const mockUsePathname = vi.fn<() => string>();
@@ -13,34 +15,62 @@ afterEach(() => {
 });
 
 describe("BottomNav", () => {
-  it("renders the destinations in order using their short labels", () => {
-    mockUsePathname.mockReturnValue("/app/engage");
-    render(<BottomNav />);
+  it("retains all destinations, including Someday, in the desktop sidebar", () => {
+    mockUsePathname.mockReturnValue("/app/inbox");
+    render(<Sidebar />);
 
-    const nav = screen.getByRole("navigation", { name: "Primary" });
-    const links = within(nav).getAllByRole("link");
-    const labels = links.map((link) => link.textContent?.trim());
-
-    // "Weekly Review" collapses to "Review" in the bottom bar.
-    expect(labels).toEqual(["Inbox", "Goals", "Focus", "Projects", "Engage", "Review"]);
+    const sidebar = screen.getByTestId("app-sidebar");
+    const links = within(sidebar).getAllByRole("link");
+    expect(links.map((link) => link.getAttribute("href"))).toContain("/app/someday");
+    expect(links.map((link) => link.getAttribute("href"))).toEqual(
+      expect.arrayContaining([
+        "/app/inbox",
+        "/app/goals",
+        "/app/focus",
+        "/app/projects",
+        "/app/engage",
+        "/app/review",
+        "/app/someday",
+      ]),
+    );
   });
 
-  it("links each destination to its /app/* route", () => {
+  it("keeps Inbox, Goals, and Engage directly visible with a More control", () => {
     mockUsePathname.mockReturnValue("/app/engage");
     render(<BottomNav />);
 
     const nav = screen.getByRole("navigation", { name: "Primary" });
-    const byText = (text: string) =>
-      within(nav)
-        .getAllByRole("link")
-        .find((link) => link.textContent?.trim() === text)!;
+    const labels = Array.from(nav.querySelectorAll(":scope > a"))
+      .map((link) => link.textContent?.trim());
 
-    expect(byText("Inbox")).toHaveAttribute("href", "/app/inbox");
-    expect(byText("Goals")).toHaveAttribute("href", "/app/goals");
-    expect(byText("Focus")).toHaveAttribute("href", "/app/focus");
-    expect(byText("Projects")).toHaveAttribute("href", "/app/projects");
-    expect(byText("Engage")).toHaveAttribute("href", "/app/engage");
-    expect(byText("Review")).toHaveAttribute("href", "/app/review");
+    expect(labels).toEqual(["Inbox", "Goals", "Engage"]);
+    expect(within(nav).getByRole("button", { name: "More" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(screen.queryByRole("link", { name: "Someday" })).not.toBeInTheDocument();
+  });
+
+  it("groups Focus, Projects, Weekly Review, and Someday under More", async () => {
+    mockUsePathname.mockReturnValue("/app/engage");
+    render(<BottomNav />);
+
+    const nav = screen.getByRole("navigation", { name: "Primary" });
+    await userEvent.setup().click(within(nav).getByRole("button", { name: "More" }));
+
+    const links = within(screen.getByRole("list", { hidden: false })).getAllByRole("link");
+    expect(links.map((link) => link.textContent?.trim())).toEqual([
+      "Focus",
+      "Projects",
+      "Weekly Review",
+      "Someday",
+    ]);
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([
+      "/app/focus",
+      "/app/projects",
+      "/app/review",
+      "/app/someday",
+    ]);
   });
 
   it("marks the current path with aria-current='page' and active classes", () => {
@@ -84,15 +114,70 @@ describe("BottomNav", () => {
   it("marks Focus active on its route and nested pages", () => {
     mockUsePathname.mockReturnValue("/app/focus");
     const { rerender } = render(<BottomNav />);
-    const nav = screen.getByRole("navigation", { name: "Primary" });
-    const focusLink = () =>
-      within(nav)
-        .getAllByRole("link")
-        .find((link) => link.textContent?.trim() === "Focus")!;
+    const moreButton = screen.getByRole("button", { name: "More" });
 
-    expect(focusLink()).toHaveAttribute("aria-current", "page");
+    expect(moreButton).toHaveAttribute("aria-current", "page");
+    expect(moreButton).toHaveClass("bg-primary-subtle");
     mockUsePathname.mockReturnValue("/app/focus/area-1");
     rerender(<BottomNav />);
-    expect(focusLink()).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "More" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("closes More after selecting a secondary destination", async () => {
+    mockUsePathname.mockReturnValue("/app/inbox");
+    const user = userEvent.setup();
+    render(<BottomNav />);
+    const moreButton = screen.getByRole("button", { name: "More" });
+    await user.click(moreButton);
+    expect(moreButton).toHaveAttribute("aria-expanded", "true");
+
+    await user.click(screen.getByRole("link", { name: "Someday" }));
+
+    expect(moreButton).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("marks only the active destination as current while More is open", async () => {
+    mockUsePathname.mockReturnValue("/app/someday");
+    const user = userEvent.setup();
+    render(<BottomNav />);
+    const moreButton = screen.getByRole("button", { name: "More" });
+
+    expect(moreButton).toHaveAttribute("aria-current", "page");
+    await user.click(moreButton);
+
+    expect(moreButton).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "Someday" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("closes More on Escape and restores focus to its button", async () => {
+    mockUsePathname.mockReturnValue("/app/inbox");
+    const user = userEvent.setup();
+    render(<BottomNav />);
+    const moreButton = screen.getByRole("button", { name: "More" });
+    await user.click(moreButton);
+    await user.tab();
+
+    expect(screen.getByRole("link", { name: "Focus" })).toHaveFocus();
+    await user.keyboard("{Escape}");
+
+    expect(moreButton).toHaveAttribute("aria-expanded", "false");
+    expect(moreButton).toHaveFocus();
+  });
+
+  it("closes More when navigating from the primary links", async () => {
+    mockUsePathname.mockReturnValue("/app/inbox");
+    const user = userEvent.setup();
+    render(<BottomNav />);
+    const moreButton = screen.getByRole("button", { name: "More" });
+    await user.click(moreButton);
+    await user.click(screen.getByRole("link", { name: "Inbox" }));
+
+    expect(moreButton).toHaveAttribute("aria-expanded", "false");
   });
 });

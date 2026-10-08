@@ -21,6 +21,8 @@ export interface NavItem {
   shortLabel: string;
   /** Route the item links to. */
   href: string;
+  /** Whether the destination is directly visible in the mobile bar or grouped under More. */
+  mobileGroup: "primary" | "more";
   /** Inline SVG icon element. */
   icon: ReactNode;
 }
@@ -121,45 +123,70 @@ function ReviewIcon(): ReactNode {
   );
 }
 
+/** Someday — a bookmark for parked work. */
+function SomedayIcon(): ReactNode {
+  return createElement(
+    "svg",
+    iconProps,
+    createElement("path", {
+      key: "bookmark",
+      d: "M6 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18l-6-4-6 4V4z",
+    }),
+  );
+}
+
 /**
- * Primary navigation, in the spec-mandated order with Projects alongside
- * Inbox, Goals, Engage, and Weekly Review.
+ * Desktop navigation, in workflow order. The mobile bar groups secondary
+ * destinations under More to keep its frequent actions easy to reach.
  */
 export const navItems: NavItem[] = [
   {
     label: "Inbox",
     shortLabel: "Inbox",
     href: "/app/inbox",
+    mobileGroup: "primary",
     icon: InboxIcon(),
   },
   {
     label: "Goals",
     shortLabel: "Goals",
     href: "/app/goals",
+    mobileGroup: "primary",
     icon: GoalsIcon(),
   },
   {
     label: "Focus",
     shortLabel: "Focus",
     href: "/app/focus",
+    mobileGroup: "more",
     icon: FocusIcon(),
   },
   {
     label: "Projects",
     shortLabel: "Projects",
     href: "/app/projects",
+    mobileGroup: "more",
     icon: ProjectsIcon(),
   },
   {
     label: "Engage",
     shortLabel: "Engage",
     href: "/app/engage",
+    mobileGroup: "primary",
     icon: EngageIcon(),
   },
   {
     label: "Weekly Review",
     shortLabel: "Review",
     href: "/app/review",
+    mobileGroup: "more",
     icon: ReviewIcon(),
+  },
+  {
+    label: "Someday",
+    shortLabel: "Someday",
+    href: "/app/someday",
+    mobileGroup: "more",
+    icon: SomedayIcon(),
   },
 ];
