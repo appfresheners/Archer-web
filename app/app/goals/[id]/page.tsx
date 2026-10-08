@@ -168,9 +168,11 @@ async function loadAttachableProjects(): Promise<AttachableProject[]> {
   try {
     const supabase = await createClient();
     const { data } = await supabase
-      .from("projects")
-      .select("id, name, goal_id");
-    return (data ?? []) as AttachableProject[];
+      .from("project_search")
+      .select("id, name, status, goal_id, parent_goal_text");
+    return ((data ?? []) as AttachableProject[]).filter(
+      (project) => project.status !== "archived" && project.status !== "completed",
+    );
   } catch {
     return [];
   }

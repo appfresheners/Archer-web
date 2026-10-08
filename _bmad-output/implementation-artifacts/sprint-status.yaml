@@ -39,7 +39,7 @@
 # Original story statuses are preserved. Stories added by approved course corrections
 # remain 'backlog' until their implementation specs are authored.
 generated: 09-27-2026 16:30
-last_updated: 10-08-2026 (Story 8.1 implementation complete; ready for review)
+last_updated: 10-08-2026 (Story 8.4 implementation complete; ready for review)
 
 project: GTDGoalandProjectCreator
 project_key: NOKEY
@@ -111,7 +111,7 @@ development_status:
   8-1-someday-maybe-page: review
   8-2-someday-project-status: review
   8-3-shared-search-and-pagination-for-long-lists: review
-  8-4-searchable-project-picker: backlog
+  8-4-searchable-project-picker: review
   epic-8-retrospective: optional
 
   epic-6: backlog

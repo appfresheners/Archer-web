@@ -12,6 +12,7 @@
  */
 
 import ClarifyWizard from "@/components/inbox/clarify/ClarifyWizard";
+import type { SearchableProjectOption } from "@/components/shared/SearchableProjectPicker";
 import ReadErrorState from "@/components/shared/ReadErrorState";
 import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import type { ReadResult } from "@/lib/read-result";
@@ -36,7 +37,7 @@ interface LoadedItem {
 
 interface LoadResult {
   item: { id: string; raw_text: string };
-  projects: { id: string; name: string }[];
+  projects: SearchableProjectOption[];
 }
 
 async function loadClarifyData(id: string): Promise<ReadResult<LoadResult>> {
@@ -58,9 +59,9 @@ async function loadClarifyData(id: string): Promise<ReadResult<LoadResult>> {
     if (loaded.processing_status !== "unprocessed") return { status: "not-found" };
 
     const { data: projects, error: projectsError } = await supabase
-      .from("projects")
-      .select("id, name")
-      .order("sort_order", { ascending: true });
+      .from("project_search")
+      .select("id, name, status, goal_id, parent_goal_text")
+      .order("name", { ascending: true });
 
     if (projectsError) return { status: "error" };
 
@@ -68,7 +69,9 @@ async function loadClarifyData(id: string): Promise<ReadResult<LoadResult>> {
       status: "ok",
       data: {
         item: { id: loaded.id, raw_text: loaded.raw_text },
-        projects: (projects ?? []) as { id: string; name: string }[],
+        projects: ((projects ?? []) as SearchableProjectOption[]).filter(
+          (project) => project.status !== "archived" && project.status !== "completed",
+        ),
       },
     };
   } catch {

@@ -8,6 +8,7 @@ const goalMaybeSingle = vi.fn();
 const projectsOrder = vi.fn();
 const actionsIn = vi.fn();
 const attachableProjects = vi.fn();
+const projectSearchSelect = vi.fn();
 const areaOptions = vi.fn();
 const assignedArea = vi.fn();
 
@@ -19,10 +20,19 @@ vi.mock("@/lib/supabase/server", () => ({
           select: () => ({ eq: () => ({ maybeSingle: () => goalMaybeSingle() }) }),
         };
       }
+      if (table === "project_search") {
+        return {
+          select: (columns: string) => {
+            projectSearchSelect(columns);
+            return {
+              then: (resolve: (v: unknown) => void) => resolve(attachableProjects()),
+            };
+          },
+        };
+      }
       if (table === "projects") {
         return {
           select: () => ({
-            then: (resolve: (v: unknown) => void) => resolve(attachableProjects()),
             eq: () => ({ order: () => projectsOrder() }),
           }),
         };
@@ -102,6 +112,7 @@ describe("GoalDetailPage", () => {
     projectsOrder.mockResolvedValue({ data: [], error: null });
     actionsIn.mockResolvedValue({ data: [], error: null });
     attachableProjects.mockResolvedValue({ data: [], error: null });
+    projectSearchSelect.mockClear();
     areaOptions.mockResolvedValue({ data: [], error: null });
     assignedArea.mockResolvedValue({ data: null, error: null });
   });
@@ -281,7 +292,7 @@ describe("GoalDetailPage", () => {
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
   });
 
-  it("passes the goal id and the user's attachable projects to AttachProjectControl", async () => {
+  it("loads picker display and eligibility fields from project_search", async () => {
     goalMaybeSingle.mockResolvedValue({
       data: {
         id: "g1",
@@ -302,8 +313,34 @@ describe("GoalDetailPage", () => {
     });
     attachableProjects.mockResolvedValue({
       data: [
-        { id: "p9", name: "Other project", goal_id: null },
-        { id: "p10", name: "Linked elsewhere", goal_id: "g2" },
+        {
+          id: "p9",
+          name: "Other project",
+          status: "paused",
+          goal_id: null,
+          parent_goal_text: null,
+        },
+        {
+          id: "p10",
+          name: "Linked elsewhere",
+          status: "active",
+          goal_id: "g2",
+          parent_goal_text: "Another goal",
+        },
+        {
+          id: "p11",
+          name: "Archived project",
+          status: "archived",
+          goal_id: null,
+          parent_goal_text: null,
+        },
+        {
+          id: "p12",
+          name: "Completed project",
+          status: "completed",
+          goal_id: null,
+          parent_goal_text: null,
+        },
       ],
       error: null,
     });
@@ -313,5 +350,8 @@ describe("GoalDetailPage", () => {
     const control = screen.getByTestId("attach-project-control");
     expect(control).toHaveAttribute("data-goal-id", "g1");
     expect(control).toHaveAttribute("data-project-count", "2");
+    expect(projectSearchSelect).toHaveBeenCalledWith(
+      "id, name, status, goal_id, parent_goal_text",
+    );
   });
 });

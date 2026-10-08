@@ -168,7 +168,20 @@ describe("ClarifyWizard", () => {
   it("assigns the next action to a project when one is chosen", async () => {
     const user = userEvent.setup();
     const pid = "77777777-7777-4777-8777-777777777777";
-    render(<ClarifyWizard item={ITEM} projects={[{ id: pid, name: "Home" }]} />);
+    render(
+      <ClarifyWizard
+        item={ITEM}
+        projects={[
+          {
+            id: pid,
+            name: "Home repairs",
+            status: "paused",
+            goal_id: "goal-home",
+            parent_goal_text: "Make the house comfortable",
+          },
+        ]}
+      />,
+    );
 
     await user.click(screen.getByRole("button", { name: /is it actionable/i }));
     await user.click(screen.getByRole("button", { name: /yes, it's actionable/i }));
@@ -176,11 +189,83 @@ describe("ClarifyWizard", () => {
     await user.click(screen.getByRole("button", { name: /it takes longer/i }));
     await user.click(screen.getByRole("button", { name: /^next action$/i }));
 
-    await user.selectOptions(screen.getByLabelText(/project/i), pid);
+    const picker = screen.getByRole("combobox", { name: "Project (optional)" });
+    await user.type(picker, "home");
+    expect(screen.getByRole("option")).toHaveTextContent("Make the house comfortable");
+    await user.click(screen.getByRole("option", { name: /Home repairs/ }));
     await user.click(screen.getByRole("button", { name: /create next action/i }));
 
     await waitFor(() => expect(push).toHaveBeenCalledWith("/app/inbox"));
     expect(bodyOf("/api/actions")).toMatchObject({ project_id: pid });
+  });
+
+  it("clears the prior project when a replacement search is typed", async () => {
+    const user = userEvent.setup();
+    const pid = "77777777-7777-4777-8777-777777777777";
+    render(
+      <ClarifyWizard
+        item={ITEM}
+        projects={[
+          {
+            id: pid,
+            name: "Home repairs",
+            status: "paused",
+            goal_id: null,
+            parent_goal_text: null,
+          },
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /is it actionable/i }));
+    await user.click(screen.getByRole("button", { name: /yes, it's actionable/i }));
+    await user.click(screen.getByRole("button", { name: /single action/i }));
+    await user.click(screen.getByRole("button", { name: /it takes longer/i }));
+    await user.click(screen.getByRole("button", { name: /^next action$/i }));
+
+    const picker = screen.getByRole("combobox", { name: "Project (optional)" });
+    await user.type(picker, "home");
+    await user.click(screen.getByRole("option", { name: /Home repairs/ }));
+    await user.click(picker);
+    await user.type(picker, "different");
+    await user.click(screen.getByRole("button", { name: /create next action/i }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/app/inbox"));
+    expect(bodyOf("/api/actions")).toMatchObject({ project_id: null });
+  });
+
+  it("clearing a chosen Clarify project keeps the action standalone", async () => {
+    const user = userEvent.setup();
+    const pid = "77777777-7777-4777-8777-777777777777";
+    render(
+      <ClarifyWizard
+        item={ITEM}
+        projects={[
+          {
+            id: pid,
+            name: "Home repairs",
+            status: "paused",
+            goal_id: null,
+            parent_goal_text: null,
+          },
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /is it actionable/i }));
+    await user.click(screen.getByRole("button", { name: /yes, it's actionable/i }));
+    await user.click(screen.getByRole("button", { name: /single action/i }));
+    await user.click(screen.getByRole("button", { name: /it takes longer/i }));
+    await user.click(screen.getByRole("button", { name: /^next action$/i }));
+
+    const picker = screen.getByRole("combobox", { name: "Project (optional)" });
+    await user.type(picker, "home");
+    await user.click(screen.getByRole("option", { name: /Home repairs/ }));
+    await user.click(screen.getByRole("button", { name: "Clear project selection" }));
+    await user.click(screen.getByRole("button", { name: /create next action/i }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/app/inbox"));
+    expect(bodyOf("/api/actions")).toMatchObject({ project_id: null });
   });
 
   it("surfaces an error and does not navigate when the API fails", async () => {
