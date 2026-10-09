@@ -135,6 +135,9 @@ describe("ProjectDetailPage", () => {
 
     await renderPage("project-1");
 
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("Portfolio site live");
     expect(
       screen.getByRole("heading", { level: 1, name: "Portfolio site live" }),
     ).toBeInTheDocument();
@@ -386,6 +389,10 @@ describe("ProjectDetailPage", () => {
   it("renders an error state when the query errors", async () => {
     projectMaybeSingle.mockResolvedValue({ data: null, error: { message: "boom" } });
     await renderPage("project-1");
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("Project");
+    expect(screen.getByRole("link", { name: "Projects" })).toHaveAttribute("href", "/app/projects");
     expect(
       screen.getByText("Something went wrong loading this view. Please try again."),
     ).toBeInTheDocument();

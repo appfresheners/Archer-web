@@ -19,6 +19,7 @@ type MockBuilder = {
   is: (...args: unknown[]) => MockBuilder;
   or: (...args: unknown[]) => MockBuilder;
   ilike: (...args: unknown[]) => MockBuilder;
+  gt: (...args: unknown[]) => MockBuilder;
   range: (...args: unknown[]) => MockBuilder;
   maybeSingle: (...args: unknown[]) => MockBuilder;
   then: (
@@ -29,8 +30,7 @@ type MockBuilder = {
 
 const mockState = vi.hoisted(() => ({
   calls: [] as { table: string; method: string; args: unknown[] }[],
-  goalLookupResult: null as MockResult | null,
-  goalSearchResults: [] as MockResult[],
+  goalOptionsResults: [] as MockResult[],
   projectResults: [] as MockResult[],
   totalProjectsResult: null as MockResult | null,
 }));
@@ -39,11 +39,9 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     from: (table: string) => {
       const builder = {} as MockBuilder & Record<string, unknown>;
-      let goalQuery: "lookup" | "search" = "lookup";
-      for (const method of ["select", "order", "eq", "is", "or", "ilike", "range", "maybeSingle"]) {
+      for (const method of ["select", "order", "eq", "is", "or", "ilike", "gt", "range", "maybeSingle"]) {
         builder[method] = (...args: unknown[]) => {
           mockState.calls.push({ table, method, args });
-          if (table === "goals" && method === "ilike") goalQuery = "search";
           return builder;
         };
       }
@@ -51,9 +49,7 @@ vi.mock("@/lib/supabase/server", () => ({
         mockState.calls.push({ table, method: "await", args: [] });
         const result: MockResult | null | undefined =
           table === "goals"
-            ? goalQuery === "search"
-              ? mockState.goalSearchResults.shift()
-              : mockState.goalLookupResult
+            ? mockState.goalOptionsResults.shift()
             : table === "project_search"
               ? mockState.projectResults.shift()
               : mockState.totalProjectsResult;
@@ -109,8 +105,7 @@ const PROJECTS = [
 describe("ProjectsPage", () => {
   beforeEach(() => {
     mockState.calls.length = 0;
-    mockState.goalLookupResult = { data: null, error: null };
-    mockState.goalSearchResults = [];
+    mockState.goalOptionsResults = [{ data: GOALS, error: null }];
     mockState.projectResults = [{ data: PROJECTS, count: PROJECTS.length, error: null }];
     mockState.totalProjectsResult = {
       data: null,
@@ -122,6 +117,8 @@ describe("ProjectsPage", () => {
   it("renders an error state when a read errors", async () => {
     mockState.projectResults = [{ data: null, count: null, error: { message: "boom" } }];
     await renderPage();
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" }).querySelector('[aria-current="page"]')).toHaveTextContent("Projects");
     expect(
       screen.getByText("Something went wrong loading this view. Please try again."),
     ).toBeInTheDocument();
@@ -131,13 +128,15 @@ describe("ProjectsPage", () => {
   it("shows all projects when no filter is supplied", async () => {
     await renderPage();
 
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("Projects");
     expect(screen.getByText("Base training")).toBeInTheDocument();
     expect(screen.getByText("Write issue #1")).toBeInTheDocument();
     expect(screen.getByText("Standalone")).toBeInTheDocument();
   });
 
   it("filters to a specific goal and reflects the selection in the dropdown", async () => {
-    mockState.goalLookupResult = { data: GOALS[1], error: null };
     mockState.projectResults = [
       { data: [PROJECTS[1]], count: 1, error: null },
     ];
@@ -183,6 +182,7 @@ describe("ProjectsPage", () => {
   });
 
   it("falls back to All for an unknown goal filter", async () => {
+    mockState.goalOptionsResults = [{ data: GOALS, error: null }];
     await renderPage({ goal: "goal-does-not-exist" });
 
     expect(screen.getByText("Base training")).toBeInTheDocument();
@@ -194,8 +194,8 @@ describe("ProjectsPage", () => {
     ).toBe("all");
   });
 
-  it("searches bounded goal options instead of loading all goals", async () => {
-    mockState.goalSearchResults = [{ data: [GOALS[0]], count: 1, error: null }];
+  it("filters the loaded goal options in the browser", async () => {
+    mockState.goalOptionsResults = [{ data: GOALS, error: null }];
     await renderPage({ goalQ: "marathon" });
 
     expect(screen.getByRole("option", { name: "All goals" })).toBeInTheDocument();
@@ -204,32 +204,70 @@ describe("ProjectsPage", () => {
       "href",
       "/app/projects?goal=goal-1",
     );
-    expect(mockState.calls).toContainEqual({
-      table: "goals",
-      method: "ilike",
-      args: ["goal_text", "%marathon%"],
-    });
-    expect(mockState.calls).toContainEqual({
-      table: "goals",
-      method: "range",
-      args: [0, 19],
-    });
-    expect(
-      mockState.calls.some(
-        (call) =>
-          call.table === "goals" &&
-          call.method === "select" &&
-          (call.args[1] as { count?: string })?.count === "exact",
-      ),
-    ).toBe(true);
+    expect(mockState.calls.filter((call) => call.table === "goals" && call.method === "await")).toHaveLength(1);
+    expect(mockState.calls.some((call) => call.table === "goals" && call.method === "ilike")).toBe(false);
+    expect(mockState.calls).toContainEqual({ table: "goals", method: "range", args: [0, 999] });
   });
 
-  it("keeps All and No goal filters available without reading the Goals table", async () => {
+  it("loads further goal batches with a stable ID cursor so every goal can be searched", async () => {
+    const firstBatch = Array.from({ length: 1000 }, (_, index) => ({
+      id: `goal-${index}`,
+      goal_text: `Goal ${index}`,
+    }));
+    mockState.goalOptionsResults = [
+      { data: firstBatch, error: null },
+      { data: [{ id: "goal-last", goal_text: "Find this final goal" }], error: null },
+    ];
+
+    await renderPage({ goalQ: "final goal" });
+
+    expect(screen.getByRole("link", { name: "Find this final goal" })).toBeInTheDocument();
+    expect(
+      mockState.calls
+        .filter((call) => call.table === "goals" && call.method === "range")
+        .map((call) => call.args),
+    ).toEqual([[0, 999], [0, 999]]);
+    expect(mockState.calls).toContainEqual({
+      table: "goals",
+      method: "gt",
+      args: ["id", "goal-999"],
+    });
+    expect(mockState.calls.some((call) => call.table === "goals" && call.method === "ilike")).toBe(false);
+  });
+
+  it("keeps the project list usable when loading goal filter options fails", async () => {
+    mockState.goalOptionsResults = [{ data: null, error: { message: "goals failed" } }];
+
+    await renderPage();
+
+    expect(screen.getByText("Base training")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Goal search is unavailable.");
+    expect(screen.getByRole("searchbox", { name: "Search goals to filter projects" })).toBeDisabled();
+  });
+
+  it("keeps the project list usable when a later goal-options batch fails", async () => {
+    const firstBatch = Array.from({ length: 1000 }, (_, index) => ({
+      id: `goal-${index}`,
+      goal_text: `Goal ${index}`,
+    }));
+    mockState.goalOptionsResults = [
+      { data: firstBatch, error: null },
+      { data: null, error: { message: "later goals batch failed" } },
+    ];
+
+    await renderPage({ goalQ: "not loaded" });
+
+    expect(screen.getByText("Base training")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Goal search is unavailable.");
+    expect(screen.queryByText(/No goals match/)).not.toBeInTheDocument();
+  });
+
+  it("loads goal options once and keeps All and No goal filters available", async () => {
     await renderPage();
 
     expect(screen.getByRole("option", { name: "All goals" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "No goal" })).toBeInTheDocument();
-    expect(mockState.calls.some((call) => call.table === "goals")).toBe(false);
+    expect(mockState.calls.filter((call) => call.table === "goals" && call.method === "await")).toHaveLength(1);
     expect(screen.getByText("Base training")).toBeInTheDocument();
   });
 
@@ -252,10 +290,7 @@ describe("ProjectsPage", () => {
   });
 
   it("shows a no-match message when the filter excludes every project", async () => {
-    mockState.goalLookupResult = {
-      data: { id: "goal-3", goal_text: "Empty goal" },
-      error: null,
-    };
+    mockState.goalOptionsResults = [{ data: [...GOALS, { id: "goal-3", goal_text: "Empty goal" }], error: null }];
     mockState.projectResults = [{ data: [], count: 0, error: null }];
 
     await renderPage({ goal: "goal-3" });

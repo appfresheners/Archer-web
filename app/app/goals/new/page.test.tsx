@@ -25,6 +25,10 @@ describe("NewGoalPage", () => {
     render(await NewGoalPage());
 
     expect(screen.getByTestId("goal-wizard")).toHaveTextContent("Health");
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("New goal");
+    expect(screen.getByRole("link", { name: "Goals" })).toHaveAttribute("href", "/app/goals");
     expect(goalWizard).toHaveBeenCalledWith([{ id: "area-1", name: "Health" }]);
   });
 });

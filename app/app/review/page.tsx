@@ -25,6 +25,7 @@
 import type { PriorSnapshotDisplay } from "@/components/review/phase-panels/SnapshotOpenPanel";
 import ReviewShell from "@/components/review/ReviewShell";
 import StartReview from "@/components/review/StartReview";
+import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import { isReviewShellPhase, type ReviewShellPhase } from "@/lib/review/phases";
 import {
   buildReviewData,
@@ -240,6 +241,7 @@ export default async function ReviewPage() {
 
   return (
     <section className="flex flex-col gap-[var(--spacing-section-y)]">
+      <Breadcrumbs items={[{ label: "Weekly Review" }]} />
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-[length:var(--font-size-section)] font-bold text-text-primary">
           Weekly Review

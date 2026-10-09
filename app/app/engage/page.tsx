@@ -21,6 +21,7 @@
  */
 
 import EngageBoard from "@/components/engage/EngageBoard";
+import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import ReadErrorState from "@/components/shared/ReadErrorState";
 import {
   buildEngageModel,
@@ -86,11 +87,17 @@ export default async function EngagePage() {
   const result = await loadEngageModel();
 
   if (result.status === "error") {
-    return <ReadErrorState />;
+    return (
+      <section className="flex flex-col gap-[var(--spacing-section-y)]">
+        <Breadcrumbs items={[{ label: "Engage" }]} />
+        <ReadErrorState />
+      </section>
+    );
   }
 
   return (
     <section className="flex flex-col gap-[var(--spacing-section-y)]">
+      <Breadcrumbs items={[{ label: "Engage" }]} />
       <EngageBoard model={result.data} />
     </section>
   );

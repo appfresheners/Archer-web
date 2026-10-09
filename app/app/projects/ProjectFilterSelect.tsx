@@ -1,6 +1,7 @@
+"use client";
+
 import Link from "next/link";
-import ListSearch from "@/components/shared/ListSearch";
-import Pagination from "@/components/shared/Pagination";
+import { useState } from "react";
 import {
   buildListHref,
   type ListSearchParams,
@@ -13,21 +14,26 @@ export interface ProjectFilterGoalOption {
 
 export default function ProjectFilterSelect({
   goals,
+  goalOptionsError,
   selectedGoal,
   value,
   query,
-  page,
-  total,
   searchParams,
 }: {
   goals: ProjectFilterGoalOption[];
+  goalOptionsError: boolean;
   selectedGoal: ProjectFilterGoalOption | null;
   value: string;
   query: string;
-  page: number;
-  total: number;
   searchParams: ListSearchParams;
 }) {
+  const [draftGoalQuery, setDraftGoalQuery] = useState(query);
+  const [goalQuery, setGoalQuery] = useState(query);
+  const normalizedQuery = goalQuery.trim().toLowerCase();
+  const matchingGoals = normalizedQuery
+    ? goals.filter((goal) => goal.goal_text.toLowerCase().includes(normalizedQuery))
+    : [];
+  const visibleGoals = matchingGoals.slice(0, 50);
   const filterHref = (goal: string | null) =>
     buildListHref("/app/projects", searchParams, {
       goal,
@@ -35,6 +41,10 @@ export default function ProjectFilterSelect({
       goalQ: null,
       goalOptionsPage: null,
     });
+  const clearSearchHref = buildListHref("/app/projects", searchParams, {
+    goalQ: null,
+    goalOptionsPage: null,
+  });
 
   return (
     <section className="flex flex-col gap-3">
@@ -92,27 +102,69 @@ export default function ProjectFilterSelect({
         </button>
       </form>
 
-      <ListSearch
-        action="/app/projects"
-        label="Search goals to filter projects"
-        query={query}
-        queryKey="goalQ"
-        pageKey="goalOptionsPage"
-        searchParams={searchParams}
-      />
+      <div className="flex flex-col gap-2">
+        <form
+          role="search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setGoalQuery(draftGoalQuery);
+          }}
+          className="flex flex-wrap items-end gap-2"
+        >
+          <label
+            htmlFor="goalQ-search"
+            className="flex min-w-0 flex-1 flex-col gap-1 text-[length:var(--font-size-small)] font-medium text-text-secondary"
+          >
+            Search goals to filter projects
+            <input
+              id="goalQ-search"
+              type="search"
+              value={draftGoalQuery}
+              onChange={(event) => setDraftGoalQuery(event.target.value)}
+              disabled={goalOptionsError}
+              className="min-h-[44px] w-full rounded-[var(--radius-sm)] border border-border-strong bg-surface-raised px-3 py-2 text-text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)]"
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={goalOptionsError}
+            className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] bg-primary px-4 py-2 font-medium text-text-inverse transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+          >
+            Search
+          </button>
+        </form>
+        {(draftGoalQuery || goalQuery) && (
+          <Link
+            href={clearSearchHref}
+            className="inline-flex min-h-[44px] w-fit items-center text-[length:var(--font-size-small)] font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+          >
+            Clear search
+          </Link>
+        )}
+      </div>
 
-      {query && total === 0 ? (
-        <p className="text-text-secondary">No goals match &apos;{query}&apos;.</p>
-      ) : goals.length > 0 ? (
+      {goalOptionsError ? (
+        <p role="alert" className="text-text-secondary">
+          Goal search is unavailable. Projects are still shown.
+        </p>
+      ) : normalizedQuery && matchingGoals.length === 0 ? (
+        <p role="status" className="text-text-secondary">
+          No goals match &apos;{goalQuery.trim()}&apos;.
+        </p>
+      ) : matchingGoals.length > 0 ? (
         <div className="flex flex-col gap-2">
           <h2 className="text-[length:var(--font-size-small)] font-medium text-text-secondary">
             Matching goals
           </h2>
           <ul className="flex flex-wrap gap-2">
-            {goals.map((goal) => (
+            {visibleGoals.map((goal) => (
               <li key={goal.id}>
                 <Link
                   href={filterHref(goal.id)}
+                  onClick={() => {
+                    setDraftGoalQuery("");
+                    setGoalQuery("");
+                  }}
                   aria-current={goal.id === value ? "true" : undefined}
                   className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-border-strong bg-surface-raised px-3 py-2 text-text-primary hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] aria-[current=true]:border-primary aria-[current=true]:font-semibold"
                 >
@@ -121,13 +173,11 @@ export default function ProjectFilterSelect({
               </li>
             ))}
           </ul>
-          <Pagination
-            action="/app/projects"
-            page={page}
-            total={total}
-            searchParams={searchParams}
-            pageKey="goalOptionsPage"
-          />
+          {matchingGoals.length > 50 && (
+            <p className="text-[length:var(--font-size-small)] text-text-secondary">
+              Keep typing to narrow results
+            </p>
+          )}
         </div>
       ) : null}
     </section>

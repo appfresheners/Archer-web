@@ -3,6 +3,7 @@ import FocusManager, {
   type FocusGoalData,
   type FocusProjectData,
 } from "@/components/focus/FocusManager";
+import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import ReadErrorState from "@/components/shared/ReadErrorState";
 import type { ReadListResult } from "@/lib/read-result";
 import type {
@@ -101,14 +102,24 @@ async function loadFocus(): Promise<ReadListResult<FocusPageData>> {
 
 export default async function FocusPage() {
   const result = await loadFocus();
-  if (result.status === "error") return <ReadErrorState />;
+  if (result.status === "error") {
+    return (
+      <section className="flex flex-col gap-[var(--spacing-section-y)]">
+        <Breadcrumbs items={[{ label: "Focus" }]} />
+        <ReadErrorState />
+      </section>
+    );
+  }
 
   return (
-    <FocusManager
-      profile={result.data.profile}
-      areas={result.data.areas}
-      goals={result.data.goals}
-      projects={result.data.projects}
-    />
+    <section className="flex flex-col gap-[var(--spacing-section-y)]">
+      <Breadcrumbs items={[{ label: "Focus" }]} />
+      <FocusManager
+        profile={result.data.profile}
+        areas={result.data.areas}
+        goals={result.data.goals}
+        projects={result.data.projects}
+      />
+    </section>
   );
 }

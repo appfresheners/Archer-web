@@ -34,6 +34,10 @@ describe("NewProjectPage", () => {
     render(await NewProjectPage());
 
     expect(screen.getByTestId("project-client")).toHaveTextContent("Health");
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("New project");
+    expect(screen.getByRole("link", { name: "Projects" })).toHaveAttribute("href", "/app/projects");
     expect(projectClient).toHaveBeenCalledWith(
       [{ id: "area-1", name: "Health" }],
       [{ id: "goal-1", goal_text: "Run a marathon" }],

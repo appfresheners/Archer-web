@@ -123,6 +123,9 @@ describe("ReviewPage", () => {
 
   it("shows the Start control when there is no current-week session", async () => {
     await renderPage();
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("Weekly Review");
     expect(
       screen.getByRole("button", { name: "Start weekly review" }),
     ).toBeInTheDocument();

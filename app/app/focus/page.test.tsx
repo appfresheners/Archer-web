@@ -65,6 +65,9 @@ describe("FocusPage", () => {
 
   it("renders profile fields for first-time setup and the empty Area state", async () => {
     await renderPage();
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("Focus");
     expect(screen.getByRole("heading", { name: "Focus" })).toBeInTheDocument();
     expect(screen.getByRole("note")).toHaveTextContent(
       "This page is for alignment with God, purpose, and long-term direction — not pressure.",
@@ -311,6 +314,8 @@ describe("FocusPage", () => {
   it("renders the retry state when the profile read fails", async () => {
     profileSingle.mockResolvedValue({ data: null, error: { message: "offline" } });
     await renderPage();
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" }).querySelector('[aria-current="page"]')).toHaveTextContent("Focus");
     expect(screen.getByRole("alert")).toHaveTextContent("Something went wrong loading this view.");
   });
 

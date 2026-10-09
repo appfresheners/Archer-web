@@ -71,6 +71,9 @@ describe("InboxPage", () => {
   it("searches unprocessed raw text with exact-count newest-first pagination", async () => {
     await renderPage({ q: "forest" });
 
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("Inbox");
     expect(screen.getByText("Plan forest walk")).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: "Search Inbox" })).toHaveValue(
       "forest",
@@ -141,6 +144,8 @@ describe("InboxPage", () => {
 
     await renderPage();
 
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" }).querySelector('[aria-current="page"]')).toHaveTextContent("Inbox");
     expect(
       screen.getByText("Something went wrong loading this view. Please try again."),
     ).toBeInTheDocument();

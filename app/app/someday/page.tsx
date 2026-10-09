@@ -1,4 +1,5 @@
 import SomedayActions from "@/components/someday/SomedayActions";
+import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import ListSearch from "@/components/shared/ListSearch";
 import Pagination from "@/components/shared/Pagination";
 import ReadErrorState from "@/components/shared/ReadErrorState";
@@ -189,12 +190,20 @@ export default async function SomedayPage({
   const params = await searchParams;
   const result = await loadSomeday(params);
 
-  if (result.status === "error") return <ReadErrorState />;
+  if (result.status === "error") {
+    return (
+      <section className="flex flex-col gap-[var(--spacing-section-y)]">
+        <Breadcrumbs items={[{ label: "Someday" }]} />
+        <ReadErrorState />
+      </section>
+    );
+  }
 
   const { items, projects, goals } = result.data;
 
   return (
     <section className="flex flex-col gap-[var(--spacing-section-y)]">
+      <Breadcrumbs items={[{ label: "Someday" }]} />
       <h1 className="text-[length:var(--font-size-section)] font-bold text-text-primary">
         Someday / Maybe
       </h1>

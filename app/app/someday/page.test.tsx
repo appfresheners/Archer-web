@@ -109,6 +109,9 @@ describe("SomedayPage", () => {
   it("loads Someday-only sections with exact counts and links to existing details", async () => {
     await renderPage();
 
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("Someday");
     expect(screen.getByRole("heading", { name: "Parked items (1)" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Someday projects (1)" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Someday goals (1)" })).toBeInTheDocument();
@@ -354,6 +357,8 @@ describe("SomedayPage", () => {
 
     await renderPage();
 
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" }).querySelector('[aria-current="page"]')).toHaveTextContent("Someday");
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /Parked items \(/ })).not.toBeInTheDocument();
     expect(screen.queryByText("No parked items.")).not.toBeInTheDocument();

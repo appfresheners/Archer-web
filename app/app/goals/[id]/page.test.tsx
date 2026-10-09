@@ -149,6 +149,9 @@ describe("GoalDetailPage", () => {
 
     await renderPage("g1");
 
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("Goal");
     expect(screen.getByTestId("goal-client")).toHaveTextContent("Run a marathon");
     expect(screen.getByText("I want to build confidence and endurance.")).toBeInTheDocument();
     // Unnumbered My Goal section: AI-refined statement + criteria.
@@ -286,6 +289,10 @@ describe("GoalDetailPage", () => {
   it("renders an error state when the goal query errors", async () => {
     goalMaybeSingle.mockResolvedValue({ data: null, error: { message: "boom" } });
     await renderPage("g1");
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("Goal");
+    expect(screen.getByRole("link", { name: "Goals" })).toHaveAttribute("href", "/app/goals");
     expect(
       screen.getByText("Something went wrong loading this view. Please try again."),
     ).toBeInTheDocument();

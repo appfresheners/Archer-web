@@ -84,7 +84,14 @@ export default async function ClarifyPage({ params }: ClarifyPageProps) {
   const res = await loadClarifyData(id);
 
   if (res.status === "error") {
-    return <ReadErrorState />;
+    return (
+      <section className="flex flex-col gap-[var(--spacing-section-y)]">
+        <Breadcrumbs
+          items={[{ label: "Inbox", href: "/app/inbox" }, { label: "Clarify" }]}
+        />
+        <ReadErrorState />
+      </section>
+    );
   }
   if (res.status === "not-found") {
     notFound();

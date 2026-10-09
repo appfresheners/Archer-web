@@ -13,6 +13,7 @@
 
 import InboxCaptureForm from "@/components/inbox/InboxCaptureForm";
 import InboxList, { type InboxListItem } from "@/components/inbox/InboxList";
+import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import ListSearch from "@/components/shared/ListSearch";
 import Pagination from "@/components/shared/Pagination";
 import ReadErrorState from "@/components/shared/ReadErrorState";
@@ -102,13 +103,19 @@ export default async function InboxPage({
   const result = await loadInboxItems(params);
 
   if (result.status === "error") {
-    return <ReadErrorState />;
+    return (
+      <section className="flex flex-col gap-[var(--spacing-section-y)]">
+        <Breadcrumbs items={[{ label: "Inbox" }]} />
+        <ReadErrorState />
+      </section>
+    );
   }
 
   const { items, query, page, total } = result.data;
 
   return (
     <section className="flex flex-col gap-[var(--spacing-section-y)]">
+      <Breadcrumbs items={[{ label: "Inbox" }]} />
       <header className="flex flex-col gap-4">
         <h1 className="text-[length:var(--font-size-section)] font-bold text-text-primary">
           Inbox

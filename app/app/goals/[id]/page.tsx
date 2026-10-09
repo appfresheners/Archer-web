@@ -390,7 +390,20 @@ export default async function GoalDetailPage({ params, searchParams }: GoalDetai
   ]);
 
   if (result.status === "error") {
-    return <ReadErrorState />;
+    return (
+      <article className="flex flex-col gap-[var(--spacing-section-y)]">
+        <Breadcrumbs
+          items={[
+            ...(from && !from.startsWith("/app/goals")
+              ? [{ label: labelForPath(from) ?? "Back", href: from }]
+              : []),
+            { label: "Goals", href: "/app/goals" },
+            { label: "Goal" },
+          ]}
+        />
+        <ReadErrorState />
+      </article>
+    );
   }
   if (result.status === "not-found") {
     notFound();

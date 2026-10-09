@@ -73,6 +73,9 @@ describe("GoalsPage", () => {
 
   it("shows the empty state with a wizard link when there are no goals", async () => {
     await renderPage();
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("Goals");
 
     expect(screen.getByText("No goals yet. Start one.")).toBeInTheDocument();
     const link = screen.getByRole("link", { name: "New goal" });
@@ -84,6 +87,8 @@ describe("GoalsPage", () => {
 
     await renderPage();
 
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" }).querySelector('[aria-current="page"]')).toHaveTextContent("Goals");
     expect(
       screen.getByText("Something went wrong loading this view. Please try again."),
     ).toBeInTheDocument();

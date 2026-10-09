@@ -15,6 +15,7 @@
  */
 
 import GoalRow, { type GoalRowData } from "@/components/goals/GoalRow";
+import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import ListSearch from "@/components/shared/ListSearch";
 import Pagination from "@/components/shared/Pagination";
 import ReadErrorState from "@/components/shared/ReadErrorState";
@@ -201,12 +202,18 @@ export default async function GoalsPage({
   const result = await loadGoals(params);
 
   if (result.status === "error") {
-    return <ReadErrorState />;
+    return (
+      <section className="flex flex-col gap-[var(--spacing-section-y)]">
+        <Breadcrumbs items={[{ label: "Goals" }]} />
+        <ReadErrorState />
+      </section>
+    );
   }
   const { goals, query, page, total } = result.data;
 
   return (
     <section className="flex flex-col gap-[var(--spacing-section-y)]">
+      <Breadcrumbs items={[{ label: "Goals" }]} />
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-[length:var(--font-size-section)] font-bold text-text-primary">
           Goals

@@ -241,7 +241,24 @@ export default async function ProjectDetailPage({
     ]);
 
     if (projectResult.status === "error") {
-        return <ReadErrorState />;
+        return (
+            <article className="flex flex-col gap-[var(--spacing-section-y)]">
+                <Breadcrumbs
+                    items={
+                        from
+                            ? [
+                                  { label: labelForPath(from) ?? "Back", href: from },
+                                  { label: "Project" },
+                              ]
+                            : [
+                                  { label: "Projects", href: "/app/projects" },
+                                  { label: "Project" },
+                              ]
+                    }
+                />
+                <ReadErrorState />
+            </article>
+        );
     }
     if (projectResult.status === "not-found") {
         notFound();

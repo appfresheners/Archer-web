@@ -19,6 +19,7 @@ const mockState = vi.hoisted(() => ({
     error: null as { message: string } | null,
   },
 }));
+const mockRefresh = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
@@ -45,6 +46,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: mockRefresh }),
   notFound: () => {
     throw new Error("NEXT_NOT_FOUND");
   },
@@ -106,6 +108,10 @@ describe("ClarifyPage project options", () => {
     const ui = await ClarifyPage({ params: Promise.resolve({ id: "inbox-1" }) });
     render(ui);
 
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("Clarify");
+    expect(screen.getByRole("link", { name: "Inbox" })).toHaveAttribute("href", "/app/inbox");
     expect(screen.getByTestId("clarify-projects")).toHaveTextContent("Dental care|Improve my health");
     expect(screen.getByTestId("clarify-projects")).toHaveTextContent("Home repair|No goal");
     expect(screen.queryByText(/Old plan|Finished plan/)).not.toBeInTheDocument();
@@ -119,5 +125,17 @@ describe("ClarifyPage project options", () => {
       method: "order",
       args: ["name", { ascending: true }],
     });
+  });
+
+  it("renders the Clarify breadcrumb when its read fails", async () => {
+    mockState.item = { data: null, error: { message: "offline" } };
+    const ui = await ClarifyPage({ params: Promise.resolve({ id: "inbox-1" }) });
+    render(ui);
+
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("Clarify");
+    expect(screen.getByRole("link", { name: "Inbox" })).toHaveAttribute("href", "/app/inbox");
+    expect(screen.getByRole("alert")).toBeInTheDocument();
   });
 });

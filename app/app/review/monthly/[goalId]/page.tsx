@@ -126,7 +126,18 @@ export default async function MonthlyGoalCheckPage({
   const { goalId } = await params;
   const res = await loadMonthlyCheck(goalId);
   if (res.status === "error") {
-    return <ReadErrorState />;
+    return (
+      <article className="flex flex-col gap-[var(--spacing-section-y)]">
+        <Breadcrumbs
+          items={[
+            { label: "Goals", href: "/app/goals" },
+            { label: "Goal", href: `/app/goals/${goalId}` },
+            { label: "Monthly check" },
+          ]}
+        />
+        <ReadErrorState />
+      </article>
+    );
   }
   if (res.status === "not-found") {
     notFound();

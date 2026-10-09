@@ -1,6 +1,7 @@
 /** Project list inside the authenticated `/app` shell. */
 
 import StatusBadge from "@/components/goals/StatusBadge";
+import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import ListSearch from "@/components/shared/ListSearch";
 import Pagination from "@/components/shared/Pagination";
 import ReadErrorState from "@/components/shared/ReadErrorState";
@@ -43,10 +44,9 @@ type ProjectFilter = string;
 interface LoadedProjects {
   projects: ProjectListItem[];
   goalOptions: GoalListItem[];
+  goalOptionsError: boolean;
   selectedGoal: GoalListItem | null;
   goalQuery: string;
-  goalOptionsPage: number;
-  goalOptionsTotal: number;
   filter: ProjectFilter;
   query: string;
   page: number;
@@ -59,6 +59,32 @@ async function loadProjects(
 ): Promise<ReadListResult<LoadedProjects>> {
   try {
     const supabase = await createClient();
+    const goalOptions: GoalListItem[] = [];
+    const goalOptionsBatchSize = 1000;
+    let goalOptionsError = false;
+    let lastGoalId: string | null = null;
+    for (let from = 0; ; from += goalOptionsBatchSize) {
+      let request = supabase
+        .from("goals")
+        .select("id, goal_text")
+        .order("id", { ascending: true })
+        .range(0, goalOptionsBatchSize - 1);
+      if (lastGoalId) request = request.gt("id", lastGoalId);
+      const { data, error } = await request;
+      if (error || data == null) {
+        goalOptionsError = true;
+        goalOptions.length = 0;
+        break;
+      }
+      goalOptions.push(...(data as GoalListItem[]));
+      if (data.length < goalOptionsBatchSize) break;
+      lastGoalId = data[data.length - 1].id;
+    }
+    goalOptions.sort(
+      (left, right) =>
+        left.goal_text.localeCompare(right.goal_text) || left.id.localeCompare(right.id),
+    );
+
     const goalParam = Array.isArray(searchParams.goal)
       ? searchParams.goal[0]
       : searchParams.goal;
@@ -67,61 +93,18 @@ async function loadProjects(
     if (goalParam === "none") {
       filter = "none";
     } else if (goalParam && goalParam !== "all") {
-      const { data, error } = await supabase
-        .from("goals")
-        .select("id, goal_text")
-        .eq("id", goalParam)
-        .maybeSingle();
-      if (error) return { status: "error" };
-      selectedGoal = (data as GoalListItem | null) ?? null;
+      selectedGoal = goalOptions.find((goal) => goal.id === goalParam) ?? null;
       if (selectedGoal) filter = selectedGoal.id;
+      else if (goalOptionsError) {
+        filter = goalParam;
+        selectedGoal = { id: goalParam, goal_text: "Selected goal" };
+      }
     }
 
     const { query, page: requestedPage } = parseListQuery(searchParams);
-    const {
-      query: goalQuery,
-      page: requestedGoalOptionsPage,
-    } = parseListQuery(searchParams, "goalQ", "goalOptionsPage");
-
-    let goalOptions: GoalListItem[] = [];
-    let goalOptionsPage = 1;
-    let goalOptionsTotal = 0;
-    if (goalQuery) {
-      const loadGoalOptions = (goalPage: number) => {
-        const { from, to } = getPageRange(goalPage);
-        return supabase
-          .from("goals")
-          .select("id, goal_text", { count: "exact" })
-          .ilike("goal_text", escapeIlikePattern(goalQuery))
-          .order("goal_text", { ascending: true })
-          .order("id", { ascending: true })
-          .range(from, to);
-      };
-
-      let goalResult = await loadGoalOptions(requestedGoalOptionsPage);
-      if (goalResult.error || goalResult.count == null) {
-        return { status: "error" };
-      }
-      goalOptionsTotal = goalResult.count;
-      goalOptionsPage = clampPage(requestedGoalOptionsPage, goalOptionsTotal);
-      if (goalOptionsPage !== requestedGoalOptionsPage) {
-        goalResult = await loadGoalOptions(goalOptionsPage);
-        if (goalResult.error || goalResult.count == null) {
-          return { status: "error" };
-        }
-        goalOptionsTotal = goalResult.count;
-        const refreshedPage = clampPage(goalOptionsPage, goalOptionsTotal);
-        if (refreshedPage !== goalOptionsPage) {
-          goalOptionsPage = refreshedPage;
-          goalResult = await loadGoalOptions(goalOptionsPage);
-          if (goalResult.error || goalResult.count == null) {
-            return { status: "error" };
-          }
-          goalOptionsTotal = goalResult.count;
-        }
-      }
-      goalOptions = (goalResult.data ?? []) as GoalListItem[];
-    }
+    const goalQuery = Array.isArray(searchParams.goalQ)
+      ? searchParams.goalQ[0] ?? ""
+      : searchParams.goalQ ?? "";
 
     const loadPage = (page: number) => {
       const { from, to } = getPageRange(page);
@@ -186,10 +169,9 @@ async function loadProjects(
       data: {
         projects: (projectResult.data ?? []) as ProjectListItem[],
         goalOptions,
+        goalOptionsError,
         selectedGoal,
         goalQuery,
-        goalOptionsPage,
-        goalOptionsTotal,
         filter,
         query,
         page,
@@ -225,15 +207,19 @@ export default async function ProjectsPage({
   const result = await loadProjects(params);
 
   if (result.status === "error") {
-    return <ReadErrorState />;
+    return (
+      <section className="flex flex-col gap-[var(--spacing-section-y)]">
+        <Breadcrumbs items={[{ label: "Projects" }]} />
+        <ReadErrorState />
+      </section>
+    );
   }
   const {
     projects,
     goalOptions,
+    goalOptionsError,
     selectedGoal,
     goalQuery,
-    goalOptionsPage,
-    goalOptionsTotal,
     filter,
     query,
     page,
@@ -243,6 +229,7 @@ export default async function ProjectsPage({
 
   return (
     <section className="flex flex-col gap-[var(--spacing-section-y)]">
+      <Breadcrumbs items={[{ label: "Projects" }]} />
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-[length:var(--font-size-section)] font-bold text-text-primary">
           Projects
@@ -263,12 +250,12 @@ export default async function ProjectsPage({
       />
 
       <ProjectFilterSelect
+        key={`${goalQuery}:${filter}`}
         goals={goalOptions}
+        goalOptionsError={goalOptionsError}
         selectedGoal={selectedGoal}
         value={filter}
         query={goalQuery}
-        page={goalOptionsPage}
-        total={goalOptionsTotal}
         searchParams={params}
       />
 
