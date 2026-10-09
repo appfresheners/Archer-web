@@ -63,9 +63,9 @@ describe("ProjectFilterSelect", () => {
     fireEvent.change(screen.getByRole("searchbox", { name: "Search goals to filter projects" }), {
       target: { value: "NEWSLETTER" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
     const goalLink = screen.getByRole("link", { name: "Launch a newsletter" });
+    expect(screen.queryByRole("button", { name: "Search" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Run a marathon" })).not.toBeInTheDocument();
     const url = new URL(goalLink.getAttribute("href")!, "http://localhost");
     expect(url.pathname).toBe("/app/projects");
@@ -78,7 +78,6 @@ describe("ProjectFilterSelect", () => {
     fireEvent.change(screen.getByRole("searchbox", { name: "Search goals to filter projects" }), {
       target: { value: "no such goal" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Search" }));
     expect(screen.getByRole("status")).toHaveTextContent("No goals match 'no such goal'.");
     expect(screen.getByRole("combobox", { name: "Filter by goal" })).toHaveValue("goal-1");
   });
