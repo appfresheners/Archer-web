@@ -1,6 +1,12 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 import ProjectFilterSelect from "./ProjectFilterSelect";
+
+const routerPush = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: routerPush }),
+}));
 
 describe("ProjectFilterSelect", () => {
   it("preserves project search and unrelated params when applying No goal", () => {
@@ -27,7 +33,7 @@ describe("ProjectFilterSelect", () => {
     expect(form?.querySelector('[name="goalQ"]')).not.toBeInTheDocument();
   });
 
-  it("filters goal links locally while preserving the applied filter and URL state", () => {
+  it("filters goal options locally while preserving the applied filter and URL state", () => {
     render(
       <ProjectFilterSelect
         goals={[
@@ -58,27 +64,34 @@ describe("ProjectFilterSelect", () => {
     expect(screen.getByRole("option", { name: "No goal" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Run a marathon" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Launch a newsletter" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Run a marathon" })).toHaveAttribute("aria-current", "true");
+    const goalSearch = screen.getByRole("combobox", {
+      name: "Search goals to filter projects",
+    });
+    fireEvent.focus(goalSearch);
+    expect(goalSearch).toHaveValue("");
+    const listbox = screen.getByRole("listbox", { name: "Matching goals" });
+    expect(within(listbox).getAllByRole("option")).toHaveLength(2);
+    expect(within(listbox).getByRole("option", { name: "Run a marathon" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
 
-    fireEvent.change(screen.getByRole("searchbox", { name: "Search goals to filter projects" }), {
+    fireEvent.change(goalSearch, {
       target: { value: "NEWSLETTER" },
     });
 
-    const goalLink = screen.getByRole("link", { name: "Launch a newsletter" });
+    const goalOption = within(listbox).getByRole("option", { name: "Launch a newsletter" });
     expect(screen.queryByRole("button", { name: "Search" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Run a marathon" })).not.toBeInTheDocument();
-    const url = new URL(goalLink.getAttribute("href")!, "http://localhost");
-    expect(url.pathname).toBe("/app/projects");
-    expect(url.searchParams.get("goal")).toBe("goal-2");
-    expect(url.searchParams.get("q")).toBe("training");
-    expect(url.searchParams.get("view")).toBe("compact");
-    expect(url.searchParams.has("page")).toBe(false);
-    expect(url.searchParams.has("goalQ")).toBe(false);
+    expect(within(listbox).queryByRole("option", { name: "Run a marathon" })).not.toBeInTheDocument();
+    fireEvent.click(goalOption);
+    expect(routerPush).toHaveBeenCalledWith(
+      "/app/projects?q=training&view=compact&goal=goal-2",
+    );
 
-    fireEvent.change(screen.getByRole("searchbox", { name: "Search goals to filter projects" }), {
+    fireEvent.change(goalSearch, {
       target: { value: "no such goal" },
     });
-    expect(screen.getByRole("status")).toHaveTextContent("No goals match 'no such goal'.");
+    expect(screen.getByRole("status")).toHaveTextContent("No goals match");
     expect(screen.getByRole("combobox", { name: "Filter by goal" })).toHaveValue("goal-1");
   });
 
@@ -98,7 +111,69 @@ describe("ProjectFilterSelect", () => {
       />,
     );
 
-    expect(within(screen.getByRole("list")).getAllByRole("link")).toHaveLength(50);
+    fireEvent.focus(
+      screen.getByRole("combobox", { name: "Search goals to filter projects" }),
+    );
+    expect(within(screen.getByRole("listbox")).getAllByRole("option")).toHaveLength(50);
     expect(screen.getByText("Keep typing to narrow results")).toBeInTheDocument();
+  });
+
+  it("opens all loaded goals on focus and selects the active goal with the keyboard", async () => {
+    const user = userEvent.setup();
+    render(
+      <ProjectFilterSelect
+        goals={[
+          { id: "goal-1", goal_text: "Run a marathon" },
+          { id: "goal-2", goal_text: "Launch a newsletter" },
+        ]}
+        goalOptionsError={false}
+        selectedGoal={null}
+        value="all"
+        query=""
+        searchParams={{ q: "training", view: "compact" }}
+      />,
+    );
+
+    const goalSearch = screen.getByRole("combobox", {
+      name: "Search goals to filter projects",
+    });
+    expect(goalSearch).toHaveAttribute("aria-expanded", "false");
+    await user.click(goalSearch);
+    expect(goalSearch).toHaveAttribute("aria-expanded", "true");
+    expect(within(screen.getByRole("listbox")).getAllByRole("option")).toHaveLength(2);
+
+    await user.keyboard("{ArrowDown}");
+    expect(goalSearch).toHaveAttribute(
+      "aria-activedescendant",
+      expect.stringContaining("goal-1"),
+    );
+    await user.keyboard("{Escape}");
+    expect(goalSearch).toHaveAttribute("aria-expanded", "false");
+    expect(goalSearch).not.toHaveAttribute("aria-activedescendant");
+
+    await user.click(goalSearch);
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(goalSearch).not.toHaveAttribute("aria-activedescendant");
+    expect(routerPush).toHaveBeenCalledWith(
+      "/app/projects?q=training&view=compact&goal=goal-1",
+    );
+  });
+
+  it("shows an empty-goals state when the focused picker has no options", () => {
+    render(
+      <ProjectFilterSelect
+        goals={[]}
+        goalOptionsError={false}
+        selectedGoal={null}
+        value="all"
+        query=""
+        searchParams={{}}
+      />,
+    );
+
+    fireEvent.focus(
+      screen.getByRole("combobox", { name: "Search goals to filter projects" }),
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("No goals available");
   });
 });

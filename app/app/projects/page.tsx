@@ -250,7 +250,6 @@ export default async function ProjectsPage({
       />
 
       <ProjectFilterSelect
-        key={`${goalQuery}:${filter}`}
         goals={goalOptions}
         goalOptionsError={goalOptionsError}
         selectedGoal={selectedGoal}

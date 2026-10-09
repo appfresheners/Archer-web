@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ProjectsPage from "./page";
 import {
@@ -34,6 +34,7 @@ const mockState = vi.hoisted(() => ({
   projectResults: [] as MockResult[],
   totalProjectsResult: null as MockResult | null,
 }));
+const mockRouterPush = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
@@ -61,7 +62,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  useRouter: () => ({ push: mockRouterPush, replace: vi.fn(), refresh: vi.fn() }),
 }));
 
 async function renderPage(
@@ -105,6 +106,7 @@ const PROJECTS = [
 describe("ProjectsPage", () => {
   beforeEach(() => {
     mockState.calls.length = 0;
+    mockRouterPush.mockClear();
     mockState.goalOptionsResults = [{ data: GOALS, error: null }];
     mockState.projectResults = [{ data: PROJECTS, count: PROJECTS.length, error: null }];
     mockState.totalProjectsResult = {
@@ -198,12 +200,11 @@ describe("ProjectsPage", () => {
     mockState.goalOptionsResults = [{ data: GOALS, error: null }];
     await renderPage({ goalQ: "marathon" });
 
+    fireEvent.focus(screen.getByRole("combobox", { name: "Search goals to filter projects" }));
     expect(screen.getByRole("option", { name: "All goals" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "No goal" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Run a marathon" })).toHaveAttribute(
-      "href",
-      "/app/projects?goal=goal-1",
-    );
+    fireEvent.click(screen.getByRole("option", { name: "Run a marathon" }));
+    expect(mockRouterPush).toHaveBeenCalledWith("/app/projects?goal=goal-1");
     expect(mockState.calls.filter((call) => call.table === "goals" && call.method === "await")).toHaveLength(1);
     expect(mockState.calls.some((call) => call.table === "goals" && call.method === "ilike")).toBe(false);
     expect(mockState.calls).toContainEqual({ table: "goals", method: "range", args: [0, 999] });
@@ -221,7 +222,8 @@ describe("ProjectsPage", () => {
 
     await renderPage({ goalQ: "final goal" });
 
-    expect(screen.getByRole("link", { name: "Find this final goal" })).toBeInTheDocument();
+    fireEvent.focus(screen.getByRole("combobox", { name: "Search goals to filter projects" }));
+    expect(screen.getByRole("option", { name: "Find this final goal" })).toBeInTheDocument();
     expect(
       mockState.calls
         .filter((call) => call.table === "goals" && call.method === "range")
@@ -242,7 +244,7 @@ describe("ProjectsPage", () => {
 
     expect(screen.getByText("Base training")).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("Goal search is unavailable.");
-    expect(screen.getByRole("searchbox", { name: "Search goals to filter projects" })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "Search goals to filter projects" })).toBeDisabled();
   });
 
   it("keeps the project list usable when a later goal-options batch fails", async () => {
