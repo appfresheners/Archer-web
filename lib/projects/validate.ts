@@ -12,6 +12,7 @@ import type { ProjectStatus, ProjectUpdate } from "@/lib/supabase/schema";
 const PROJECT_STATUSES: readonly ProjectStatus[] = [
   "active",
   "paused",
+  "someday",
   "completed",
   "archived",
 ];
@@ -94,6 +95,16 @@ export function sanitizeProjectPatch(body: unknown): ProjectUpdate | null {
     else if (isUuid(v)) patch.goal_id = v;
     else return null;
   }
+
+  if ("area_id" in obj) {
+    const value = obj.area_id;
+    if (value === null) patch.area_id = null;
+    else if (isUuid(value)) patch.area_id = value;
+    else return null;
+  }
+
+  if (patch.goal_id && patch.area_id) return null;
+  if (patch.goal_id) patch.area_id = null;
 
   if (Object.keys(patch).length === 0) return null;
   return patch;

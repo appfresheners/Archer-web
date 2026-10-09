@@ -16,10 +16,13 @@
  */
 
 import StatusBadge from "@/components/goals/StatusBadge";
+import type { AreaOption } from "@/components/focus/AreaSelect";
 import type { ActionItemData } from "@/components/projects/ActionItem";
 import ActionList from "@/components/projects/ActionList";
 import StuckIndicator from "@/components/projects/StuckIndicator";
+import Breadcrumbs, { type BreadcrumbItem } from "@/components/shared/Breadcrumbs";
 import ReadErrorState from "@/components/shared/ReadErrorState";
+import { labelForPath, safeFrom } from "@/lib/navigation/from";
 import { isProjectStuck } from "@/lib/goals/stuck";
 import type { ReadResult } from "@/lib/read-result";
 import type {
@@ -28,27 +31,35 @@ import type {
 } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import ProjectDetailClient, {
     type ProjectHeaderData,
 } from "./ProjectDetailClient";
+import { loadAreasForPicker } from "@/app/app/projects/new/load-goals";
 
 interface ProjectDetailPageProps {
     params: Promise<{ id: string }>;
+    searchParams?: Promise<{ from?: string | string[] }>;
 }
 
 interface LoadedProject {
     id: string;
     name: string;
     goal_id: string | null;
+    area_id: string | null;
     status: ProjectStatus;
     purpose: string | null;
     successful_outcome: string | null;
     planning_depth: "minimal" | "full_gtd";
     planning_detail: PlanningDetail | null;
     goalText: string | null;
+    directArea: (AreaOption & { archived: boolean }) | null;
+    inheritedArea: (AreaOption & { archived: boolean }) | null;
     actions: ActionItemData[];
+}
+
+interface AreaDisplay extends AreaOption {
+    archived: boolean;
 }
 
 interface GoalOption {
@@ -74,7 +85,7 @@ async function loadProject(id: string): Promise<ReadResult<LoadedProject>> {
         const { data, error } = await supabase
             .from("projects")
             .select(
-                "id, name, goal_id, status, purpose, successful_outcome, planning_depth, planning_detail"
+                "id, name, goal_id, area_id, status, purpose, successful_outcome, planning_depth, planning_detail"
             )
             .eq("id", id)
             .maybeSingle();
@@ -88,16 +99,47 @@ async function loadProject(id: string): Promise<ReadResult<LoadedProject>> {
 
         // Parent goal text for the breadcrumb (goal-less projects skip this).
         let goalText: string | null = null;
+        let inheritedArea: AreaDisplay | null = null;
+        let directArea: AreaDisplay | null = null;
         if (data.goal_id) {
             const { data: goal, error: goalError } = await supabase
                 .from("goals")
-                .select("goal_text")
+            .select("goal_text, area_id")
                 .eq("id", data.goal_id)
                 .maybeSingle();
             if (goalError) {
                 return { status: "error" };
             }
             goalText = goal?.goal_text ?? null;
+            if (goal?.area_id) {
+                const { data: area, error: areaError } = await supabase
+                    .from("areas_of_focus")
+                    .select("id, name, archived_at")
+                    .eq("id", goal.area_id)
+                    .maybeSingle();
+                if (areaError) return { status: "error" };
+                if (area) {
+                    inheritedArea = {
+                        id: area.id,
+                        name: area.name,
+                        archived: area.archived_at !== null,
+                    };
+                }
+            }
+        } else if (data.area_id) {
+            const { data: area, error: areaError } = await supabase
+                .from("areas_of_focus")
+                .select("id, name, archived_at")
+                .eq("id", data.area_id)
+                .maybeSingle();
+            if (areaError) return { status: "error" };
+            if (area) {
+                directArea = {
+                    id: area.id,
+                    name: area.name,
+                    archived: area.archived_at !== null,
+                };
+            }
         }
 
         const { data: actions, error: actionsError } = await supabase
@@ -110,7 +152,16 @@ async function loadProject(id: string): Promise<ReadResult<LoadedProject>> {
             return { status: "error" };
         }
 
-        return { status: "ok", data: { ...data, goalText, actions: actions ?? [] } };
+        return {
+            status: "ok",
+            data: {
+                ...data,
+                goalText,
+                directArea,
+                inheritedArea,
+                actions: actions ?? [],
+            },
+        };
     } catch {
         return { status: "error" };
     }
@@ -179,15 +230,35 @@ function ListSection({ title, items }: { title: string; items: string[] }) {
 
 export default async function ProjectDetailPage({
     params,
+    searchParams,
 }: ProjectDetailPageProps) {
     const { id } = await params;
-    const [projectResult, goals] = await Promise.all([
+    const from = safeFrom((await searchParams)?.from);
+    const [projectResult, goals, areas] = await Promise.all([
         loadProject(id),
         loadGoalOptions(),
+        loadAreasForPicker(),
     ]);
 
     if (projectResult.status === "error") {
-        return <ReadErrorState />;
+        return (
+            <article className="flex flex-col gap-[var(--spacing-section-y)]">
+                <Breadcrumbs
+                    items={
+                        from
+                            ? [
+                                  { label: labelForPath(from) ?? "Back", href: from },
+                                  { label: "Project" },
+                              ]
+                            : [
+                                  { label: "Projects", href: "/app/projects" },
+                                  { label: "Project" },
+                              ]
+                    }
+                />
+                <ReadErrorState />
+            </article>
+        );
     }
     if (projectResult.status === "not-found") {
         notFound();
@@ -202,31 +273,36 @@ export default async function ProjectDetailPage({
         successful_outcome: project.successful_outcome,
         status: project.status,
         goalId: project.goal_id,
+        areaId: project.area_id,
+        directArea: project.directArea,
+        inheritedArea: project.inheritedArea,
     };
     // Stuck = Active project with zero committed actions (Story 4.5).
     const stuck = isProjectStuck({ status: project.status }, project.actions);
 
+    // Trail: origin (if any) > parent goal/area/projects list > this project.
+    const parent: BreadcrumbItem =
+        project.goal_id && project.goalText
+            ? { label: project.goalText, href: `/app/goals/${project.goal_id}` }
+            : !project.goal_id && project.directArea
+              ? {
+                    label: `${project.directArea.name}${project.directArea.archived ? " (archived)" : ""}`,
+                    href: "/app/focus",
+                }
+              : { label: "Projects", href: "/app/projects" };
+    const crumbs: BreadcrumbItem[] = [];
+    if (from) {
+        crumbs.push({ label: labelForPath(from) ?? "Back", href: from });
+    }
+    if (!from || from.split(/[?#]/)[0] !== parent.href) {
+        crumbs.push(parent);
+    }
+    crumbs.push({ label: project.name });
+
     return (
         <article className="flex flex-col gap-[var(--spacing-section-y)]">
             <header className="flex flex-col gap-3">
-                {/* Parent-goal breadcrumb (only for goal-linked projects). */}
-                <nav aria-label="Breadcrumb" className="text-[length:var(--font-size-small)] text-text-secondary">
-                    {project.goal_id && project.goalText ? (
-                        <Link
-                            href={`/app/goals/${project.goal_id}`}
-                            className="hover:text-text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
-                        >
-                            ← {project.goalText}
-                        </Link>
-                    ) : (
-                        <Link
-                            href="/app/projects"
-                            className="hover:text-text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
-                        >
-                            ← Projects
-                        </Link>
-                    )}
-                </nav>
+                <Breadcrumbs items={crumbs} />
 
                 <div className="flex flex-col gap-2">
                     <h1 className="text-[length:var(--font-size-section)] font-bold text-text-primary">
@@ -240,7 +316,7 @@ export default async function ProjectDetailPage({
                     </div>
                 </div>
 
-                <ProjectDetailClient project={header} goals={goals} />
+                <ProjectDetailClient project={header} goals={goals} areas={areas} />
             </header>
 
             {stuck && <StuckIndicator />}

@@ -11,6 +11,7 @@ describe("validateManualProject", () => {
       purpose: null,
       successful_outcome: null,
       goal_id: null,
+      area_id: null,
     });
   });
 
@@ -26,6 +27,7 @@ describe("validateManualProject", () => {
       purpose: "Get fit",
       successful_outcome: "Finish under 4h",
       goal_id: null,
+      area_id: null,
     });
   });
 
@@ -41,6 +43,7 @@ describe("validateManualProject", () => {
       purpose: null,
       successful_outcome: null,
       goal_id: null,
+      area_id: null,
     });
   });
 
@@ -50,6 +53,7 @@ describe("validateManualProject", () => {
       purpose: null,
       successful_outcome: null,
       goal_id: UUID,
+      area_id: null,
     });
   });
 
@@ -59,7 +63,27 @@ describe("validateManualProject", () => {
       purpose: null,
       successful_outcome: null,
       goal_id: null,
+      area_id: null,
     });
+  });
+
+  it("accepts an optional Area parent and an explicit null Area", () => {
+    expect(validateManualProject({ name: "X", area_id: UUID })).toMatchObject({
+      goal_id: null,
+      area_id: UUID,
+    });
+    expect(validateManualProject({ name: "X", area_id: null })).toMatchObject({
+      goal_id: null,
+      area_id: null,
+    });
+  });
+
+  it("rejects malformed Area IDs and simultaneous Goal and Area parents", () => {
+    expect(validateManualProject({ name: "X", area_id: "nope" })).toBeNull();
+    expect(validateManualProject({ name: "X", area_id: 5 })).toBeNull();
+    expect(
+      validateManualProject({ name: "X", goal_id: UUID, area_id: UUID }),
+    ).toBeNull();
   });
 
   it("rejects a missing, blank, over-long, or non-string name", () => {

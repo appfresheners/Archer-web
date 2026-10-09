@@ -25,10 +25,12 @@
 import type { PriorSnapshotDisplay } from "@/components/review/phase-panels/SnapshotOpenPanel";
 import ReviewShell from "@/components/review/ReviewShell";
 import StartReview from "@/components/review/StartReview";
+import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import { isReviewShellPhase, type ReviewShellPhase } from "@/lib/review/phases";
 import {
   buildReviewData,
   type ReviewActionInput,
+  type ReviewAreaInput,
   type ReviewData,
   type ReviewGoalInput,
   type ReviewInboxInput,
@@ -73,7 +75,10 @@ const EMPTY_REVIEW_DATA: ReviewData = {
   unprocessedCount: 0,
   currentProjects: [],
   somedayItems: [],
+  somedayProjects: [],
   goalAlignment: [],
+  focusAreas: [],
+  focusAreasError: false,
 };
 
 /**
@@ -135,24 +140,37 @@ async function loadReviewLanding(): Promise<ReviewLanding> {
       session.completed_at === null &&
       isReviewShellPhase(session.current_phase);
     if (resumable) {
-      const [{ data: inbox }, { data: projects }, { data: actions }, { data: goals }] =
-        await Promise.all([
+      const [
+        { data: inbox },
+        { data: projects },
+        { data: actions },
+        { data: goals },
+        { data: areas, error: areasError },
+      ] = await Promise.all([
           supabase
             .from("inbox_items")
             .select("id, raw_text, processing_status")
             .neq("processing_status", "trashed"),
           supabase
             .from("projects")
-            .select("id, name, status, updated_at, goal_id"),
+            .select("id, name, status, updated_at, goal_id, area_id"),
           supabase.from("actions").select("id, project_id, text, status, sort_order"),
-          supabase.from("goals").select("id, goal_text, status"),
+          supabase.from("goals").select("id, goal_text, status, area_id"),
+          supabase
+            .from("areas_of_focus")
+            .select("id, name, sort_order, archived_at")
+            .order("sort_order", { ascending: true }),
         ]);
-      reviewData = buildReviewData(
-        (inbox ?? []) as ReviewInboxInput[],
-        (projects ?? []) as ReviewProjectInput[],
-        (actions ?? []) as ReviewActionInput[],
-        (goals ?? []) as ReviewGoalInput[],
-      );
+      reviewData = {
+        ...buildReviewData(
+          (inbox ?? []) as ReviewInboxInput[],
+          (projects ?? []) as ReviewProjectInput[],
+          (actions ?? []) as ReviewActionInput[],
+          (goals ?? []) as ReviewGoalInput[],
+          (areas ?? []) as ReviewAreaInput[],
+        ),
+        focusAreasError: Boolean(areasError),
+      };
     }
 
     return {
@@ -223,6 +241,7 @@ export default async function ReviewPage() {
 
   return (
     <section className="flex flex-col gap-[var(--spacing-section-y)]">
+      <Breadcrumbs items={[{ label: "Weekly Review" }]} />
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-[length:var(--font-size-section)] font-bold text-text-primary">
           Weekly Review

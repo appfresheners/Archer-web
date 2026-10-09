@@ -25,9 +25,14 @@ const GOAL_STATUSES: readonly GoalStatus[] = [
 
 export const MAX_GOAL_TEXT = 500;
 export const MAX_GOAL_WHY = 2000;
+/** Per-item character cap for a single if–then plan. */
 export const MAX_IF_THEN = 2000;
+/** Safety cap on the number of if–then plans accepted in a PATCH. */
+export const MAX_IF_THEN_ITEMS = 30;
 const MIN_LEVEL = 1;
 const MAX_LEVEL = 10;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function isGoalStatus(value: unknown): value is GoalStatus {
   return typeof value === "string" && (GOAL_STATUSES as string[]).includes(value);
@@ -117,6 +122,15 @@ export function sanitizeGoalPatch(body: unknown): GoalUpdate | null {
     patch.status = obj.status;
   }
 
+  if ("area_id" in obj) {
+    if (obj.area_id === null) patch.area_id = null;
+    else if (typeof obj.area_id === "string" && UUID_RE.test(obj.area_id)) {
+      patch.area_id = obj.area_id;
+    } else {
+      return null;
+    }
+  }
+
   if ("drivers" in obj) {
     if (!isStringArray(obj.drivers)) return null;
     patch.drivers = obj.drivers.map((d) => d.trim()).filter((d) => d !== "");
@@ -127,13 +141,17 @@ export function sanitizeGoalPatch(body: unknown): GoalUpdate | null {
     patch.barriers = obj.barriers.map((b) => b.trim()).filter((b) => b !== "");
   }
 
-  if ("if_then_plan" in obj) {
-    const v = obj.if_then_plan;
+  if ("if_then_plans" in obj) {
+    const v = obj.if_then_plans;
     if (v !== null) {
-      if (typeof v !== "string" || v.length > MAX_IF_THEN) return null;
-      patch.if_then_plan = v.trim();
+      if (!isStringArray(v)) return null;
+      if (v.length > MAX_IF_THEN_ITEMS) return null;
+      const plans = v.map((p) => p.trim()).filter((p) => p !== "");
+      if (plans.some((p) => p.length > MAX_IF_THEN)) return null;
+      // An empty list means "clear the plans" — stored as null, like before.
+      patch.if_then_plans = plans.length > 0 ? plans : null;
     } else {
-      patch.if_then_plan = null;
+      patch.if_then_plans = null;
     }
   }
 

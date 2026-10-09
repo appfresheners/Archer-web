@@ -14,9 +14,41 @@ vi.mock("next/navigation", () => ({
 const goalId = "goal-1";
 
 const projects: AttachableProject[] = [
-  { id: "p1", name: "Base training", goal_id: null },
-  { id: "p2", name: "Write issue #1", goal_id: "goal-2" },
-  { id: "p3", name: "Already here", goal_id: "goal-1" },
+  {
+    id: "p1",
+    name: "Base training",
+    status: "paused",
+    goal_id: null,
+    parent_goal_text: null,
+  },
+  {
+    id: "p2",
+    name: "Write issue #1",
+    status: "active",
+    goal_id: "goal-2",
+    parent_goal_text: "Improve the product",
+  },
+  {
+    id: "p3",
+    name: "Already here",
+    status: "active",
+    goal_id: "goal-1",
+    parent_goal_text: "Current goal",
+  },
+  {
+    id: "p4",
+    name: "Archived work",
+    status: "archived",
+    goal_id: null,
+    parent_goal_text: null,
+  },
+  {
+    id: "p5",
+    name: "Completed work",
+    status: "completed",
+    goal_id: null,
+    parent_goal_text: null,
+  },
 ];
 
 function mockFetch(ok: boolean, body: unknown = { id: "p1" }, status = 200) {
@@ -32,14 +64,19 @@ describe("AttachProjectControl", () => {
     vi.clearAllMocks();
   });
 
-  it("lists only projects not already linked to this goal", async () => {
+  it("lists only eligible projects not already linked to this goal", async () => {
     render(<AttachProjectControl goalId={goalId} projects={projects} />);
 
-    const select = screen.getByLabelText("Attach existing project");
-    expect(screen.getByRole("option", { name: "Base training" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Write issue #1" })).toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: "Already here" })).not.toBeInTheDocument();
-    expect(select).toBeEnabled();
+    const picker = screen.getByRole("combobox", { name: "Attach existing project" });
+    expect(picker).toBeEnabled();
+    await userEvent.setup().click(picker);
+    expect(screen.getByRole("option", { name: /Base training/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Write issue #1/ })).toHaveTextContent(
+      "Improve the product",
+    );
+    expect(screen.queryByRole("option", { name: /Already here/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /Archived work/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /Completed work/ })).not.toBeInTheDocument();
   });
 
   it("attaches a goal-less project immediately and refreshes", async () => {
@@ -47,10 +84,8 @@ describe("AttachProjectControl", () => {
     const user = userEvent.setup();
     render(<AttachProjectControl goalId={goalId} projects={projects} />);
 
-    await user.selectOptions(
-      screen.getByLabelText("Attach existing project"),
-      "p1",
-    );
+    await user.type(screen.getByRole("combobox", { name: "Attach existing project" }), "base");
+    await user.click(screen.getByRole("option", { name: /Base training/ }));
 
     await waitFor(() => expect(fetch).toHaveBeenCalled());
     const [url, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock
@@ -66,10 +101,12 @@ describe("AttachProjectControl", () => {
     const user = userEvent.setup();
     render(<AttachProjectControl goalId={goalId} projects={projects} />);
 
-    await user.selectOptions(
-      screen.getByLabelText("Attach existing project"),
-      "p2",
+    const picker = screen.getByRole("combobox", { name: "Attach existing project" });
+    await user.type(picker, "write");
+    expect(screen.getByRole("option", { name: /Write issue #1/ })).toHaveTextContent(
+      "Improve the product",
     );
+    await user.click(screen.getByRole("option", { name: /Write issue #1/ }));
 
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
     expect(fetch).not.toHaveBeenCalled();
@@ -89,10 +126,8 @@ describe("AttachProjectControl", () => {
     const user = userEvent.setup();
     render(<AttachProjectControl goalId={goalId} projects={projects} />);
 
-    await user.selectOptions(
-      screen.getByLabelText("Attach existing project"),
-      "p2",
-    );
+    await user.type(screen.getByRole("combobox", { name: "Attach existing project" }), "write");
+    await user.click(screen.getByRole("option", { name: /Write issue #1/ }));
     await user.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
@@ -103,15 +138,18 @@ describe("AttachProjectControl", () => {
     render(
       <AttachProjectControl
         goalId="goal-1"
-        projects={[{ id: "p3", name: "Already here", goal_id: "goal-1" }]}
+        projects={[{
+          id: "p3",
+          name: "Already here",
+          status: "active",
+          goal_id: "goal-1",
+          parent_goal_text: "Current goal",
+        }]}
       />,
     );
 
-    const select = screen.getByLabelText("Attach existing project");
-    expect(select).toBeDisabled();
-    expect(
-      screen.getByRole("option", { name: "No projects available" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Attach existing project" })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("No projects available");
   });
 
   it("surfaces an error when the attach fails", async () => {
@@ -119,10 +157,8 @@ describe("AttachProjectControl", () => {
     const user = userEvent.setup();
     render(<AttachProjectControl goalId={goalId} projects={projects} />);
 
-    await user.selectOptions(
-      screen.getByLabelText("Attach existing project"),
-      "p1",
-    );
+    await user.type(screen.getByRole("combobox", { name: "Attach existing project" }), "base");
+    await user.click(screen.getByRole("option", { name: /Base training/ }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Goal not found.");
     expect(refresh).not.toHaveBeenCalled();

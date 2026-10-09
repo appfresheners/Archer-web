@@ -36,6 +36,9 @@
  */
 
 import WizardStepper from "@/components/goals/WizardStepper";
+import SearchableProjectPicker, {
+  type SearchableProjectOption,
+} from "@/components/shared/SearchableProjectPicker";
 import { useRouter } from "next/navigation";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
@@ -83,7 +86,7 @@ export interface ClarifyItem {
 interface ClarifyWizardProps {
   item: ClarifyItem;
   /** Owned projects for the (optional) assign-to-project affordance. */
-  projects?: { id: string; name: string }[];
+  projects?: SearchableProjectOption[];
 }
 
 /** Map a stepper node id to its index for the presentational stepper. */
@@ -403,21 +406,13 @@ export default function ClarifyWizard({ item, projects = [] }: ClarifyWizardProp
           <div className="flex flex-col gap-4">
             {heading("Add as a next action")}
             {projects.length > 0 && (
-              <label className="flex flex-col gap-1 text-[length:var(--font-size-small)] text-text-secondary">
-                Project (optional)
-                <select
-                  value={projectId}
-                  onChange={(e) => setProjectId(e.target.value)}
-                  className="min-h-[44px] rounded-[var(--radius-sm)] border border-border bg-surface px-3 py-2 text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
-                >
-                  <option value="">No project (standalone)</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <SearchableProjectPicker
+                label="Project (optional)"
+                options={projects}
+                value={projectId}
+                onValueChange={setProjectId}
+                allowClear
+              />
             )}
             <div>
               <button

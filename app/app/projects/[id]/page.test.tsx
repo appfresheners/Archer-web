@@ -8,6 +8,8 @@ const projectMaybeSingle = vi.fn();
 const goalMaybeSingle = vi.fn();
 const goalsList = vi.fn();
 const actionsOrder = vi.fn();
+const areaMaybeSingle = vi.fn();
+const areaOptions = vi.fn();
 
 // createClient().from("projects").select(...).eq(...).maybeSingle()
 // createClient().from("goals").select(...).eq(...).maybeSingle()   (breadcrumb)
@@ -25,6 +27,14 @@ vi.mock("@/lib/supabase/server", () => ({
             then: (resolve: (v: unknown) => void) => resolve(goalsList()),
             eq: () => ({ maybeSingle: () => goalMaybeSingle() }),
           }),
+        };
+      }
+      if (table === "areas_of_focus") {
+        return {
+          select: (columns: string) =>
+            columns === "id, name"
+              ? { is: () => ({ order: () => areaOptions() }) }
+              : { eq: () => ({ maybeSingle: () => areaMaybeSingle() }) },
         };
       }
       return { select: () => ({ eq: () => ({ order: () => actionsOrder() }) }) };
@@ -48,14 +58,26 @@ vi.mock("./ProjectDetailClient", () => ({
   default: ({
     project,
     goals,
+      areas = [],
   }: {
-    project: { name: string; goalId: string | null };
+    project: {
+      name: string;
+      goalId: string | null;
+      areaId: string | null;
+      directArea: { name: string } | null;
+      inheritedArea: { name: string } | null;
+    };
     goals: unknown[];
+    areas?: unknown[];
   }) => (
     <div
       data-testid="project-client"
       data-goal-id={project.goalId ?? ""}
       data-goal-count={goals.length}
+      data-area-id={project.areaId ?? ""}
+      data-direct-area={project.directArea?.name ?? ""}
+      data-inherited-area={project.inheritedArea?.name ?? ""}
+      data-area-count={areas.length}
     >
       {project.name}
     </div>
@@ -88,6 +110,8 @@ describe("ProjectDetailPage", () => {
     goalMaybeSingle.mockResolvedValue({ data: null, error: null });
     goalsList.mockResolvedValue({ data: [], error: null });
     actionsOrder.mockResolvedValue({ data: twelveActions, error: null });
+    areaMaybeSingle.mockResolvedValue({ data: null, error: null });
+    areaOptions.mockResolvedValue({ data: [], error: null });
   });
 
   it("renders a Minimal project's structured fields, status, breadcrumb + actions", async () => {
@@ -111,6 +135,9 @@ describe("ProjectDetailPage", () => {
 
     await renderPage("project-1");
 
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("Portfolio site live");
     expect(
       screen.getByRole("heading", { level: 1, name: "Portfolio site live" }),
     ).toBeInTheDocument();
@@ -150,6 +177,74 @@ describe("ProjectDetailPage", () => {
     expect(crumb).toHaveAttribute("href", "/app/projects");
     // The parent-goal lookup is never attempted for a goal-less project.
     expect(goalMaybeSingle).not.toHaveBeenCalled();
+  });
+
+  it("shows a direct Area breadcrumb for a standalone Project", async () => {
+    projectMaybeSingle.mockResolvedValue({
+      data: {
+        id: "project-area",
+        name: "Training plan",
+        goal_id: null,
+        area_id: "area-1",
+        status: "active",
+        purpose: null,
+        successful_outcome: null,
+        planning_depth: "minimal",
+        planning_detail: null,
+      },
+      error: null,
+    });
+    areaMaybeSingle.mockResolvedValue({
+      data: { id: "area-1", name: "Health", archived_at: null },
+      error: null,
+    });
+    areaOptions.mockResolvedValue({
+      data: [{ id: "area-1", name: "Health" }],
+      error: null,
+    });
+
+    await renderPage("project-area");
+
+    expect(screen.getByRole("link", { name: "Health" })).toHaveAttribute(
+      "href",
+      "/app/focus",
+    );
+    expect(screen.getByTestId("project-client")).toHaveAttribute(
+      "data-direct-area",
+      "Health",
+    );
+  });
+
+  it("passes the Goal's Area as inherited context for Goal-linked Projects", async () => {
+    projectMaybeSingle.mockResolvedValue({
+      data: {
+        id: "project-goal",
+        name: "Training plan",
+        goal_id: "goal-1",
+        area_id: null,
+        status: "active",
+        purpose: null,
+        successful_outcome: null,
+        planning_depth: "minimal",
+        planning_detail: null,
+      },
+      error: null,
+    });
+    goalMaybeSingle.mockResolvedValue({
+      data: { goal_text: "Run a marathon", area_id: "area-1" },
+      error: null,
+    });
+    areaMaybeSingle.mockResolvedValue({
+      data: { id: "area-1", name: "Health", archived_at: null },
+      error: null,
+    });
+
+    await renderPage("project-goal");
+
+    expect(screen.getByTestId("project-client")).toHaveAttribute(
+      "data-inherited-area",
+      "Health",
+    );
   });
 
   it("shows the stuck indicator for an Active project with zero committed actions", async () => {
@@ -294,6 +389,10 @@ describe("ProjectDetailPage", () => {
   it("renders an error state when the query errors", async () => {
     projectMaybeSingle.mockResolvedValue({ data: null, error: { message: "boom" } });
     await renderPage("project-1");
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("Project");
+    expect(screen.getByRole("link", { name: "Projects" })).toHaveAttribute("href", "/app/projects");
     expect(
       screen.getByText("Something went wrong loading this view. Please try again."),
     ).toBeInTheDocument();

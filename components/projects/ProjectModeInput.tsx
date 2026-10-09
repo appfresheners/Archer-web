@@ -13,9 +13,8 @@
  * inline error and no `onSubmit`.
  *
  * Manual mode collects a required project name plus optional purpose,
- * successful outcome, and parent goal, then calls
- * `onManualSubmit({ name, purpose, successfulOutcome, goalId })` on "Create
- * project". No AI request is made in manual mode.
+ * successful outcome, and either a parent goal or direct Area, then calls
+ * `onManualSubmit` on "Create project". No AI request is made in manual mode.
  *
  * Generation/saving/navigation are out of scope here: `onSubmit` and
  * `onManualSubmit` are thin, replaceable seams supplied by the parent, and
@@ -25,6 +24,7 @@
 
 import { MAX_PROJECT_TEXT } from "@/lib/projects/validate";
 import type { PlanningDepth } from "@/lib/supabase/schema";
+import AreaSelect, { type AreaOption } from "@/components/focus/AreaSelect";
 import { useId, useState } from "react";
 import DepthControl from "./DepthControl";
 
@@ -46,10 +46,11 @@ export interface ManualProjectArgs {
   purpose: string;
   successfulOutcome: string;
   goalId: string | null;
+  areaId: string | null;
 }
 
 interface ProjectModeInputProps {
-  onSubmit: (args: { input: string; depth: PlanningDepth }) => void;
+  onSubmit: (args: { input: string; depth: PlanningDepth; areaId: string | null }) => void;
   /**
    * Manual create submit (Story 2.7). Optional so AI-only consumers keep
    * working; defaults to a no-op.
@@ -72,6 +73,7 @@ interface ProjectModeInputProps {
   initialInput?: string;
   /** The signed-in user's goals, shown as options in the manual parent picker. */
   goals?: GoalOption[];
+  areas?: AreaOption[];
 }
 
 const MODE_OPTIONS: { value: CreationMode; label: string }[] = [
@@ -87,6 +89,7 @@ export default function ProjectModeInput({
   manualSaving = false,
   initialInput = "",
   goals = [],
+  areas = [],
 }: ProjectModeInputProps) {
   const [mode, setMode] = useState<CreationMode>("ai");
 
@@ -102,6 +105,7 @@ export default function ProjectModeInput({
   const [purpose, setPurpose] = useState("");
   const [successfulOutcome, setSuccessfulOutcome] = useState("");
   const [goalId, setGoalId] = useState("");
+  const [areaId, setAreaId] = useState("");
 
   const inputId = useId();
   const errorId = useId();
@@ -143,7 +147,7 @@ export default function ProjectModeInput({
       return;
     }
     if (isDisabled) return;
-    onSubmit({ input: trimmed, depth });
+    onSubmit({ input: trimmed, depth, areaId: areaId || null });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -164,6 +168,7 @@ export default function ProjectModeInput({
       purpose: purpose.trim(),
       successfulOutcome: successfulOutcome.trim(),
       goalId: goalId === "" ? null : goalId,
+      areaId: goalId === "" ? areaId || null : null,
     });
   };
 
@@ -235,6 +240,16 @@ export default function ProjectModeInput({
             )}
           </div>
 
+          {!goalId && (
+            <AreaSelect
+              id="manual-project-area"
+              value={areaId}
+              areas={areas}
+              disabled={isDisabled}
+              onChange={setAreaId}
+            />
+          )}
+
           <div>
             <label htmlFor={purposeId} className={fieldLabelClass}>
               Purpose (optional)
@@ -274,7 +289,10 @@ export default function ProjectModeInput({
             <select
               id={goalFieldId}
               value={goalId}
-              onChange={(e) => setGoalId(e.target.value)}
+              onChange={(e) => {
+                setGoalId(e.target.value);
+                if (e.target.value !== "") setAreaId("");
+              }}
               disabled={isDisabled}
               className={textFieldClass}
             >
@@ -353,6 +371,14 @@ export default function ProjectModeInput({
           </div>
 
           <DepthControl value={depth} onChange={setDepth} disabled={isDisabled} />
+
+          <AreaSelect
+            id="ai-project-area"
+            value={areaId}
+            areas={areas}
+            disabled={isDisabled}
+            onChange={setAreaId}
+          />
 
           <button
             type="button"

@@ -90,11 +90,38 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (input.area_id) {
+      const { data: ownedArea, error: areaError } = await supabase
+        .from("areas_of_focus")
+        .select("id")
+        .eq("id", input.area_id)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (areaError) {
+        console.error(
+          "[api/projects POST] Area ownership check failed:",
+          areaError.message,
+        );
+        return NextResponse.json(
+          { error: "Failed to create the project. Please try again." },
+          { status: 500 },
+        );
+      }
+      if (!ownedArea) {
+        return NextResponse.json(
+          { error: "That Area was not found." },
+          { status: 400 },
+        );
+      }
+    }
+
     // 4. Insert ONE project row owned by the signed-in user. Defaults supply
     //    `status`, `planning_depth`, and `sort_order`; no migration needed.
     const projectRow: ProjectInsert = {
       user_id: userId,
       goal_id: input.goal_id,
+      area_id: input.area_id,
       name: input.name,
       purpose: input.purpose,
       successful_outcome: input.successful_outcome,

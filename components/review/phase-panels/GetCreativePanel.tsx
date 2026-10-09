@@ -17,24 +17,34 @@
  */
 
 import InboxCaptureForm from "@/components/inbox/InboxCaptureForm";
+import StatusBadge from "@/components/goals/StatusBadge";
 import type {
+  ReviewAreaRollup,
   ReviewGoalAlignment,
   ReviewSomedayItem,
+  ReviewSomedayProject,
 } from "@/lib/review/reviewData";
+import Link from "next/link";
 import { useState } from "react";
 
 const GENERIC_ERROR = "Something went wrong. Please try again.";
 
 interface GetCreativePanelProps {
   somedayItems: ReviewSomedayItem[];
+  somedayProjects: ReviewSomedayProject[];
   goalAlignment: ReviewGoalAlignment[];
+  focusAreas: ReviewAreaRollup[];
+  focusAreasError: boolean;
   /** Re-read the server data after a mutation. */
   onRefresh: () => void;
 }
 
 export default function GetCreativePanel({
   somedayItems,
+  somedayProjects,
   goalAlignment,
+  focusAreas,
+  focusAreasError,
   onRefresh,
 }: GetCreativePanelProps) {
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -70,6 +80,14 @@ export default function GetCreativePanel({
     if (ok) onRefresh();
   }
 
+  async function activateProject(id: string) {
+    if (busyId) return;
+    setBusyId(id);
+    const ok = await call(`/api/projects/${id}`, "PATCH", { status: "paused" });
+    setBusyId(null);
+    if (ok) onRefresh();
+  }
+
   async function remove(id: string) {
     if (busyId) return;
     setBusyId(id);
@@ -101,7 +119,7 @@ export default function GetCreativePanel({
       )}
 
       <section className="flex flex-col gap-2">
-        <h3 className="font-medium text-text-primary">Someday / Maybe</h3>
+        <h3 className="font-medium text-text-primary">Someday / Maybe inbox items</h3>
         {somedayItems.length === 0 ? (
           <p className="text-text-secondary" role="status">
             Nothing on the someday list.
@@ -143,6 +161,44 @@ export default function GetCreativePanel({
       </section>
 
       <section className="flex flex-col gap-2">
+        <h3 className="font-medium text-text-primary">Someday projects</h3>
+        {somedayProjects.length === 0 ? (
+          <p className="text-text-secondary" role="status">
+            No Someday projects.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {somedayProjects.map((project) => (
+              <li
+                key={project.id}
+                className="flex flex-col gap-2 rounded-[var(--radius-sm)] border border-border bg-surface-raised p-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link
+                    href={`/app/projects/${project.id}`}
+                    className="min-h-[44px] break-words text-text-primary underline-offset-4 hover:underline focus-visible:rounded-[var(--radius-sm)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+                  >
+                    {project.name}
+                  </Link>
+                  <StatusBadge status="someday" />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => activateProject(project.id)}
+                  disabled={busyId !== null}
+                  aria-busy={busyId === project.id}
+                  aria-label={`Activate ${project.name}`}
+                  className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-border-strong px-3 py-2 text-[length:var(--font-size-small)] font-medium text-text-primary transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
+                >
+                  Activate
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-2">
         <h3 className="font-medium text-text-primary">Anything missing?</h3>
         <InboxCaptureForm />
       </section>
@@ -168,6 +224,74 @@ export default function GetCreativePanel({
                     <span className="text-warning"> · {goal.stuckCount} stuck</span>
                   )}
                 </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="focus-review-heading" className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 id="focus-review-heading" className="font-medium text-text-primary">
+            Focus review (optional)
+          </h3>
+          <Link
+            href="/app/focus"
+            className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-border-strong px-3 py-2 text-[length:var(--font-size-small)] font-medium text-text-primary transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+          >
+            Review Focus
+          </Link>
+        </div>
+        {focusAreasError ? (
+          <p role="alert" className="text-text-secondary">
+            Life Areas could not be loaded. Use Review Focus to retry.
+          </p>
+        ) : focusAreas.length === 0 ? (
+          <p className="text-text-secondary" role="status">
+            No Areas yet.
+          </p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {focusAreas.map((area) => (
+              <li key={area.id} className="flex flex-col gap-2 py-3">
+                <h4 className="flex flex-wrap items-center gap-2 font-medium text-text-primary">
+                  {area.name}
+                  {area.archived_at && <StatusBadge status="archived" />}
+                </h4>
+                {area.goals.length === 0 && area.projects.length === 0 ? (
+                  <p className="text-[length:var(--font-size-small)] text-text-secondary">
+                    No linked Goals or standalone Projects.
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-border">
+                    {area.goals.map((goal) => (
+                      <li key={`goal-${goal.id}`}>
+                        <Link
+                          href={`/app/goals/${goal.id}`}
+                          className="flex min-h-[44px] items-center justify-between gap-3 py-2 focus-visible:rounded-[var(--radius-sm)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+                        >
+                          <span className="min-w-0 break-words text-text-primary">
+                            {goal.goalText}
+                          </span>
+                          <StatusBadge status={goal.status} />
+                        </Link>
+                      </li>
+                    ))}
+                    {area.projects.map((project) => (
+                      <li key={`project-${project.id}`}>
+                        <Link
+                          href={`/app/projects/${project.id}`}
+                          className="flex min-h-[44px] items-center justify-between gap-3 py-2 focus-visible:rounded-[var(--radius-sm)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+                        >
+                          <span className="min-w-0 break-words text-text-primary">
+                            {project.name}
+                          </span>
+                          <StatusBadge status={project.status} />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>

@@ -54,9 +54,32 @@ describe("NewProjectClient", () => {
           mode: "project",
           input: "Personal portfolio site",
           depth: "minimal",
+          areaId: null,
         }),
       }),
     );
+  });
+
+  it("sends the selected Area ID with standalone AI generation", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: "project-area" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <NewProjectClient areas={[{ id: "area-1", name: "Health" }]} />,
+    );
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Build a portfolio" },
+    });
+    fireEvent.change(screen.getByLabelText("Life Area (optional)"), {
+      target: { value: "area-1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /break it down/i }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/app/projects/project-area"));
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).areaId).toBe("area-1");
   });
 
   it("surfaces the server's actionable 500 message and does NOT navigate", async () => {
@@ -195,6 +218,7 @@ describe("NewProjectClient", () => {
       mode: "project",
       input: "Personal portfolio site",
       depth: "minimal",
+      areaId: null,
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ body: expectedBody });
@@ -228,6 +252,7 @@ describe("NewProjectClient", () => {
       mode: "project",
       input: "Successful team offsite completed",
       depth: "minimal",
+      areaId: null,
     });
   });
 
@@ -299,11 +324,35 @@ describe("NewProjectClient", () => {
       purpose: "Grow an audience",
       successful_outcome: null,
       goal_id: null,
+      area_id: null,
     });
     // The manual path must never hit the generation endpoint.
     expect(
       fetchMock.mock.calls.some((c) => c[0] === "/api/generate"),
     ).toBe(false);
+  });
+
+  it("sends the selected Area ID with standalone manual creation", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: "manual-area" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <NewProjectClient areas={[{ id: "area-1", name: "Health" }]} />,
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "Create manually" }));
+    fireEvent.change(screen.getByLabelText(/project name/i), {
+      target: { value: "Plan training" },
+    });
+    fireEvent.change(screen.getByLabelText("Life Area (optional)"), {
+      target: { value: "area-1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /create project/i }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/app/projects/manual-area"));
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).area_id).toBe("area-1");
   });
 
   it("surfaces a manual 500 error and does not navigate", async () => {
@@ -366,6 +415,7 @@ describe("NewProjectClient", () => {
       purpose: "Grow an audience",
       successful_outcome: null,
       goal_id: null,
+      area_id: null,
     });
     // Manual retry never touches the generation endpoint.
     expect(

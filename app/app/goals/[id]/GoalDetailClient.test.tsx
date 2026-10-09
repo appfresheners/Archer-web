@@ -12,6 +12,7 @@ vi.mock("next/navigation", () => ({
 
 const goal: LoadedGoal = {
   id: "g1",
+  area_id: null,
   goal_text: "Run a marathon",
   why: "I want to build confidence and endurance.",
   status: "active",
@@ -22,7 +23,9 @@ const goal: LoadedGoal = {
   ],
   drivers: ["health"],
   barriers: ["time"],
-  if_then_plan: "If tired, then rest.",
+  if_then_plans: ["If tired, then rest."],
+  goal_statement: null,
+  success_criteria: null,
 };
 
 function mockFetchOnce(ok: boolean, body: unknown = { id: "g1" }, status = 200) {
@@ -74,8 +77,73 @@ describe("GoalDetailClient", () => {
     expect(sent.goal_text).toBe("Run a marathon");
     expect(sent.why).toBe("I want to build confidence and endurance.");
     expect(sent.drivers).toEqual(["health"]);
+    expect(sent.if_then_plans).toEqual(["If tired, then rest."]);
     expect(sent.skill_framework[0].user_rating).toBe(7);
     await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("shows and saves an Area assignment", async () => {
+    mockFetchOnce(true);
+    const user = userEvent.setup();
+    render(
+      <GoalDetailClient
+        goal={goal}
+        areas={[{ id: "area-1", name: "Health" }]}
+      />,
+    );
+
+    expect(screen.getByText("Life Area: None")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Edit goal" }));
+    await user.selectOptions(screen.getByLabelText("Life Area (optional)"), "area-1");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    const init = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    expect(JSON.parse(init.body).area_id).toBe("area-1");
+  });
+
+  it("clears an existing Goal Area on save", async () => {
+    mockFetchOnce(true);
+    const user = userEvent.setup();
+    render(
+      <GoalDetailClient
+        goal={{ ...goal, area_id: "area-1" }}
+        areas={[{ id: "area-1", name: "Health" }]}
+        assignedArea={{ id: "area-1", name: "Health", archived: false }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Edit goal" }));
+    await user.selectOptions(screen.getByLabelText("Life Area (optional)"), "");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    const init = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    expect(JSON.parse(init.body).area_id).toBeNull();
+  });
+
+  it("preserves a current archived Area when saving unrelated Goal edits", async () => {
+    mockFetchOnce(true);
+    const user = userEvent.setup();
+    const archivedGoal = { ...goal, area_id: "area-old" };
+    render(
+      <GoalDetailClient
+        goal={archivedGoal}
+        areas={[{ id: "area-new", name: "Health" }]}
+        assignedArea={{ id: "area-old", name: "Work", archived: true }}
+      />,
+    );
+
+    expect(screen.getByText("Life Area: Work (archived)")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Edit goal" }));
+    const areaSelect = screen.getByLabelText("Life Area (optional)");
+    expect(screen.getByRole("option", { name: "Work (archived)" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    const init = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    expect(JSON.parse(init.body).area_id).toBe("area-old");
+    expect(areaSelect).toHaveValue("area-old");
   });
 
   it("confirms and DELETEs, then navigates to the goals list", async () => {

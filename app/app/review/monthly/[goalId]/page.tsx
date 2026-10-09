@@ -1,5 +1,6 @@
 import StatusBadge from "@/components/goals/StatusBadge";
 import ReadErrorState from "@/components/shared/ReadErrorState";
+import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import { isProjectStuck } from "@/lib/goals/stuck";
 import type { ReadResult } from "@/lib/read-result";
 import type {
@@ -125,7 +126,18 @@ export default async function MonthlyGoalCheckPage({
   const { goalId } = await params;
   const res = await loadMonthlyCheck(goalId);
   if (res.status === "error") {
-    return <ReadErrorState />;
+    return (
+      <article className="flex flex-col gap-[var(--spacing-section-y)]">
+        <Breadcrumbs
+          items={[
+            { label: "Goals", href: "/app/goals" },
+            { label: "Goal", href: `/app/goals/${goalId}` },
+            { label: "Monthly check" },
+          ]}
+        />
+        <ReadErrorState />
+      </article>
+    );
   }
   if (res.status === "not-found") {
     notFound();
@@ -139,12 +151,13 @@ export default async function MonthlyGoalCheckPage({
   return (
     <article className="flex flex-col gap-[var(--spacing-section-y)]">
       <header className="flex flex-col gap-3">
-        <Link
-          href={`/app/goals/${result.goal.id}`}
-          className="w-fit text-[length:var(--font-size-small)] text-primary underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
-        >
-          Back to goal
-        </Link>
+        <Breadcrumbs
+          items={[
+            { label: "Goals", href: "/app/goals" },
+            { label: "Goal", href: `/app/goals/${result.goal.id}` },
+            { label: "Monthly check" },
+          ]}
+        />
         <h1 className="text-[length:var(--font-size-section)] font-bold text-text-primary">
           Monthly Goal Check
         </h1>

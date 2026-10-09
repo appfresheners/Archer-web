@@ -183,7 +183,7 @@ Return ONLY a single JSON object — no markdown, no code fences, no commentary.
 
 Use the self-assessment as CONTEXT to tailor the breakdown:
 - The skill framework lists each attribute with its required_level (the level the ideal achiever needs) and the user's user_rating (their current honest level). The gap is required_level − user_rating.
-- The user's drivers (strengths already working for them), barriers (what gets in their way), and if–then plan describe how they operate. Design projects and actions that lean on the drivers and route around the barriers.
+- The user's drivers (strengths already working for them), barriers (what gets in their way), and if–then plans (one or more) describe how they operate. Design projects and actions that lean on the drivers and route around the barriers.
 - The FIRST TWO projects MUST close the two largest gaps (highest required_level − user_rating). Order projects so the highest-priority gap comes first.
 
 Rules for projects (produce 5 to 6):
@@ -201,4 +201,4 @@ Hard rules:
 - Output valid JSON only. No text before or after the JSON object.
 - Produce 5 to 6 projects, each with EXACTLY 12 next_actions.
 - At least 3 success_criteria.
-- Do NOT re-emit the user's ratings, drivers, barriers, or if–then plan — those are the user's own data and are stored separately. The JSON object contains ONLY "goal_statement", "success_criteria", and "projects".`;
+- Do NOT re-emit the user's ratings, drivers, barriers, or if–then plans (one or more) — those are the user's own data and are stored separately. The JSON object contains ONLY "goal_statement", "success_criteria", and "projects".`;

@@ -6,8 +6,9 @@
  * Owns three interactions, all backed by `PATCH`/`DELETE /api/goals/[id]`:
  *   1. Status change — a `<select>` that PATCHes `{ status }` immediately.
  *   2. Edit — a view/edit toggle over goal_text, why, target_date, drivers,
- *      barriers, and if_then_plan; Save PATCHes the changed fields. Editing
- *      never regenerates projects (a separate explicit action, Story 4.3).
+ *      barriers, and if_then_plans (one per line); Save PATCHes the changed
+ *      fields. Editing never regenerates projects (a separate explicit action,
+ *      Story 4.3).
  *   3. Delete — a confirmation dialog; on confirm, DELETE soft-archives the
  *      goal + its projects, then navigates back to the goals list.
  *
@@ -18,6 +19,7 @@
 
 import GoalStatusSelect from "@/components/goals/GoalStatusSelect";
 import StatusBadge from "@/components/goals/StatusBadge";
+import AreaSelect, { type AreaOption } from "@/components/focus/AreaSelect";
 import type { GoalStatus, SkillFrameworkItem } from "@/lib/supabase/schema";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -36,7 +38,15 @@ function fromListText(text: string): string[] {
     .filter((l) => l !== "");
 }
 
-export default function GoalDetailClient({ goal }: { goal: LoadedGoal }) {
+export default function GoalDetailClient({
+  goal,
+  areas = [],
+  assignedArea = null,
+}: {
+  goal: LoadedGoal;
+  areas?: AreaOption[];
+  assignedArea?: (AreaOption & { archived: boolean }) | null;
+}) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -45,11 +55,12 @@ export default function GoalDetailClient({ goal }: { goal: LoadedGoal }) {
 
   // Edit form state (seeded from the server-provided goal).
   const [goalText, setGoalText] = useState(goal.goal_text);
+  const [areaId, setAreaId] = useState(goal.area_id ?? "");
   const [why, setWhy] = useState(goal.why ?? "");
   const [targetDate, setTargetDate] = useState(goal.target_date);
   const [drivers, setDrivers] = useState(toListText(goal.drivers));
   const [barriers, setBarriers] = useState(toListText(goal.barriers));
-  const [ifThen, setIfThen] = useState(goal.if_then_plan ?? "");
+  const [ifThens, setIfThens] = useState(toListText(goal.if_then_plans));
   const [framework, setFramework] = useState<SkillFrameworkItem[]>(
     goal.skill_framework ?? [],
   );
@@ -115,12 +126,13 @@ export default function GoalDetailClient({ goal }: { goal: LoadedGoal }) {
     // A required date: don't send an empty value (it would be rejected). Fall
     // back to the current target date so a cleared field is a no-op, not a 400.
     const body: Record<string, unknown> = {
+      area_id: areaId || null,
       goal_text: goalText,
       why,
       target_date: targetDate.trim() === "" ? goal.target_date : targetDate,
       drivers: fromListText(drivers),
       barriers: fromListText(barriers),
-      if_then_plan: ifThen.trim() === "" ? null : ifThen,
+      if_then_plans: ifThens.trim() === "" ? null : fromListText(ifThens),
     };
     if (framework.length > 0) {
       body.skill_framework = framework;
@@ -134,11 +146,12 @@ export default function GoalDetailClient({ goal }: { goal: LoadedGoal }) {
 
   function handleCancel() {
     setGoalText(goal.goal_text);
+    setAreaId(goal.area_id ?? "");
     setWhy(goal.why ?? "");
     setTargetDate(goal.target_date);
     setDrivers(toListText(goal.drivers));
     setBarriers(toListText(goal.barriers));
-    setIfThen(goal.if_then_plan ?? "");
+    setIfThens(toListText(goal.if_then_plans));
     setFramework(goal.skill_framework ?? []);
     setError("");
     setEditing(false);
@@ -185,6 +198,9 @@ export default function GoalDetailClient({ goal }: { goal: LoadedGoal }) {
           <div className="flex flex-wrap items-center gap-3 text-[length:var(--font-size-small)] text-text-secondary">
             <StatusBadge status={goal.status} />
             <span>Target {goal.target_date}</span>
+            <span>
+              Life Area: {assignedArea ? `${assignedArea.name}${assignedArea.archived ? " (archived)" : ""}` : "None"}
+            </span>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-[length:var(--font-size-small)] text-text-secondary">
@@ -216,6 +232,14 @@ export default function GoalDetailClient({ goal }: { goal: LoadedGoal }) {
         </>
       ) : (
         <div className="flex flex-col gap-4">
+          <AreaSelect
+            id="goal-area"
+            value={areaId}
+            areas={areas}
+            currentArchivedArea={assignedArea?.archived ? assignedArea : null}
+            disabled={busy}
+            onChange={setAreaId}
+          />
           <div className="flex flex-col gap-1">
             <label htmlFor="goal-text" className="font-medium text-text-primary">
               Goal statement
@@ -280,15 +304,14 @@ export default function GoalDetailClient({ goal }: { goal: LoadedGoal }) {
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label htmlFor="goal-ifthen" className="font-medium text-text-primary">
-              If–then plan
+            <label htmlFor="goal-ifthen-plans" className="font-medium text-text-primary">
+              If–then plans <span className="text-text-secondary">(one per line)</span>
             </label>
             <textarea
-              id="goal-ifthen"
-              value={ifThen}
-              maxLength={2000}
-              rows={2}
-              onChange={(e) => setIfThen(e.target.value)}
+              id="goal-ifthen-plans"
+              value={ifThens}
+              rows={3}
+              onChange={(e) => setIfThens(e.target.value)}
               className={fieldClass}
             />
           </div>

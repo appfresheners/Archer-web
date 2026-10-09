@@ -15,9 +15,19 @@
  */
 
 import GoalRow, { type GoalRowData } from "@/components/goals/GoalRow";
+import Breadcrumbs from "@/components/shared/Breadcrumbs";
+import ListSearch from "@/components/shared/ListSearch";
+import Pagination from "@/components/shared/Pagination";
 import ReadErrorState from "@/components/shared/ReadErrorState";
-import { sortGoals } from "@/lib/goals/sort";
 import { countStuckProjects } from "@/lib/goals/stuck";
+import {
+  clampPage,
+  escapeIlikePattern,
+  getPageRange,
+  LIST_PAGE_SIZE,
+  parseListQuery,
+  type ListSearchParams,
+} from "@/lib/lists/search-pagination";
 import type { ReadListResult } from "@/lib/read-result";
 import type { ActionStatus, GoalStatus, ProjectStatus } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
@@ -47,39 +57,86 @@ interface ActionRecord {
   status: ActionStatus;
 }
 
+interface LoadedGoals {
+  goals: GoalRowData[];
+  query: string;
+  page: number;
+  total: number;
+}
+
 /**
- * Load goals + per-goal project and stuck counts. Returns an empty list on any
- * failure so the page always renders.
+ * Load one page of goals plus only the project/action records needed for its
+ * counts. RLS scopes each server-side query to the signed-in user.
  */
-async function loadGoals(): Promise<ReadListResult<GoalRowData[]>> {
+async function loadGoals(
+  searchParams: ListSearchParams,
+): Promise<ReadListResult<LoadedGoals>> {
   try {
     const supabase = await createClient();
+    const { query, page: requestedPage } = parseListQuery(searchParams);
 
-    const { data: goals, error: goalsError } = await supabase
-      .from("goals")
-      .select("id, goal_text, status, target_date, created_at");
+    const loadPage = (page: number) => {
+      const { from, to } = getPageRange(page);
+      let request = supabase.from("goals").select(
+        "id, goal_text, status, target_date, created_at",
+        { count: "exact" },
+      );
+      if (query) request = request.ilike("goal_text", escapeIlikePattern(query));
+      return request
+        .order("status", { ascending: true })
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to);
+    };
 
-    if (goalsError) {
+    let goalsResult = await loadPage(requestedPage);
+    if (goalsResult.error || goalsResult.count == null) {
       return { status: "error" };
     }
-    if (!goals || goals.length === 0) {
-      return { status: "ok", data: [] };
+    let total = goalsResult.count;
+    let page = clampPage(requestedPage, total);
+    if (page !== requestedPage) {
+      goalsResult = await loadPage(page);
+      if (goalsResult.error || goalsResult.count == null) {
+        return { status: "error" };
+      }
+      if (goalsResult.count !== total) {
+        total = goalsResult.count;
+        const refreshedPage = clampPage(page, total);
+        if (refreshedPage !== page) {
+          page = refreshedPage;
+          goalsResult = await loadPage(page);
+          if (goalsResult.error || goalsResult.count == null) {
+            return { status: "error" };
+          }
+          total = goalsResult.count;
+        }
+      }
     }
 
-    const [
-      { data: projects, error: projectsError },
-      { data: actions, error: actionsError },
-    ] = await Promise.all([
-      supabase.from("projects").select("id, goal_id, status"),
-      supabase.from("actions").select("project_id, status"),
-    ]);
-
-    if (projectsError || actionsError) {
-      return { status: "error" };
+    const goalRecords = (goalsResult.data ?? []) as GoalRecord[];
+    if (goalRecords.length === 0) {
+      return { status: "ok", data: { goals: [], query, page, total } };
     }
+
+    const goalIds = goalRecords.map((goal) => goal.id);
+    const { data: projects, error: projectsError } = await supabase
+      .from("projects")
+      .select("id, goal_id, status")
+      .in("goal_id", goalIds);
+    if (projectsError) return { status: "error" };
 
     const projectRecords = (projects ?? []) as ProjectRecord[];
-    const actionRecords = (actions ?? []) as ActionRecord[];
+    const projectIds = projectRecords.map((project) => project.id);
+    let actionRecords: ActionRecord[] = [];
+    if (projectIds.length > 0) {
+      const { data: actions, error: actionsError } = await supabase
+        .from("actions")
+        .select("project_id, status")
+        .in("project_id", projectIds);
+      if (actionsError) return { status: "error" };
+      actionRecords = (actions ?? []) as ActionRecord[];
+    }
 
     // Group actions by project so stuck detection is O(projects + actions).
     const actionsByProject = new Map<string, ActionRecord[]>();
@@ -98,7 +155,7 @@ async function loadGoals(): Promise<ReadListResult<GoalRowData[]>> {
       else projectsByGoal.set(project.goal_id, [project]);
     }
 
-    const rows: GoalRowData[] = (goals as GoalRecord[]).map((goal) => {
+    const rows: GoalRowData[] = goalRecords.map((goal) => {
       const goalProjects = projectsByGoal.get(goal.id) ?? [];
       const stuckCount = countStuckProjects(
         goalProjects.map((p) => ({
@@ -116,13 +173,7 @@ async function loadGoals(): Promise<ReadListResult<GoalRowData[]>> {
       };
     });
 
-    // Sort by (goal status precedence, created_at desc) using the original rows.
-    const orderIndex = new Map(
-      sortGoals(goals as GoalRecord[]).map((g, i) => [g.id, i] as const),
-    );
-    rows.sort((a, b) => (orderIndex.get(a.id)! - orderIndex.get(b.id)!));
-
-    return { status: "ok", data: rows };
+    return { status: "ok", data: { goals: rows, query, page, total } };
   } catch {
     return { status: "error" };
   }
@@ -142,16 +193,27 @@ function EmptyState() {
   );
 }
 
-export default async function GoalsPage() {
-  const result = await loadGoals();
+export default async function GoalsPage({
+  searchParams,
+}: {
+  searchParams: Promise<ListSearchParams>;
+}) {
+  const params = await searchParams;
+  const result = await loadGoals(params);
 
   if (result.status === "error") {
-    return <ReadErrorState />;
+    return (
+      <section className="flex flex-col gap-[var(--spacing-section-y)]">
+        <Breadcrumbs items={[{ label: "Goals" }]} />
+        <ReadErrorState />
+      </section>
+    );
   }
-  const goals = result.data;
+  const { goals, query, page, total } = result.data;
 
   return (
     <section className="flex flex-col gap-[var(--spacing-section-y)]">
+      <Breadcrumbs items={[{ label: "Goals" }]} />
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-[length:var(--font-size-section)] font-bold text-text-primary">
           Goals
@@ -166,7 +228,18 @@ export default async function GoalsPage() {
         )}
       </header>
 
-      {goals.length === 0 ? (
+      <ListSearch
+        action="/app/goals"
+        label="Search Goals"
+        query={query}
+        searchParams={params}
+      />
+
+      {query && total === 0 ? (
+        <p className="rounded-[var(--radius-md)] border border-border bg-surface p-[var(--spacing-card-p)] text-text-secondary">
+          No matches for &apos;{query}&apos;.
+        </p>
+      ) : total === 0 ? (
         <EmptyState />
       ) : (
         <ul className="flex flex-col gap-3">
@@ -175,6 +248,13 @@ export default async function GoalsPage() {
           ))}
         </ul>
       )}
+      <Pagination
+        action="/app/goals"
+        page={page}
+        total={total}
+        pageSize={LIST_PAGE_SIZE}
+        searchParams={params}
+      />
     </section>
   );
 }

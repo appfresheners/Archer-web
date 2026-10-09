@@ -200,13 +200,14 @@ describe("GoalWizard", () => {
       expect(nextButton()).toBeDisabled();
 
       // + partial if–then (only "if") → still gated.
-      fireEvent.change(screen.getByLabelText("If …"), {
+      fireEvent.click(screen.getByRole("button", { name: "Add if–then plan" }));
+      fireEvent.change(screen.getByLabelText("If … (plan 1)"), {
         target: { value: "it is 7am" },
       });
       expect(nextButton()).toBeDisabled();
 
       // + complete if–then → gate met.
-      fireEvent.change(screen.getByLabelText("then I will …"), {
+      fireEvent.change(screen.getByLabelText("then I will … (plan 1)"), {
         target: { value: "practise for 10 minutes" },
       });
       expect(nextButton()).not.toBeDisabled();
@@ -247,10 +248,11 @@ describe("GoalWizard", () => {
         target: { value: "Distractions" },
       });
       fireEvent.click(screen.getByRole("button", { name: "Add barrier" }));
-      fireEvent.change(screen.getByLabelText("If …"), {
+      fireEvent.click(screen.getByRole("button", { name: "Add if–then plan" }));
+      fireEvent.change(screen.getByLabelText("If … (plan 1)"), {
         target: { value: "it is 7am" },
       });
-      fireEvent.change(screen.getByLabelText("then I will …"), {
+      fireEvent.change(screen.getByLabelText("then I will … (plan 1)"), {
         target: { value: "practise 10 minutes" },
       });
       fireEvent.click(nextButton()); // → Step 4
@@ -365,13 +367,14 @@ describe("GoalWizard", () => {
   describe("applyGoalText (framework invalidation contract)", () => {
     const withFramework: WizardState = {
       goalText: "Learn guitar",
+      areaId: "",
       why: "I want to make music with friends.",
       framework: [
         { name: "Chords", required_level: 7, description: "…", user_rating: 4 },
       ],
       drivers: ["I love music"],
       barriers: ["No practice time"],
-      ifThen: "If it is 7am, then I will practice for 10 minutes",
+      ifThens: ["If it is 7am, then I will practice for 10 minutes"],
     };
 
     it("returns the same reference when the text is unchanged (no-op)", () => {
@@ -399,7 +402,7 @@ describe("GoalWizard", () => {
       const next = applyGoalText(withFramework, "Learn piano");
       expect(next.drivers).toEqual(withFramework.drivers);
       expect(next.barriers).toEqual(withFramework.barriers);
-      expect(next.ifThen).toBe(withFramework.ifThen);
+      expect(next.ifThens).toEqual(withFramework.ifThens);
     });
   });
 

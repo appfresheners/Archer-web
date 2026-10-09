@@ -67,6 +67,29 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   try {
     const supabase = await createClient();
+    if (patch.area_id) {
+      const { data: ownedArea, error: areaError } = await supabase
+        .from("areas_of_focus")
+        .select("id")
+        .eq("id", patch.area_id)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (areaError) {
+        console.error(
+          "[api/goals PATCH] Area ownership check failed:",
+          areaError.message,
+        );
+        return NextResponse.json(
+          { error: "Failed to update the goal. Please try again." },
+          { status: 500 },
+        );
+      }
+      if (!ownedArea) {
+        return NextResponse.json({ error: "Area not found." }, { status: 404 });
+      }
+    }
+
     // RLS scopes to the owner; the explicit user_id guard is defense-in-depth.
     const { data, error } = await supabase
       .from("goals")

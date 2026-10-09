@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * ProjectStatusSelect — an accessible native `<select>` for the four project
- * statuses (narrower than goal statuses: no Someday/Not now). Mirrors
+ * ProjectStatusSelect — an accessible native `<select>` for the five project
+ * statuses (narrower than goal statuses: no Not now). Mirrors
  * `GoalStatusSelect`. Keyboard-operable and screen-reader friendly by default.
  */
 
@@ -11,6 +11,7 @@ import type { ProjectStatus } from "@/lib/supabase/schema";
 const OPTIONS: { value: ProjectStatus; label: string }[] = [
   { value: "active", label: "Active" },
   { value: "paused", label: "Paused" },
+  { value: "someday", label: "Someday/Maybe" },
   { value: "completed", label: "Completed" },
   { value: "archived", label: "Archived" },
 ];

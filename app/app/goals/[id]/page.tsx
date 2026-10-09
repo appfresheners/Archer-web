@@ -13,8 +13,11 @@
  */
 
 import StatusBadge from "@/components/goals/StatusBadge";
+import type { AreaOption } from "@/components/focus/AreaSelect";
 import { STUCK_MESSAGE } from "@/components/projects/StuckIndicator";
 import ReadErrorState from "@/components/shared/ReadErrorState";
+import Breadcrumbs from "@/components/shared/Breadcrumbs";
+import { labelForPath, safeFrom } from "@/lib/navigation/from";
 import { isProjectStuck } from "@/lib/goals/stuck";
 import type { ReadResult } from "@/lib/read-result";
 import type {
@@ -31,13 +34,16 @@ import AttachProjectControl, {
   type AttachableProject,
 } from "./AttachProjectControl";
 import GoalDetailClient from "./GoalDetailClient";
+import { loadAreasForPicker } from "@/app/app/projects/new/load-goals";
 
 interface GoalDetailPageProps {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ from?: string | string[] }>;
 }
 
 export interface LoadedGoal {
   id: string;
+  area_id: string | null;
   goal_text: string;
   why: string | null;
   status: GoalStatus;
@@ -46,7 +52,9 @@ export interface LoadedGoal {
   skill_framework: SkillFrameworkItem[] | null;
   drivers: string[] | null;
   barriers: string[] | null;
-  if_then_plan: string | null;
+  if_then_plans: string[] | null;
+  goal_statement: string | null;
+  success_criteria: string[] | null;
 }
 
 interface LoadedProjectCard {
@@ -59,6 +67,7 @@ interface LoadedProjectCard {
 interface LoadResult {
   goal: LoadedGoal;
   projects: LoadedProjectCard[];
+  assignedArea: (AreaOption & { archived: boolean }) | null;
 }
 
 async function loadGoalDetail(id: string): Promise<ReadResult<LoadResult>> {
@@ -68,13 +77,30 @@ async function loadGoalDetail(id: string): Promise<ReadResult<LoadResult>> {
     const { data: goal, error } = await supabase
       .from("goals")
       .select(
-        "id, goal_text, why, status, target_date, last_checked_at, skill_framework, drivers, barriers, if_then_plan",
+        "id, area_id, goal_text, why, status, target_date, last_checked_at, skill_framework, drivers, barriers, if_then_plans, goal_statement, success_criteria",
       )
       .eq("id", id)
       .maybeSingle();
 
     if (error) return { status: "error" };
     if (!goal) return { status: "not-found" };
+
+    let assignedArea: LoadResult["assignedArea"] = null;
+    if (goal.area_id) {
+      const { data: area, error: areaError } = await supabase
+        .from("areas_of_focus")
+        .select("id, name, archived_at")
+        .eq("id", goal.area_id)
+        .maybeSingle();
+      if (areaError) return { status: "error" };
+      if (area) {
+        assignedArea = {
+          id: area.id,
+          name: area.name,
+          archived: area.archived_at !== null,
+        };
+      }
+    }
 
     const { data: projects, error: projectsError } = await supabase
       .from("projects")
@@ -124,7 +150,10 @@ async function loadGoalDetail(id: string): Promise<ReadResult<LoadResult>> {
       }));
     }
 
-    return { status: "ok", data: { goal: goal as LoadedGoal, projects: projectCards } };
+    return {
+      status: "ok",
+      data: { goal: goal as LoadedGoal, projects: projectCards, assignedArea },
+    };
   } catch {
     return { status: "error" };
   }
@@ -139,9 +168,11 @@ async function loadAttachableProjects(): Promise<AttachableProject[]> {
   try {
     const supabase = await createClient();
     const { data } = await supabase
-      .from("projects")
-      .select("id, name, goal_id");
-    return (data ?? []) as AttachableProject[];
+      .from("project_search")
+      .select("id, name, status, goal_id, parent_goal_text");
+    return ((data ?? []) as AttachableProject[]).filter(
+      (project) => project.status !== "archived" && project.status !== "completed",
+    );
   } catch {
     return [];
   }
@@ -189,12 +220,13 @@ function GapAnalysis({ goal }: { goal: LoadedGoal }) {
   const framework = goal.skill_framework ?? [];
   const drivers = goal.drivers ?? [];
   const barriers = goal.barriers ?? [];
+  const ifThenPlans = goal.if_then_plans ?? [];
 
   const hasContent =
     framework.length > 0 ||
     drivers.length > 0 ||
     barriers.length > 0 ||
-    Boolean(goal.if_then_plan);
+    ifThenPlans.length > 0;
 
   if (!hasContent) return null;
 
@@ -260,15 +292,52 @@ function GapAnalysis({ goal }: { goal: LoadedGoal }) {
         </div>
       )}
 
-      {goal.if_then_plan && (
+      {ifThenPlans.length > 0 && (
         <div className="flex flex-col gap-1">
           <h3 className="text-[length:var(--font-size-small)] font-semibold text-text-secondary">
-            If–then plan
+            If–then plans
           </h3>
-          <p className="text-text-primary">{goal.if_then_plan}</p>
+          <ul className="list-disc pl-6 text-text-primary">
+            {ifThenPlans.map((plan, i) => (
+              <li key={i}>{plan}</li>
+            ))}
+          </ul>
         </div>
       )}
     </Collapsible>
+  );
+}
+
+/**
+ * The unnumbered "My Goal" section: the AI-refined goal statement (falling
+ * back to the user's original `goal_text` for goals generated before this
+ * change) plus the success criteria, hidden when there are none. Deliberately
+ * NOT a "Step 1" heading — the target horizon comes from `target_date`, not a
+ * hardcoded "3-Month" label.
+ */
+function MyGoalSection({ goal }: { goal: LoadedGoal }) {
+  const statement = goal.goal_statement ?? goal.goal_text;
+  const criteria = goal.success_criteria ?? [];
+
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className="text-[length:var(--font-size-subheading)] font-semibold text-text-primary">
+        My Goal
+      </h2>
+      <p className="whitespace-pre-wrap text-text-primary">{statement}</p>
+      {criteria.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <h3 className="text-[length:var(--font-size-small)] font-semibold text-text-secondary">
+            Success criteria
+          </h3>
+          <ul className="list-disc pl-6 text-text-primary">
+            {criteria.map((c, i) => (
+              <li key={i}>{c}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -311,25 +380,55 @@ function ProjectCards({ projects }: { projects: LoadedProjectCard[] }) {
   );
 }
 
-export default async function GoalDetailPage({ params }: GoalDetailPageProps) {
+export default async function GoalDetailPage({ params, searchParams }: GoalDetailPageProps) {
   const { id } = await params;
-  const [result, attachable] = await Promise.all([
+  const from = safeFrom((await searchParams)?.from);
+  const [result, attachable, areas] = await Promise.all([
     loadGoalDetail(id),
     loadAttachableProjects(),
+    loadAreasForPicker(),
   ]);
 
   if (result.status === "error") {
-    return <ReadErrorState />;
+    return (
+      <article className="flex flex-col gap-[var(--spacing-section-y)]">
+        <Breadcrumbs
+          items={[
+            ...(from && !from.startsWith("/app/goals")
+              ? [{ label: labelForPath(from) ?? "Back", href: from }]
+              : []),
+            { label: "Goals", href: "/app/goals" },
+            { label: "Goal" },
+          ]}
+        />
+        <ReadErrorState />
+      </article>
+    );
   }
   if (result.status === "not-found") {
     notFound();
   }
 
-  const { goal, projects } = result.data;
+  const { goal, projects, assignedArea } = result.data;
 
   return (
     <article className="flex flex-col gap-[var(--spacing-section-y)]">
-      <GoalDetailClient goal={goal} />
+      <Breadcrumbs
+        items={[
+          ...(from && !from.startsWith("/app/goals")
+            ? [{ label: labelForPath(from) ?? "Back", href: from }]
+            : []),
+          { label: "Goals", href: "/app/goals" },
+          { label: "Goal" },
+        ]}
+      />
+      <GoalDetailClient
+        goal={goal}
+        areas={areas}
+        assignedArea={assignedArea}
+      />
+
+      <MyGoalSection goal={goal} />
 
       <section className="flex flex-col gap-2">
         <h2 className="text-[length:var(--font-size-subheading)] font-semibold text-text-primary">

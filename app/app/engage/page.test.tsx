@@ -43,6 +43,9 @@ describe("EngagePage (loader)", () => {
 
   it("renders the honest empty state when there is nothing committed", async () => {
     await renderPage();
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("Engage");
     expect(
       screen.getByText("No committed actions. Open a project and commit one."),
     ).toBeInTheDocument();
@@ -52,6 +55,8 @@ describe("EngagePage (loader)", () => {
     // A rejected read must be caught → error state with Retry, not a crashed route.
     actionsSelect.mockRejectedValue(new Error("boom"));
     await renderPage();
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" }).querySelector('[aria-current="page"]')).toHaveTextContent("Engage");
     expect(
       screen.getByText("Something went wrong loading this view. Please try again."),
     ).toBeInTheDocument();
@@ -61,6 +66,7 @@ describe("EngagePage (loader)", () => {
   it("renders an error state when a read resolves with an error field", async () => {
     goalsSelect.mockResolvedValue({ data: null, error: { message: "boom" } });
     await renderPage();
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
     expect(
       screen.getByText("Something went wrong loading this view. Please try again."),
     ).toBeInTheDocument();

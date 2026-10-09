@@ -5,30 +5,36 @@
  *
  * Surfaces each ACTIVE project so the user brings every one current:
  *   - name, its committed action (or the amber stuck band), last-updated date;
- *   - per project: Confirm (keep the committed action — no mutation), Commit a
- *     different available action (`POST /api/actions/[id]/commit`), or change
- *     status to Paused / Completed / Archived (`PATCH /api/projects/[id]`).
+ *   - per project: Confirm (keep the committed action — no mutation), commit or
+ *     change the action on the project detail page (breadcrumb back here), or
+ *     change status to Paused / Completed / Archived (`PATCH /api/projects/[id]`).
  *
- * A project is "reviewed" once the user confirms, commits, or changes its
+ * A project is "reviewed" once the user confirms or changes its
  * status — tracked client-side in the shell via `onReviewed(projectId)`. The
  * shell's advance gate blocks leaving Get Current while any active project is
  * still stuck AND unreviewed. Mutations call `onRefresh` so the server reloads
  * the projects (a committed/status change updates the stuck state).
  *
- * `'someday'` is intentionally NOT an option: projects have no someday status
- * (only active/paused/completed/archived). Paused is the "set aside" analogue.
  */
 
 import StuckIndicator from "@/components/projects/StuckIndicator";
 import type { ReviewCurrentProject } from "@/lib/review/reviewData";
+import { withFrom } from "@/lib/navigation/from";
 import type { ProjectStatus } from "@/lib/supabase/schema";
+import Link from "next/link";
 import { useState } from "react";
+
+/** Project detail, with a breadcrumb back to the review. */
+function projectHref(id: string): string {
+  return withFrom(`/app/projects/${id}#actions`, "/app/review");
+}
 
 const GENERIC_ERROR = "Something went wrong. Please try again.";
 
 /** Non-active statuses a project can be moved to during Get Current. */
 const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
   { value: "paused", label: "Pause" },
+  { value: "someday", label: "Someday/Maybe" },
   { value: "completed", label: "Complete" },
   { value: "archived", label: "Archive" },
 ];
@@ -82,17 +88,6 @@ export default function GetCurrentPanel({
     } catch {
       setError(GENERIC_ERROR);
       return false;
-    }
-  }
-
-  async function commit(projectId: string, actionId: string) {
-    if (busyId) return;
-    setBusyId(projectId);
-    const ok = await call(`/api/actions/${actionId}/commit`, "POST");
-    setBusyId(null);
-    if (ok) {
-      onReviewed(projectId);
-      onRefresh();
     }
   }
 
@@ -162,7 +157,7 @@ export default function GetCurrentPanel({
               </div>
 
               {project.isStuck ? (
-                <StuckIndicator />
+                <StuckIndicator commitHref={projectHref(project.id)} />
               ) : (
                 <p className="text-text-primary">
                   <span className="text-text-secondary">Committed: </span>
@@ -171,40 +166,28 @@ export default function GetCurrentPanel({
               )}
 
               <div className="flex flex-col gap-2">
-                {/* Confirm the current committed action (only when not stuck). */}
                 {!project.isStuck && (
-                  <button
-                    type="button"
-                    onClick={() => onReviewed(project.id)}
-                    disabled={disabled}
-                    aria-label={`Confirm the next action for ${project.name}`}
-                    className="inline-flex min-h-[44px] w-fit items-center rounded-[var(--radius-sm)] bg-primary px-4 py-2 font-medium text-text-inverse transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Confirm next action
-                  </button>
-                )}
-
-                {/* Commit a different / first available action. */}
-                {project.availableActions.length > 0 && (
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[length:var(--font-size-small)] text-text-secondary">
-                      {project.isStuck ? "Commit a next action:" : "Commit a different action:"}
-                    </span>
-                    <ul className="flex flex-col gap-1">
-                      {project.availableActions.map((a) => (
-                        <li key={a.id}>
-                          <button
-                            type="button"
-                            onClick={() => commit(project.id, a.id)}
-                            disabled={disabled}
-                            aria-label={`Commit "${a.text}" for ${project.name}`}
-                            className="w-full rounded-[var(--radius-sm)] border border-border-strong px-3 py-2 text-left text-text-primary transition-colors hover:border-primary hover:bg-primary-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:opacity-60"
-                          >
-                            {a.text}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onReviewed(project.id)}
+                      disabled={disabled || reviewed}
+                      aria-pressed={reviewed}
+                      aria-label={
+                        reviewed
+                          ? `Next action confirmed for ${project.name}`
+                          : `Confirm the next action for ${project.name}`
+                      }
+                      className="inline-flex min-h-[44px] w-fit items-center rounded-[var(--radius-sm)] bg-primary px-4 py-2 font-medium text-text-inverse transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {reviewed ? "✓ Confirmed" : "Confirm next action"}
+                    </button>
+                    <Link
+                      href={projectHref(project.id)}
+                      className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-border-strong px-3 py-2 text-[length:var(--font-size-small)] font-medium text-text-primary transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+                    >
+                      Change next action
+                    </Link>
                   </div>
                 )}
 

@@ -48,6 +48,11 @@ describe("MonthlyGoalCheckPage", () => {
   it("renders an error state when the goal query errors", async () => {
     goalMaybeSingle.mockResolvedValue({ data: null, error: { message: "boom" } });
     await renderPage();
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("Monthly check");
+    expect(screen.getByRole("link", { name: "Goals" })).toHaveAttribute("href", "/app/goals");
+    expect(screen.getByRole("link", { name: "Goal" })).toHaveAttribute("href", "/app/goals/g1");
     expect(
       screen.getByText("Something went wrong loading this view. Please try again."),
     ).toBeInTheDocument();
@@ -79,6 +84,11 @@ describe("MonthlyGoalCheckPage", () => {
 
     await renderPage();
 
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("Monthly check");
+    expect(screen.getByRole("link", { name: "Goals" })).toHaveAttribute("href", "/app/goals");
+    expect(screen.getByRole("link", { name: "Goal" })).toHaveAttribute("href", "/app/goals/g1");
     expect(screen.getByText("Run a marathon")).toBeInTheDocument();
     expect(screen.getByText("Base training")).toHaveAttribute("href", "/app/projects/p1");
     expect(screen.getByText("Active")).toBeInTheDocument();

@@ -17,13 +17,12 @@
  */
 
 import { useRouter } from "next/navigation";
+import SearchableProjectPicker, {
+  type SearchableProjectOption,
+} from "@/components/shared/SearchableProjectPicker";
 import { useEffect, useRef, useState } from "react";
 
-export interface AttachableProject {
-  id: string;
-  name: string;
-  goal_id: string | null;
-}
+export type AttachableProject = SearchableProjectOption;
 
 const GENERIC_ERROR = "Something went wrong. Please try again.";
 
@@ -46,7 +45,12 @@ export default function AttachProjectControl({
   }, [pending]);
 
   // Only projects not already linked to this goal are attachable.
-  const eligible = projects.filter((p) => p.goal_id !== goalId);
+  const eligible = projects.filter(
+    (project) =>
+      project.goal_id !== goalId &&
+      project.status !== "archived" &&
+      project.status !== "completed",
+  );
 
   async function attach(project: AttachableProject) {
     setError("");
@@ -78,7 +82,7 @@ export default function AttachProjectControl({
 
   function handleSelect(value: string) {
     if (value === "" || busy) return;
-    const project = projects.find((p) => p.id === value);
+    const project = eligible.find((p) => p.id === value);
     if (!project) return;
     if (project.goal_id && project.goal_id !== goalId) {
       setPending(project);
@@ -99,8 +103,6 @@ export default function AttachProjectControl({
     setSelectedId("");
   }
 
-  const selectClass =
-    "min-h-[44px] rounded-[var(--radius-sm)] border border-border-strong bg-surface-raised px-3 py-2 text-[length:var(--font-size-small)] text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60";
   const btnPrimary =
     "inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] bg-primary px-4 py-2 font-medium text-text-inverse transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60";
   const btnSecondary =
@@ -108,28 +110,17 @@ export default function AttachProjectControl({
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="flex flex-col gap-1 text-[length:var(--font-size-small)] font-medium text-text-secondary">
-        Attach existing project
-        <select
-          aria-label="Attach existing project"
-          value={selectedId}
-          disabled={busy || eligible.length === 0}
-          onChange={(e) => {
-            setSelectedId(e.target.value);
-            handleSelect(e.target.value);
-          }}
-          className={selectClass}
-        >
-          <option value="">
-            {eligible.length === 0 ? "No projects available" : "Choose a project…"}
-          </option>
-          {eligible.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      <SearchableProjectPicker
+        label="Attach existing project"
+        options={eligible}
+        value={selectedId}
+        onValueChange={(value) => {
+          setSelectedId(value);
+          handleSelect(value);
+        }}
+        disabled={busy || eligible.length === 0}
+        emptyOptionsMessage="No projects available"
+      />
 
       {error && (
         <div

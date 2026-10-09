@@ -8,6 +8,8 @@ const getUser = vi.fn();
 // PATCH chain: from("goals").update(patch).eq("id",id).eq("user_id",uid).select("id").maybeSingle()
 const goalUpdate = vi.fn();
 const goalUpdateMaybeSingle = vi.fn();
+const areaMaybeSingle = vi.fn();
+const areaEqCalls: [string, unknown][] = [];
 
 // DELETE chains:
 //   read goal:  from("goals").select("id").eq("id",id).eq("user_id",uid).maybeSingle()
@@ -19,7 +21,23 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser },
     rpc: (fn: string, args: unknown) => rpcCall(fn, args),
-    from: () => ({
+    from: (table: string) => {
+      if (table === "areas_of_focus") {
+        return {
+          select: () => ({
+            eq: (column: string, value: unknown) => {
+              areaEqCalls.push([column, value]);
+              return {
+                eq: (column2: string, value2: unknown) => {
+                  areaEqCalls.push([column2, value2]);
+                  return { maybeSingle: () => areaMaybeSingle() };
+                },
+              };
+            },
+          }),
+        };
+      }
+      return ({
       update: (patch: unknown) => {
         goalUpdate(patch);
         return {
@@ -31,7 +49,8 @@ vi.mock("@/lib/supabase/server", () => ({
       select: () => ({
         eq: () => ({ eq: () => ({ maybeSingle: () => goalReadMaybeSingle() }) }),
       }),
-    }),
+      });
+    },
   }),
 }));
 
@@ -47,6 +66,7 @@ const ctx = (id = "g1") => ({ params: Promise.resolve({ id }) });
 describe("PATCH /api/goals/[id]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    areaEqCalls.length = 0;
     getUser.mockResolvedValue({ data: { user: { id: "u1" } } });
   });
 
@@ -68,6 +88,50 @@ describe("PATCH /api/goals/[id]", () => {
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ id: "g1" });
     expect(goalUpdate).toHaveBeenCalledWith({ status: "paused" });
+  });
+
+  it("accepts an owned archived Area when assigning it to a Goal", async () => {
+    const areaId = "66666666-6666-4666-8666-666666666666";
+    areaMaybeSingle.mockResolvedValue({
+      data: { id: areaId, archived_at: "2026-10-01T00:00:00Z" },
+      error: null,
+    });
+    goalUpdateMaybeSingle.mockResolvedValue({ data: { id: "g1" }, error: null });
+
+    const res = await PATCH(patchRequest({ area_id: areaId }) as never, ctx());
+
+    expect(res.status).toBe(200);
+    expect(goalUpdate).toHaveBeenCalledWith({ area_id: areaId });
+    expect(areaEqCalls).toContainEqual(["id", areaId]);
+    expect(areaEqCalls).toContainEqual(["user_id", "u1"]);
+  });
+
+  it("clears a Goal Area without an ownership lookup", async () => {
+    goalUpdateMaybeSingle.mockResolvedValue({ data: { id: "g1" }, error: null });
+    const res = await PATCH(patchRequest({ area_id: null }) as never, ctx());
+    expect(res.status).toBe(200);
+    expect(goalUpdate).toHaveBeenCalledWith({ area_id: null });
+    expect(areaMaybeSingle).not.toHaveBeenCalled();
+  });
+
+  it("rejects a foreign Area without updating the Goal", async () => {
+    const areaId = "66666666-6666-4666-8666-666666666666";
+    areaMaybeSingle.mockResolvedValue({ data: null, error: null });
+
+    const res = await PATCH(patchRequest({ area_id: areaId }) as never, ctx());
+
+    expect(res.status).toBe(404);
+    expect(goalUpdate).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 and does not update when the Area ownership query errors", async () => {
+    areaMaybeSingle.mockResolvedValue({ data: null, error: { message: "offline" } });
+    const res = await PATCH(
+      patchRequest({ area_id: "66666666-6666-4666-8666-666666666666" }) as never,
+      ctx(),
+    );
+    expect(res.status).toBe(500);
+    expect(goalUpdate).not.toHaveBeenCalled();
   });
 
   it("404s when no owned row matches", async () => {

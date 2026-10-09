@@ -26,7 +26,12 @@ export type GoalStatus =
   | 'completed'
   | 'archived';
 
-export type ProjectStatus = 'active' | 'paused' | 'completed' | 'archived';
+export type ProjectStatus =
+  | 'active'
+  | 'paused'
+  | 'someday'
+  | 'completed'
+  | 'archived';
 
 export type ActionStatus = 'available' | 'committed' | 'done' | 'waiting';
 
@@ -78,10 +83,74 @@ export interface PlanningDetail {
 export interface Database {
   public: {
     Tables: {
+      focus_profiles: {
+        Row: {
+          id: string;
+          user_id: string;
+          vision: string | null;
+          purpose: string | null;
+          principles: string[];
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          vision?: string | null;
+          purpose?: string | null;
+          principles?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          vision?: string | null;
+          purpose?: string | null;
+          principles?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      areas_of_focus: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          description: string | null;
+          sort_order: number;
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          description?: string | null;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          description?: string | null;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       goals: {
         Row: {
           id: string;
           user_id: string;
+          area_id: string | null;
           goal_text: string;
           why: string | null;
           target_date: string;
@@ -89,7 +158,9 @@ export interface Database {
           skill_framework: SkillFrameworkItem[] | null;
           drivers: string[] | null;
           barriers: string[] | null;
-          if_then_plan: string | null;
+          if_then_plans: string[] | null;
+          goal_statement: string | null;
+          success_criteria: string[] | null;
           last_checked_at: string | null;
           created_at: string;
           updated_at: string;
@@ -97,6 +168,7 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
+          area_id?: string | null;
           goal_text: string;
           why?: string | null;
           target_date: string;
@@ -104,7 +176,9 @@ export interface Database {
           skill_framework?: SkillFrameworkItem[] | null;
           drivers?: string[] | null;
           barriers?: string[] | null;
-          if_then_plan?: string | null;
+          if_then_plans?: string[] | null;
+          goal_statement?: string | null;
+          success_criteria?: string[] | null;
           last_checked_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -112,6 +186,7 @@ export interface Database {
         Update: {
           id?: string;
           user_id?: string;
+          area_id?: string | null;
           goal_text?: string;
           why?: string | null;
           target_date?: string;
@@ -119,7 +194,9 @@ export interface Database {
           skill_framework?: SkillFrameworkItem[] | null;
           drivers?: string[] | null;
           barriers?: string[] | null;
-          if_then_plan?: string | null;
+          if_then_plans?: string[] | null;
+          goal_statement?: string | null;
+          success_criteria?: string[] | null;
           last_checked_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -131,6 +208,7 @@ export interface Database {
           id: string;
           user_id: string;
           goal_id: string | null;
+          area_id: string | null;
           name: string;
           purpose: string | null;
           successful_outcome: string | null;
@@ -145,6 +223,7 @@ export interface Database {
           id?: string;
           user_id: string;
           goal_id?: string | null;
+          area_id?: string | null;
           name: string;
           purpose?: string | null;
           successful_outcome?: string | null;
@@ -159,6 +238,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           goal_id?: string | null;
+          area_id?: string | null;
           name?: string;
           purpose?: string | null;
           successful_outcome?: string | null;
@@ -349,19 +429,34 @@ export interface Database {
         Relationships: [];
       };
     };
-    Views: Record<string, never>;
+    Views: {
+      project_search: {
+        Row: {
+          id: string;
+          name: string;
+          status: ProjectStatus;
+          goal_id: string | null;
+          created_at: string;
+          parent_goal_text: string | null;
+        };
+        Relationships: [];
+      };
+    };
     Functions: {
       /** Atomic goal generate-save: goals → projects → actions in one RPC. */
       save_goal_breakdown: {
         Args: {
           p_goal: {
+            area_id: string | null;
             goal_text: string;
             why: string | null;
             target_date: string;
             skill_framework: SkillFrameworkItem[] | null;
             drivers: string[] | null;
             barriers: string[] | null;
-            if_then_plan: string | null;
+            if_then_plans: string[] | null;
+            goal_statement: string | null;
+            success_criteria: string[] | null;
           };
           p_projects: Array<{
             name: string;
@@ -397,6 +492,11 @@ export interface Database {
         Args: { p_project_id: string; p_action_ids: string[] };
         Returns: undefined;
       };
+      /** Atomic active-Area reorder: verify the complete id set, then write sort_order. */
+      reorder_areas_of_focus: {
+        Args: { p_area_ids: string[] };
+        Returns: undefined;
+      };
     };
     Enums: {
       goal_status: GoalStatus;
@@ -415,6 +515,14 @@ export interface Database {
 // -----------------------------------------------------------------------------
 
 type PublicTables = Database['public']['Tables'];
+
+export type FocusProfile = PublicTables['focus_profiles']['Row'];
+export type FocusProfileInsert = PublicTables['focus_profiles']['Insert'];
+export type FocusProfileUpdate = PublicTables['focus_profiles']['Update'];
+
+export type AreaOfFocus = PublicTables['areas_of_focus']['Row'];
+export type AreaOfFocusInsert = PublicTables['areas_of_focus']['Insert'];
+export type AreaOfFocusUpdate = PublicTables['areas_of_focus']['Update'];
 
 export type Goal = PublicTables['goals']['Row'];
 export type GoalInsert = PublicTables['goals']['Insert'];

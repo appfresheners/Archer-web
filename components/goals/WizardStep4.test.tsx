@@ -85,10 +85,11 @@ async function goToStep4() {
     target: { value: "Distractions" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Add barrier" }));
-  fireEvent.change(screen.getByLabelText("If …"), {
+  fireEvent.click(screen.getByRole("button", { name: "Add if–then plan" }));
+  fireEvent.change(screen.getByLabelText("If … (plan 1)"), {
     target: { value: "it is 7am" },
   });
-  fireEvent.change(screen.getByLabelText("then I will …"), {
+  fireEvent.change(screen.getByLabelText("then I will … (plan 1)"), {
     target: { value: "practise for 10 minutes" },
   });
   fireEvent.click(nextButton()); // → Step 4
@@ -203,13 +204,33 @@ describe("WizardStep4", () => {
         step: "generate",
         goal: "Become a speaker",
         why: "I want to communicate ideas that matter to my community.",
-        ifThen: "If it is 7am, then I will practise for 10 minutes",
+        ifThens: ["If it is 7am, then I will practise for 10 minutes"],
       });
       expect(body.framework).toHaveLength(3);
       expect(body.drivers).toEqual(["Discipline"]);
       expect(body.barriers).toEqual(["Distractions"]);
       // Each framework item carries its user_rating (seeded 5).
       expect(body.framework[0].user_rating).toBe(5);
+    });
+
+    it("posts the selected Area ID without changing the generation prompt inputs", async () => {
+      const fetchMock = stubFetch({ ok: true, status: 200, body: { id: "goal-area" } });
+      render(
+        <GoalWizard areas={[{ id: "area-1", name: "Health" }]} />,
+      );
+      await goToStep4();
+      fireEvent.change(screen.getByLabelText("Life Area (optional)"), {
+        target: { value: "area-1" },
+      });
+      fireEvent.click(generateButton());
+
+      await waitFor(() => expect(push).toHaveBeenCalledWith("/app/goals/goal-area"));
+      const generateCall = fetchMock.mock.calls.find((c) => {
+        const body = JSON.parse((c[1] as RequestInit).body as string);
+        return body.step === "generate";
+      })!;
+      const body = JSON.parse((generateCall[1] as RequestInit).body as string);
+      expect(body.areaId).toBe("area-1");
     });
   });
 

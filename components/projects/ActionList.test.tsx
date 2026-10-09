@@ -37,6 +37,7 @@ describe("ActionList", () => {
 
   it("renders each action with text, tags, and status-driven treatment", () => {
     render(<ActionList projectId="p1" actions={actions()} />);
+    expect(document.getElementById("actions")).toBeInTheDocument();
     expect(screen.getByText("Draft outline")).toBeInTheDocument();
     expect(screen.getByText("@energy:high")).toBeInTheDocument();
     // Done action gets a line-through class and a checked checkbox.

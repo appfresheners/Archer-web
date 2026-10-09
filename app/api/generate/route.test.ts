@@ -21,6 +21,8 @@ const projectInsert = vi.fn();
 const actionsInsert = vi.fn();
 const projectDeleteEq = vi.fn();
 const rpcCall = vi.fn();
+const areaMaybeSingle = vi.fn();
+const areaEqCalls: [string, unknown][] = [];
 
 vi.mock("@/lib/supabase/server", () => ({
     createClient: async () => ({
@@ -39,6 +41,21 @@ vi.mock("@/lib/supabase/server", () => ({
                     // Pattern A rollback: .delete().eq("id", id)
                     delete: () => ({
                         eq: (col: string, val: string) => projectDeleteEq(col, val),
+                    }),
+                };
+            }
+            if (table === "areas_of_focus") {
+                return {
+                    select: () => ({
+                        eq: (column: string, value: unknown) => {
+                            areaEqCalls.push([column, value]);
+                            return {
+                                eq: (column2: string, value2: unknown) => {
+                                    areaEqCalls.push([column2, value2]);
+                                    return { maybeSingle: () => areaMaybeSingle() };
+                                },
+                            };
+                        },
                     }),
                 };
             }
@@ -119,6 +136,7 @@ const call = (body: unknown, opts?: { invalidJson?: boolean }) =>
 describe("/api/generate route", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        areaEqCalls.length = 0;
         vi.spyOn(console, "error").mockImplementation(() => { });
         // actions insert succeeds by default ({ error: null } via the mock fallback)
         actionsInsert.mockReturnValue({ error: null });
@@ -316,6 +334,7 @@ describe("/api/generate route — Pattern B (goal framework)", () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        areaEqCalls.length = 0;
         vi.spyOn(console, "error").mockImplementation(() => { });
     });
 
@@ -353,6 +372,19 @@ describe("/api/generate route — Pattern B (goal framework)", () => {
         expect(projectInsert).not.toHaveBeenCalled();
         expect(actionsInsert).not.toHaveBeenCalled();
         expect(projectDeleteEq).not.toHaveBeenCalled();
+    });
+
+    it("rejects a malformed Area ID before framework generation", async () => {
+        authed();
+        const res = await call({
+            mode: "goal",
+            step: "framework",
+            goal: "Learn guitar",
+            why: "A reason",
+            areaId: "not-a-uuid",
+        });
+        expect(res.status).toBe(400);
+        expect(generateFramework).not.toHaveBeenCalled();
     });
 
     it("contains no user current-rating field in the response items", async () => {
@@ -479,6 +511,72 @@ describe("/api/generate route — Pattern B (goal framework)", () => {
         expect(res.status).toBe(500);
         expect(res._body.error).toContain(".env.local");
     });
+
+    it("validates an owned Area before generation and persists it on a standalone Project", async () => {
+        authed();
+        areaMaybeSingle.mockResolvedValue({
+            data: { id: "area-1", archived_at: "2026-10-01T00:00:00Z" },
+            error: null,
+        });
+        generateProject.mockResolvedValue(generatedMinimal());
+        projectInsertSucceeds("area-project");
+
+        const res = await call({
+            mode: "project",
+            input: "Build a portfolio",
+            depth: "minimal",
+            areaId: "66666666-6666-4666-8666-666666666666",
+        });
+
+        expect(res.status).toBe(200);
+        expect(generateProject).toHaveBeenCalledWith("Build a portfolio", "minimal");
+        expect(projectInsert.mock.calls[0][0]).toMatchObject({
+            goal_id: null,
+            area_id: "66666666-6666-4666-8666-666666666666",
+        });
+        expect(areaEqCalls).toContainEqual(["user_id", "user-123"]);
+    });
+
+    it("rejects a foreign Area before calling the Project provider", async () => {
+        authed();
+        areaMaybeSingle.mockResolvedValue({ data: null, error: null });
+
+        const res = await call({
+            mode: "project",
+            input: "Build a portfolio",
+            depth: "minimal",
+            areaId: "66666666-6666-4666-8666-666666666666",
+        });
+
+        expect(res.status).toBe(400);
+        expect(generateProject).not.toHaveBeenCalled();
+        expect(projectInsert).not.toHaveBeenCalled();
+    });
+
+    it("rejects a malformed Area before calling the Project provider", async () => {
+        authed();
+        const res = await call({
+            mode: "project",
+            input: "Build a portfolio",
+            depth: "minimal",
+            areaId: "not-a-uuid",
+        });
+        expect(res.status).toBe(400);
+        expect(generateProject).not.toHaveBeenCalled();
+    });
+
+    it("returns 500 before Project generation when the Area ownership query errors", async () => {
+        authed();
+        areaMaybeSingle.mockResolvedValue({ data: null, error: { message: "offline" } });
+        const res = await call({
+            mode: "project",
+            input: "Build a portfolio",
+            depth: "minimal",
+            areaId: "66666666-6666-4666-8666-666666666666",
+        });
+        expect(res.status).toBe(500);
+        expect(generateProject).not.toHaveBeenCalled();
+    });
 });
 
 // --- Pattern C (goal generate) ---------------------------------------------
@@ -501,7 +599,7 @@ describe("/api/generate route — Pattern C (goal generate)", () => {
             framework: sampleFramework(),
             drivers: ["I love a challenge"],
             barriers: ["I get nervous"],
-            ifThen: "If it is 7am, then I will rehearse for 10 minutes",
+            ifThens: ["If it is 7am, then I will rehearse for 10 minutes"],
             ...overrides,
         };
     }
@@ -526,6 +624,7 @@ describe("/api/generate route — Pattern C (goal generate)", () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        areaEqCalls.length = 0;
         vi.spyOn(console, "error").mockImplementation(() => { });
         rpcSucceeds();
     });
@@ -556,14 +655,22 @@ describe("/api/generate route — Pattern C (goal generate)", () => {
         expect(fn).toBe("save_goal_breakdown");
 
         // Goal payload: goal_text, target_date, skill_framework (with
-        // user_rating), drivers/barriers/if_then_plan verbatim.
+        // user_rating), drivers/barriers/if_then_plans verbatim.
         const pGoal = args.p_goal;
         expect(pGoal.goal_text).toBe("Become a confident public speaker");
+        expect(pGoal.area_id).toBeNull();
         expect(pGoal.why).toBe("I want to share ideas clearly with my community.");
         expect(typeof pGoal.target_date).toBe("string");
-        expect(pGoal.if_then_plan).toBe(
-            "If it is 7am, then I will rehearse for 10 minutes"
-        );
+        expect(pGoal.if_then_plans).toEqual([
+            "If it is 7am, then I will rehearse for 10 minutes",
+        ]);
+        // The AI-refined statement + criteria are persisted (previously thrown away).
+        expect(pGoal.goal_statement).toBe("In 3 months I will speak confidently.");
+        expect(pGoal.success_criteria).toEqual([
+            "Gave a talk",
+            "No notes",
+            "Positive feedback",
+        ]);
         // Drivers/barriers persisted verbatim from the user payload (the
         // AI-never-owns invariant): these come from the wizard, not the model.
         expect(pGoal.drivers).toEqual(["I love a challenge"]);
@@ -583,6 +690,56 @@ describe("/api/generate route — Pattern C (goal generate)", () => {
         });
         expect(pProjects[0].next_actions).toHaveLength(12);
         expect(pProjects[4].sort_order).toBe(4);
+    });
+
+    it("accepts an owned archived Goal Area without sending it to AI", async () => {
+        authed();
+        areaMaybeSingle.mockResolvedValue({
+            data: { id: "area-1", archived_at: "2026-10-01T00:00:00Z" },
+            error: null,
+        });
+        generateGoal.mockResolvedValue(generatedBreakdown(1));
+
+        const areaId = "66666666-6666-4666-8666-666666666666";
+        const res = await call(validPayload({ areaId }));
+
+        expect(res.status).toBe(200);
+        expect(generateGoal).toHaveBeenCalledTimes(1);
+        expect(generateGoal.mock.calls[0][0]).not.toHaveProperty("areaId");
+        expect(rpcCall.mock.calls[0][1].p_goal.area_id).toBe(areaId);
+        expect(areaEqCalls).toContainEqual(["user_id", "user-123"]);
+    });
+
+    it("rejects a foreign Goal Area before calling AI or saving", async () => {
+        authed();
+        areaMaybeSingle.mockResolvedValue({ data: null, error: null });
+
+        const res = await call(validPayload({
+            areaId: "66666666-6666-4666-8666-666666666666",
+        }));
+
+        expect(res.status).toBe(400);
+        expect(generateGoal).not.toHaveBeenCalled();
+        expect(rpcCall).not.toHaveBeenCalled();
+    });
+
+    it("rejects a malformed Goal Area before calling AI or saving", async () => {
+        authed();
+        const res = await call(validPayload({ areaId: "not-a-uuid" }));
+        expect(res.status).toBe(400);
+        expect(generateGoal).not.toHaveBeenCalled();
+        expect(rpcCall).not.toHaveBeenCalled();
+    });
+
+    it("returns 500 before Goal generation when the Area ownership query errors", async () => {
+        authed();
+        areaMaybeSingle.mockResolvedValue({ data: null, error: { message: "offline" } });
+        const res = await call(validPayload({
+            areaId: "66666666-6666-4666-8666-666666666666",
+        }));
+        expect(res.status).toBe(500);
+        expect(generateGoal).not.toHaveBeenCalled();
+        expect(rpcCall).not.toHaveBeenCalled();
     });
 
     it("computes target_date roughly 3 months out (ISO YYYY-MM-DD)", async () => {
@@ -638,9 +795,16 @@ describe("/api/generate route — Pattern C (goal generate)", () => {
         expect(generateGoal).not.toHaveBeenCalled();
     });
 
-    it("returns 400 for an empty ifThen", async () => {
+    it("returns 400 for an empty ifThens list", async () => {
         authed();
-        const res = await call(validPayload({ ifThen: "  " }));
+        const res = await call(validPayload({ ifThens: [] }));
+        expect(res.status).toBe(400);
+        expect(generateGoal).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 for a whitespace-only if–then entry", async () => {
+        authed();
+        const res = await call(validPayload({ ifThens: ["   "] }));
         expect(res.status).toBe(400);
         expect(generateGoal).not.toHaveBeenCalled();
     });
@@ -727,7 +891,7 @@ describe("/api/generate route — Pattern C (goal generate)", () => {
 
     it("returns 400 for an over-cap if–then plan (>2000 chars)", async () => {
         authed();
-        const res = await call(validPayload({ ifThen: "x".repeat(2001) }));
+        const res = await call(validPayload({ ifThens: ["x".repeat(2001)] }));
         expect(res.status).toBe(400);
         expect(generateGoal).not.toHaveBeenCalled();
     });

@@ -6,14 +6,13 @@ import {
 } from "./validate";
 
 describe("isProjectStatus", () => {
-  it("accepts the four project statuses", () => {
-    for (const s of ["active", "paused", "completed", "archived"]) {
+  it("accepts the five project statuses", () => {
+    for (const s of ["active", "paused", "someday", "completed", "archived"]) {
       expect(isProjectStatus(s)).toBe(true);
     }
   });
 
   it("rejects goal-only or unknown statuses", () => {
-    expect(isProjectStatus("someday")).toBe(false);
     expect(isProjectStatus("not_now")).toBe(false);
     expect(isProjectStatus("done")).toBe(false);
     expect(isProjectStatus(1)).toBe(false);
@@ -40,7 +39,10 @@ describe("sanitizeProjectPatch", () => {
 
   it("links a project to a goal (goal_id uuid)", () => {
     const gid = "55555555-5555-4555-8555-555555555555";
-    expect(sanitizeProjectPatch({ goal_id: gid })).toEqual({ goal_id: gid });
+    expect(sanitizeProjectPatch({ goal_id: gid })).toEqual({
+      goal_id: gid,
+      area_id: null,
+    });
   });
 
   it("clears a project's goal (goal_id null)", () => {
@@ -50,6 +52,28 @@ describe("sanitizeProjectPatch", () => {
   it("rejects an invalid (non-uuid) goal_id", () => {
     expect(sanitizeProjectPatch({ goal_id: "not-a-uuid" })).toBeNull();
     expect(sanitizeProjectPatch({ goal_id: 5 })).toBeNull();
+  });
+
+  it("accepts, clears, and validates Area IDs", () => {
+    const areaId = "66666666-6666-4666-8666-666666666666";
+    expect(sanitizeProjectPatch({ area_id: areaId })).toEqual({ area_id: areaId });
+    expect(sanitizeProjectPatch({ area_id: null })).toEqual({ area_id: null });
+    expect(sanitizeProjectPatch({ area_id: "not-a-uuid" })).toBeNull();
+    expect(sanitizeProjectPatch({ area_id: 5 })).toBeNull();
+  });
+
+  it("rejects two direct parents and clears Area when assigning a Goal", () => {
+    const goalId = "55555555-5555-4555-8555-555555555555";
+    const areaId = "66666666-6666-4666-8666-666666666666";
+    expect(sanitizeProjectPatch({ goal_id: goalId, area_id: areaId })).toBeNull();
+    expect(sanitizeProjectPatch({ goal_id: goalId })).toEqual({
+      goal_id: goalId,
+      area_id: null,
+    });
+    expect(sanitizeProjectPatch({ goal_id: null, area_id: areaId })).toEqual({
+      goal_id: null,
+      area_id: areaId,
+    });
   });
 
   it("allows clearing purpose/outcome to null", () => {
@@ -74,8 +98,12 @@ describe("sanitizeProjectPatch", () => {
     ).toBeNull();
   });
 
-  it("rejects an invalid status", () => {
-    expect(sanitizeProjectPatch({ status: "someday" })).toBeNull();
+  it("accepts Someday and rejects invalid statuses", () => {
+    expect(sanitizeProjectPatch({ status: "someday" })).toEqual({
+      status: "someday",
+    });
+    expect(sanitizeProjectPatch({ status: "not_now" })).toBeNull();
+    expect(sanitizeProjectPatch({ status: "unknown" })).toBeNull();
   });
 
   it("returns null for empty or non-object patches", () => {

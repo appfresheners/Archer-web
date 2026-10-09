@@ -147,11 +147,11 @@ describe("buildEngageModel — active-only scoping", () => {
   });
 
   it("excludes non-active projects from a goal group", () => {
-    for (const status of ["paused", "completed", "archived"] as const) {
+    for (const status of ["paused", "someday", "completed", "archived"] as const) {
       const model = buildEngageModel(
         [goal()],
         [project({ status })],
-        [action()],
+        [action({ status: "available" })],
         TODAY,
       );
       expect(model.goalGroups[0].committed).toHaveLength(0);
@@ -201,15 +201,17 @@ describe("buildEngageModel — active-only scoping", () => {
   });
 
   it("does not include goal-less projects that are not active", () => {
-    const model = buildEngageModel(
-      [],
-      [project({ goal_id: null, status: "paused" })],
-      [action({ project_id: "p1", status: "committed" })],
-      TODAY,
-    );
+    for (const status of ["paused", "someday"] as const) {
+      const model = buildEngageModel(
+        [],
+        [project({ goal_id: null, status })],
+        [action({ project_id: "p1", status: "available" })],
+        TODAY,
+      );
 
-    expect(model.projectGroups).toHaveLength(0);
-    expect(model.isEmpty).toBe(true);
+      expect(model.projectGroups).toHaveLength(0);
+      expect(model.isEmpty).toBe(true);
+    }
   });
 });
 

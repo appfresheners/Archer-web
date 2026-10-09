@@ -494,7 +494,7 @@ function StuckIndicatorLink({ id }: { id: string }) {
   const router = useRouter();
   return (
     <StuckIndicator
-      onCommitNow={() => router.push(`/app/projects/${id}#actions`)}
+      onCommitNow={() => router.push(`/app/projects/${id}?from=${encodeURIComponent("/app/engage")}#actions`)}
     />
   );
 }

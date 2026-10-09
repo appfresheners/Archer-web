@@ -1,4 +1,5 @@
 import type { GoalOption } from "@/components/projects/ProjectModeInput";
+import type { AreaOption } from "@/components/focus/AreaSelect";
 import type { GoalStatus } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
 
@@ -30,6 +31,23 @@ export async function loadGoalsForPicker(): Promise<GoalOption[]> {
 
     if (error || !data) return [];
     return data.map((goal) => ({ id: goal.id, goal_text: goal.goal_text }));
+  } catch {
+    return [];
+  }
+}
+
+/** Load only active Areas for new-assignment selectors, in their saved order. */
+export async function loadAreasForPicker(): Promise<AreaOption[]> {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("areas_of_focus")
+      .select("id, name")
+      .is("archived_at", null)
+      .order("sort_order", { ascending: true });
+
+    if (error || !data) return [];
+    return data.map((area) => ({ id: area.id, name: area.name }));
   } catch {
     return [];
   }

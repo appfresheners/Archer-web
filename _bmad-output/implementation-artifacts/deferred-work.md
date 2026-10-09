@@ -426,3 +426,20 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-h-4-app-wide-clickable-cursor-affordance.md`
   summary: Replace the jsdom computed-style cursor check with a real browser check (e.g. Playwright) that renders representative app surfaces, so component-level and inline cursor overrides are caught
   evidence: Review (edge-case + verification-gap) — the cursor test injects the raw rules into a synthetic jsdom fixture and never renders a real component, so a component's own cursor utility or inline style could contradict the app-wide rule undetected. Adding a browser-automation dependency needs sign-off, so the jsdom check stands as a reasonable proxy meanwhile.
+
+## Deferred from: code review of 7-1 (2026-10-04)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-7-1-focus-profile-and-area-data-model.md`
+  summary: Narrow or remove the broad `test` and `printf` terminal auto-approval entries in `.vscode/settings.json`
+  evidence: Review (blind-hunter) — these generic command approvals are unrelated to Focus data modeling and can trust invocations with arbitrary arguments; left unchanged as a separate editor-security follow-up.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-7-1-focus-profile-and-area-data-model.md`
+  summary: Decide whether archived Areas must be rejected for new Goal/standalone Project links at the database layer, not only hidden by future assignment selectors
+  evidence: Review (blind-hunter + edge-case-hunter) — the new owner-matched foreign keys allow an authenticated direct write to reference an archived Area. The epic requires archived Areas to remain attached but not be newly selected; Story 7.3 owns assignment behavior, so settle direct-write enforcement there.
+
+## Deferred from: code review of 8-3 (2026-10-07)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-3-shared-search-and-pagination-for-long-lists.md`
+  summary: Bound or replace the Projects page's all-goals read used to populate its existing goal-filter dropdown
+  evidence: Review (blind-hunter) — `ProjectsPage` still loads every Goal to populate and validate `?goal=` options. The unbounded read predates Story 8.3; replacing the current filter with a bounded/searchable control would change its interaction contract and should be handled as a separate list-scaling decision.
+  status: done # 2026-10-08 — user approved and Story 8.3 added selected-goal lookup plus bounded goal-name search.

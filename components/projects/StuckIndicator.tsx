@@ -12,15 +12,19 @@
 
 "use client";
 
+import Link from "next/link";
+
 export interface StuckIndicatorProps {
   onCommitNow?: () => void;
+  /** Navigates the CTA to another page (used when no onCommitNow). */
+  commitHref?: string;
 }
 
 /** The canonical stuck-project message — shared so surfaces cannot drift. */
 export const STUCK_MESSAGE =
   "No committed next action — this project is stuck.";
 
-export default function StuckIndicator({ onCommitNow }: StuckIndicatorProps) {
+export default function StuckIndicator({ onCommitNow, commitHref }: StuckIndicatorProps) {
   return (
     <div
       role="alert"
@@ -35,6 +39,13 @@ export default function StuckIndicator({ onCommitNow }: StuckIndicatorProps) {
         >
           Commit one now
         </button>
+      ) : commitHref ? (
+        <Link
+          href={commitHref}
+          className="inline-flex min-h-[44px] w-fit items-center rounded-[var(--radius-sm)] border border-[var(--color-warning)] px-4 py-2 font-medium text-warning transition-colors hover:bg-warning/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+        >
+          Commit one now
+        </Link>
       ) : (
         <a
           href="#actions"
