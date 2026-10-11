@@ -170,26 +170,24 @@ describe("ActionList", () => {
     await waitFor(() => expect(refresh).toHaveBeenCalled());
   });
 
-  it("prompts for the next committed action after completing a committed one", async () => {
+  it("refreshes after completing a committed action without prompting", async () => {
     const user = userEvent.setup();
     render(<ActionList projectId="p1" actions={actions()} />);
 
     // Complete the committed action (a2, "Write intro") via its checkbox.
     await user.click(screen.getAllByRole("checkbox")[1]);
 
-    // The done PATCH fires, then the next-action prompt opens.
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    const [url, init] = lastCall();
+    expect(url).toBe("/api/actions/a2");
+    expect(init.method).toBe("PATCH");
     expect(JSON.parse(lastCall()[1].body)).toEqual({ status: "done" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByText("What's next for this project?")).not.toBeInTheDocument();
     expect(
-      await screen.findByText("What's next for this project?"),
-    ).toBeInTheDocument();
-    // The remaining available action (a1) is offered to commit.
-    const choice = screen.getByRole("button", { name: "Draft outline" });
-    await user.click(choice);
-
-    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
-    expect(lastCall()[0]).toBe("/api/actions/a1/commit");
-    expect(lastCall()[1].method).toBe("POST");
+      screen.queryByRole("button", { name: "Mark project complete" }),
+    ).not.toBeInTheDocument();
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
   });
 
   it("does not open the next-action prompt when completing a non-committed action", async () => {
@@ -204,41 +202,36 @@ describe("ActionList", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("offers to mark the project complete when no available actions remain", async () => {
+  it("does not prompt or complete the project when the last committed action is done", async () => {
     const user = userEvent.setup();
-    // Only a committed action + a done one: completing the committed leaves none available.
-    const noneRemaining: ActionItemData[] = [
+    const lastCommitted: ActionItemData[] = [
       { id: "c1", text: "The one", status: "committed", context_tags: [], time_available_minutes: 25, sort_order: 0 },
       { id: "d1", text: "Already done", status: "done", context_tags: [], time_available_minutes: 25, sort_order: 1 },
     ];
-    render(<ActionList projectId="p1" actions={noneRemaining} />);
+    render(<ActionList projectId="p1" actions={lastCommitted} />);
 
-    await user.click(screen.getAllByRole("checkbox")[0]); // complete committed c1
+    await user.click(screen.getAllByRole("checkbox")[0]);
+
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
-
-    expect(
-      await screen.findByText("No actions remain. Mark this project complete?"),
-    ).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Mark project complete" }));
-
-    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
-    const [url, init] = lastCall();
-    expect(url).toBe("/api/projects/p1");
-    expect(init.method).toBe("PATCH");
-    expect(JSON.parse(init.body)).toEqual({ status: "completed" });
+    expect(lastCall()[0]).toBe("/api/actions/c1");
+    expect(JSON.parse(lastCall()[1].body)).toEqual({ status: "done" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
   });
 
-  it("dismisses the next-action prompt on 'Not now' without further mutation", async () => {
+  it("does not refresh or prompt when completing a committed action fails", async () => {
+    mockFetch(false, { error: "Failed to complete the action." }, 500);
     const user = userEvent.setup();
     render(<ActionList projectId="p1" actions={actions()} />);
 
-    await user.click(screen.getAllByRole("checkbox")[1]); // complete committed a2
-    await screen.findByText("What's next for this project?");
-    await user.click(screen.getByRole("button", { name: "Not now" }));
+    await user.click(screen.getAllByRole("checkbox")[1]);
 
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Failed to complete the action.",
+    );
+    expect(refresh).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    // Only the initial done PATCH fired — no commit/complete.
-    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it("surfaces an error when a mutation fails", async () => {
