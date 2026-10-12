@@ -383,7 +383,7 @@ export default function EngageBoard({ model }: { model: EngageModel }) {
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 focus:outline-none"
         >
-          <div className="flex w-full max-w-md flex-col gap-4 rounded-[var(--radius-lg)] bg-surface-raised p-6 shadow-lg">
+          <div className="flex h-[36rem] max-h-[calc(100dvh-2rem)] min-h-0 w-full max-w-md flex-col gap-4 overflow-hidden rounded-[var(--radius-lg)] bg-surface-raised p-6 shadow-lg">
             <h3
               id="engage-next-title"
               className="text-[length:var(--font-size-subheading)] font-semibold text-text-primary"
@@ -392,10 +392,10 @@ export default function EngageBoard({ model }: { model: EngageModel }) {
             </h3>
             {nextPrompt.available.length > 0 ? (
               <>
-                <p className="text-text-secondary">
+                <p className="shrink-0 text-text-secondary">
                   Commit the next action to work on.
                 </p>
-                <ul className="flex flex-col gap-2">
+                <ul className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain">
                   {nextPrompt.available.map((a) => (
                     <li key={a.id}>
                       <button
@@ -409,7 +409,7 @@ export default function EngageBoard({ model }: { model: EngageModel }) {
                     </li>
                   ))}
                 </ul>
-                <div className="flex justify-end">
+                <div className="flex shrink-0 justify-end">
                   <button
                     type="button"
                     disabled={busy}
@@ -422,10 +422,10 @@ export default function EngageBoard({ model }: { model: EngageModel }) {
               </>
             ) : (
               <>
-                <p className="text-text-secondary">
+                <p className="shrink-0 text-text-secondary">
                   No actions remain. Mark this project complete?
                 </p>
-                <div className="flex flex-wrap justify-end gap-3">
+                <div className="mt-auto flex shrink-0 flex-wrap justify-end gap-3">
                   <button
                     type="button"
                     disabled={busy}

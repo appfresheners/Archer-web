@@ -183,6 +183,70 @@ describe("ProjectsPage", () => {
     ).toBe(true);
   });
 
+  it("combines status, goal, and search before paging", async () => {
+    mockState.projectResults = [
+      { data: [PROJECTS[1]], count: 21, error: null },
+    ];
+    await renderPage({
+      status: "active",
+      goal: "goal-2",
+      q: "newsletter",
+      page: "2",
+    });
+
+    expect(screen.getByText("Write issue #1")).toBeInTheDocument();
+    expect(
+      mockState.calls.some(
+        (call) =>
+          call.table === "project_search" &&
+          call.method === "eq" &&
+          call.args[0] === "status" &&
+          call.args[1] === "active",
+      ),
+    ).toBe(true);
+    expect(
+      mockState.calls.some(
+        (call) =>
+          call.table === "project_search" &&
+          call.method === "eq" &&
+          call.args[0] === "goal_id" &&
+          call.args[1] === "goal-2",
+      ),
+    ).toBe(true);
+    expect(
+      mockState.calls.some(
+        (call) => call.table === "project_search" && call.method === "or",
+      ),
+    ).toBe(true);
+    expect(mockState.calls).toContainEqual({
+      table: "project_search",
+      method: "range",
+      args: [20, 39],
+    });
+    expect(screen.getByRole("link", { name: "Previous page" })).toHaveAttribute(
+      "href",
+      "/app/projects?status=active&goal=goal-2&q=newsletter&page=1",
+    );
+    expect(
+      (screen.getByRole("combobox", { name: "Filter by status" }) as HTMLSelectElement)
+        .value,
+    ).toBe("active");
+  });
+
+  it("normalizes an unknown project status to All", async () => {
+    await renderPage({ status: "not-a-status" });
+
+    expect(
+      (screen.getByRole("combobox", { name: "Filter by status" }) as HTMLSelectElement)
+        .value,
+    ).toBe("all");
+    expect(
+      mockState.calls.some(
+        (call) => call.table === "project_search" && call.method === "eq" && call.args[0] === "status",
+      ),
+    ).toBe(false);
+  });
+
   it("falls back to All for an unknown goal filter", async () => {
     mockState.goalOptionsResults = [{ data: GOALS, error: null }];
     await renderPage({ goal: "goal-does-not-exist" });
@@ -284,6 +348,33 @@ describe("ProjectsPage", () => {
     );
   });
 
+  it("includes the originating list URL in project links", async () => {
+    mockState.projectResults = [
+      { data: [PROJECTS[0]], count: 45, error: null },
+    ];
+    await renderPage({ status: "active", goal: "goal-1", q: "training", page: "2" });
+
+    expect(screen.getByRole("link", { name: /Base training/ })).toHaveAttribute(
+      "href",
+      "/app/projects/p1?from=%2Fapp%2Fprojects%3Fstatus%3Dactive%26goal%3Dgoal-1%26q%3Dtraining%26page%3D2",
+    );
+  });
+
+  it("preserves status in the search form and its clear-search URL", async () => {
+    mockState.projectResults = [
+      { data: [PROJECTS[0]], count: 45, error: null },
+    ];
+    await renderPage({ status: "active", q: "training", page: "2" });
+
+    const searchForm = screen.getByRole("searchbox", { name: "Search Projects" }).closest("form")!;
+    expect(searchForm.querySelector('[name="status"]')).toHaveAttribute("value", "active");
+    expect(searchForm.querySelector('[name="page"]')).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Clear search" })).toHaveAttribute(
+      "href",
+      "/app/projects?status=active",
+    );
+  });
+
   it("shows the empty state when there are no projects at all", async () => {
     mockState.projectResults = [{ data: [], count: 0, error: null }];
     await renderPage();
@@ -298,6 +389,16 @@ describe("ProjectsPage", () => {
     await renderPage({ goal: "goal-3" });
 
     expect(screen.getByText("No projects match this filter.")).toBeInTheDocument();
+  });
+
+  it("distinguishes an empty status result from a truly empty Projects list", async () => {
+    mockState.projectResults = [{ data: [], count: 0, error: null }];
+    mockState.totalProjectsResult = { data: null, count: 3, error: null };
+
+    await renderPage({ status: "archived" });
+
+    expect(screen.getByText("No projects match this filter.")).toBeInTheDocument();
+    expect(screen.queryByText("No projects yet.")).not.toBeInTheDocument();
   });
 
   it("uses exact-count ranged search across project and parent-goal text", async () => {

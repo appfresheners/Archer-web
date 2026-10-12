@@ -38,6 +38,17 @@ export const metadata: Metadata = {
   title: "Engage — Archer",
 };
 
+const WEEKLY_COMMITMENT_TIMEOUT_MS = 3_000;
+
+interface WeeklyCommitment {
+  intention: string;
+  created_at: string;
+}
+
+type WeeklyCommitmentResult =
+  | { status: "ok"; data: WeeklyCommitment | null }
+  | { status: "error" };
+
 /** Today's calendar date (YYYY-MM-DD) for future-scheduled exclusion. */
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -83,8 +94,70 @@ async function loadEngageModel(): Promise<ReadListResult<EngageModel>> {
   }
 }
 
+async function loadWeeklyCommitment(): Promise<WeeklyCommitmentResult> {
+  try {
+    const supabase = await createClient();
+    const { data: session, error: sessionError } = await supabase
+      .from("review_sessions")
+      .select("id, completed_at")
+      .not("completed_at", "is", null)
+      .order("completed_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (sessionError) return { status: "error" };
+    if (!session) return { status: "ok", data: null };
+
+    const { data: snapshot, error: snapshotError } = await supabase
+      .from("weekly_snapshots")
+      .select("intention, created_at")
+      .eq("review_session_id", session.id)
+      .maybeSingle();
+
+    if (snapshotError) return { status: "error" };
+    return {
+      status: "ok",
+      data: (snapshot as WeeklyCommitment | null) ?? null,
+    };
+  } catch {
+    return { status: "error" };
+  }
+}
+
+async function loadWeeklyCommitmentWithTimeout(): Promise<WeeklyCommitmentResult> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      loadWeeklyCommitment(),
+      new Promise<WeeklyCommitmentResult>((resolve) => {
+        timeoutId = setTimeout(
+          () => resolve({ status: "error" }),
+          WEEKLY_COMMITMENT_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+  }
+}
+
+function formatSavedDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 export default async function EngagePage() {
-  const result = await loadEngageModel();
+  const [result, commitmentResult] = await Promise.all([
+    loadEngageModel(),
+    loadWeeklyCommitmentWithTimeout(),
+  ]);
 
   if (result.status === "error") {
     return (
@@ -98,6 +171,26 @@ export default async function EngagePage() {
   return (
     <section className="flex flex-col gap-[var(--spacing-section-y)]">
       <Breadcrumbs items={[{ label: "Engage" }]} />
+      {commitmentResult.status === "error" ? (
+        <p role="status" className="border-l-4 border-border-strong bg-surface px-4 py-3 text-text-secondary">
+          Weekly commitment is unavailable right now.
+        </p>
+      ) : commitmentResult.data ? (
+        <aside
+          aria-label="Weekly commitment"
+          className="flex flex-col gap-1 border-l-4 border-primary bg-primary-subtle px-4 py-3"
+        >
+          <p className="text-[length:var(--font-size-small)] font-semibold text-text-primary">
+            Weekly commitment
+          </p>
+          <p className="break-words text-text-primary">
+            {commitmentResult.data.intention}
+          </p>
+          <p className="text-[length:var(--font-size-small)] text-text-secondary">
+            Saved {formatSavedDate(commitmentResult.data.created_at)}
+          </p>
+        </aside>
+      ) : null}
       <EngageBoard model={result.data} />
     </section>
   );

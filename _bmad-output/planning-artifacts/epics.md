@@ -1040,6 +1040,8 @@ So that I can refine the plan without disturbing my other projects.
 **When** it renders
 **Then** it shows the project name, parent-goal breadcrumb, and status badge
 **And** Purpose and Successful Outcome are shown as collapsible sections
+**And** a valid originating `/app` path is the linked return breadcrumb and takes precedence over the parent Goal/Area; without a valid origin, the existing parent breadcrumb is used
+**And** the origin rule is identical when project reads fail
 
 **Given** an AI-generated project
 **When** I edit it
@@ -1127,8 +1129,11 @@ So that projects stay organized as my goals change.
 **Then** the route rejects it and writes nothing
 
 **Given** the Projects index
-**When** I select All projects, a specific goal, or No goal
-**Then** the list shows only projects matching that filter and preserves the choice in the URL
+**When** I select All goals, a specific goal, or No goal, and independently select All statuses, Active, Paused, Someday/Maybe, Completed, or Archived
+**Then** the list shows projects matching the combined filters and preserves both selections in the URL
+**And** status filters use the project's own status and are applied server-side before exact counts and pagination
+**And** changing either filter resets pagination to page 1; invalid status values normalize to All statuses
+**And** search submissions, goal selection, pagination, and project links preserve the other list state
 
 **Given** project status and actions
 **When** I change a goal association or filter
@@ -1247,6 +1252,12 @@ So that I know exactly what to do today and no project goes stuck after I finish
 **When** Engage renders
 **Then** the empty state reads "No committed actions. Open a project and commit one." with no celebration or confetti
 
+**Given** a completed weekly snapshot exists
+**When** Engage renders
+**Then** a read-only Weekly commitment above the action controls shows the latest completed review's intention and saved date, without its blocker
+**And** the commitment remains visible when actions are empty or filtered to no matches and persists until a newer review completes
+**And** draft reviews do not replace the completed commitment; snapshot-read failures show a non-blocking unavailable state while actions remain usable
+
 ### Story 5.4: Weekly Review Shell, Phase Bar & Persistence
 
 As a signed-in user,
@@ -1295,6 +1306,7 @@ So that my system carries honest context from one week to the next.
 **Given** I complete the review
 **When** I click "Complete review"
 **Then** the review is marked complete, a `weekly_snapshots` row is written (week number, date range, opening retrospective, closing intention, closing blocker), the sidebar shows "Last review: today", and I am returned to Engage
+**And** the saved intention and snapshot date appear in Engage's Weekly commitment banner after return
 **And** the closing fields become the "Last week you said:" display at the next review's opening
 
 ### Story 5.6: Weekly Review Phases — Get Clear, Get Current, Get Creative
@@ -1403,6 +1415,10 @@ So that ongoing responsibilities and higher-horizon context have a discoverable 
 **When** I edit my profile
 **Then** I can save optional Vision, Purpose, and Principles without creating a Goal or Project
 
+**Given** Focus is opened directly or from Weekly Review
+**When** it renders or a read error occurs
+**Then** a linked breadcrumb returns to Engage by default or to the validated Weekly Review origin
+
 **Given** the Life Areas list
 **When** I manage an Area
 **Then** I can create, edit, reorder, or archive it
@@ -1461,7 +1477,7 @@ So that I can notice an Area that needs attention without turning the review int
 **Given** the Get Creative phase
 **When** it renders
 **Then** an optional Focus review entry shows Life Areas and their linked Goals and Projects
-**And** a "Review Focus" link opens `/app/focus`
+**And** a "Review Focus" link opens `/app/focus?from=/app/review`
 
 **Given** I skip Focus review
 **When** I continue Get Creative
@@ -1470,6 +1486,7 @@ So that I can notice an Area that needs attention without turning the review int
 **Given** I navigate to Focus during an in-progress weekly review and return
 **When** the review view reloads
 **Then** the existing persisted review phase is restored
+**And** Focus provides a working return link to that review origin
 **And** Vision, Purpose, and Principles do not require weekly editing
 
 ## Epic 8: Someday/Maybe & List Scalability
@@ -1573,6 +1590,7 @@ So that long lists stay usable.
 **When** the URL updates
 **Then** other params (including the existing `?goal=` filter) are preserved
 **And** a new search resets `page` to 1
+**And** Projects status is preserved by search, goal, page, and origin links; changing status also resets `page` to 1
 
 **Given** a page number beyond the last page or invalid
 **When** the page loads

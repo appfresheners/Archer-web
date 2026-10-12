@@ -188,6 +188,32 @@ describe("EngageBoard", () => {
     expect(lastCall()[0]).toBe("/api/actions/project-action-2/commit");
   });
 
+  it("keeps a long next-action list scrollable with its dismissal control reachable", async () => {
+    const user = userEvent.setup();
+    const model = fullModel();
+    model.goalGroups[0].availableByProject.p1 = Array.from(
+      { length: 30 },
+      (_, index) => ({ id: `next-${index}`, text: `Next action ${index + 1}` }),
+    );
+
+    render(<EngageBoard model={model} />);
+    await user.click(
+      screen.getByRole("button", { name: 'Mark "Write the intro" done' }),
+    );
+
+    const dialog = await screen.findByRole("dialog");
+    const actionList = within(dialog).getByRole("list");
+    const dialogPanel = dialog.firstElementChild!;
+    expect(dialogPanel.className).toContain("max-h-[calc(100dvh-2rem)]");
+    expect(dialogPanel.className).toContain("overflow-hidden");
+    expect(actionList.className).toContain("overflow-y-auto");
+
+    const dismiss = within(dialog).getByRole("button", { name: "Not now" });
+    expect(dismiss).toBeVisible();
+    await user.click(dismiss);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("shows the amber stuck band at the bottom of a goal group", () => {
     render(<EngageBoard model={fullModel()} />);
     expect(screen.getByText("Set up invoicing")).toBeInTheDocument();

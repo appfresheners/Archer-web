@@ -5,6 +5,7 @@ import FocusManager, {
 } from "@/components/focus/FocusManager";
 import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import ReadErrorState from "@/components/shared/ReadErrorState";
+import { labelForPath, safeFrom } from "@/lib/navigation/from";
 import type { ReadListResult } from "@/lib/read-result";
 import type {
   AreaOfFocus,
@@ -100,12 +101,25 @@ async function loadFocus(): Promise<ReadListResult<FocusPageData>> {
   }
 }
 
-export default async function FocusPage() {
+export default async function FocusPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ from?: string | string[] }>;
+} = {}) {
+  const from = safeFrom((await searchParams)?.from);
+  const reviewOrigin =
+    from && labelForPath(from) === "Weekly review" ? from : null;
+  const breadcrumbs = reviewOrigin
+    ? [
+        { label: "Weekly review", href: reviewOrigin },
+        { label: "Focus" },
+      ]
+    : [{ label: "Engage", href: "/app/engage" }, { label: "Focus" }];
   const result = await loadFocus();
   if (result.status === "error") {
     return (
       <section className="flex flex-col gap-[var(--spacing-section-y)]">
-        <Breadcrumbs items={[{ label: "Focus" }]} />
+        <Breadcrumbs items={breadcrumbs} />
         <ReadErrorState />
       </section>
     );
@@ -113,7 +127,7 @@ export default async function FocusPage() {
 
   return (
     <section className="flex flex-col gap-[var(--spacing-section-y)]">
-      <Breadcrumbs items={[{ label: "Focus" }]} />
+      <Breadcrumbs items={breadcrumbs} />
       <FocusManager
         profile={result.data.profile}
         areas={result.data.areas}

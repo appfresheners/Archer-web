@@ -18,6 +18,7 @@ export default function ProjectFilterSelect({
   goalOptionsError,
   selectedGoal,
   value,
+  statusValue = "all",
   query,
   searchParams,
 }: {
@@ -25,6 +26,7 @@ export default function ProjectFilterSelect({
   goalOptionsError: boolean;
   selectedGoal: ProjectFilterGoalOption | null;
   value: string;
+  statusValue?: string;
   query: string;
   searchParams: ListSearchParams;
 }) {
@@ -105,6 +107,7 @@ export default function ProjectFilterSelect({
         {Object.entries(searchParams).flatMap(([key, rawValue]) => {
           if (
             key === "goal" ||
+            key === "status" ||
             key === "page" ||
             key === "goalQ" ||
             key === "goalOptionsPage" ||
@@ -141,6 +144,27 @@ export default function ProjectFilterSelect({
               <option value={selectedGoal.id}>{selectedGoal.goal_text}</option>
             )}
             <option value="none">No goal</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label
+            htmlFor="project-status-filter"
+            className="text-[length:var(--font-size-small)] font-medium text-text-secondary"
+          >
+            Filter by status
+          </label>
+          <select
+            id="project-status-filter"
+            name="status"
+            defaultValue={statusValue}
+            className="min-h-[44px] w-full max-w-sm rounded-[var(--radius-sm)] border border-border-strong bg-surface-raised px-3 py-2 text-text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)]"
+          >
+            <option value="all">All statuses</option>
+            <option value="active">Active</option>
+            <option value="paused">Paused</option>
+            <option value="someday">Someday/Maybe</option>
+            <option value="completed">Completed</option>
+            <option value="archived">Archived</option>
           </select>
         </div>
         <button

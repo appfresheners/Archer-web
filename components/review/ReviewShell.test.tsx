@@ -241,7 +241,7 @@ describe("ReviewShell", () => {
     });
     expect(screen.getByRole("link", { name: "Review Focus" })).toHaveAttribute(
       "href",
-      "/app/focus",
+      "/app/focus?from=%2Fapp%2Freview",
     );
   });
 
@@ -493,7 +493,7 @@ describe("ReviewShell", () => {
     expect(screen.getByRole("heading", { name: "Focus review (optional)" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Review Focus" })).toHaveAttribute(
       "href",
-      "/app/focus",
+      "/app/focus?from=%2Fapp%2Freview",
     );
     expect(screen.getByRole("link", { name: /Weekly training/ })).toHaveAttribute(
       "href",

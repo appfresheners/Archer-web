@@ -6,6 +6,7 @@ import ListSearch from "@/components/shared/ListSearch";
 import Pagination from "@/components/shared/Pagination";
 import ReadErrorState from "@/components/shared/ReadErrorState";
 import {
+  buildListHref,
   clampPage,
   escapeIlikePattern,
   escapePostgrestFilterValue,
@@ -14,6 +15,7 @@ import {
   parseListQuery,
   type ListSearchParams,
 } from "@/lib/lists/search-pagination";
+import { withFrom } from "@/lib/navigation/from";
 import type { ReadListResult } from "@/lib/read-result";
 import type { ProjectStatus } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
@@ -48,6 +50,7 @@ interface LoadedProjects {
   selectedGoal: GoalListItem | null;
   goalQuery: string;
   filter: ProjectFilter;
+  statusFilter: ProjectStatus | "all";
   query: string;
   page: number;
   total: number;
@@ -88,6 +91,19 @@ async function loadProjects(
     const goalParam = Array.isArray(searchParams.goal)
       ? searchParams.goal[0]
       : searchParams.goal;
+    const statusParam = Array.isArray(searchParams.status)
+      ? searchParams.status[0]
+      : searchParams.status;
+    const projectStatuses: ProjectStatus[] = [
+      "active",
+      "paused",
+      "someday",
+      "completed",
+      "archived",
+    ];
+    const statusFilter = projectStatuses.includes(statusParam as ProjectStatus)
+      ? (statusParam as ProjectStatus)
+      : "all";
     let filter: ProjectFilter = "all";
     let selectedGoal: GoalListItem | null = null;
     if (goalParam === "none") {
@@ -122,6 +138,7 @@ async function loadProjects(
       }
       if (filter === "none") request = request.is("goal_id", null);
       else if (filter !== "all") request = request.eq("goal_id", filter);
+      if (statusFilter !== "all") request = request.eq("status", statusFilter);
 
       return request
         .order("created_at", { ascending: false })
@@ -156,7 +173,11 @@ async function loadProjects(
     }
 
     let hasAnyProjects = total > 0;
-    if (!query && total === 0 && filter !== "all") {
+    if (
+      !query &&
+      total === 0 &&
+      (filter !== "all" || statusFilter !== "all")
+    ) {
       const { count, error } = await supabase
         .from("projects")
         .select("id", { count: "exact", head: true });
@@ -173,6 +194,7 @@ async function loadProjects(
         selectedGoal,
         goalQuery,
         filter,
+        statusFilter,
         query,
         page,
         total,
@@ -221,6 +243,7 @@ export default async function ProjectsPage({
     selectedGoal,
     goalQuery,
     filter,
+    statusFilter,
     query,
     page,
     total,
@@ -254,6 +277,7 @@ export default async function ProjectsPage({
         goalOptionsError={goalOptionsError}
         selectedGoal={selectedGoal}
         value={filter}
+        statusValue={statusFilter}
         query={goalQuery}
         searchParams={params}
       />
@@ -276,7 +300,10 @@ export default async function ProjectsPage({
             return (
               <li key={project.id}>
                 <Link
-                  href={`/app/projects/${project.id}`}
+                  href={withFrom(
+                    `/app/projects/${project.id}`,
+                    buildListHref("/app/projects", params, {}),
+                  )}
                   className="flex min-h-[44px] items-center justify-between gap-3 rounded-[var(--radius-md)] border border-border bg-surface-raised p-[var(--spacing-card-p)] transition-colors hover:border-border-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
                 >
                   <span className="flex min-w-0 flex-col gap-1">

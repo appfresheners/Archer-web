@@ -16,19 +16,24 @@ describe("ProjectFilterSelect", () => {
         goalOptionsError={false}
         selectedGoal={null}
         value="all"
+        statusValue="active"
         query=""
-        searchParams={{ q: "marathon", page: "3", view: "compact" }}
+        searchParams={{ q: "marathon", status: "active", page: "3", view: "compact" }}
       />,
     );
 
     fireEvent.change(screen.getByRole("combobox", { name: "Filter by goal" }), {
       target: { value: "none" },
     });
+    fireEvent.change(screen.getByRole("combobox", { name: "Filter by status" }), {
+      target: { value: "paused" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Apply filter" }));
 
     const form = container.querySelector("form");
     expect(form).toHaveAttribute("action", "/app/projects");
     expect(form?.querySelector('[name="q"]')).toHaveAttribute("value", "marathon");
+    expect(form?.querySelector('[name="status"]')).toHaveValue("paused");
     expect(form?.querySelector('[name="page"]')).not.toBeInTheDocument();
     expect(form?.querySelector('[name="goalQ"]')).not.toBeInTheDocument();
   });
@@ -43,18 +48,21 @@ describe("ProjectFilterSelect", () => {
         goalOptionsError={false}
         selectedGoal={{ id: "goal-1", goal_text: "Run a marathon" }}
         value="goal-1"
+        statusValue="paused"
         query="run"
-        searchParams={{ goal: "goal-1", q: "training", page: "3", view: "compact", goalQ: "run" }}
+        searchParams={{ goal: "goal-1", status: "paused", q: "training", page: "3", view: "compact", goalQ: "run" }}
       />,
     );
 
     const filter = screen.getByRole("combobox", { name: "Filter by goal" });
     expect(filter).toHaveValue("goal-1");
+    expect(screen.getByRole("combobox", { name: "Filter by status" })).toHaveValue("paused");
     const clearUrl = new URL(
       screen.getByRole("link", { name: "Clear search" }).getAttribute("href")!,
       "http://localhost",
     );
     expect(clearUrl.searchParams.get("goal")).toBe("goal-1");
+    expect(clearUrl.searchParams.get("status")).toBe("paused");
     expect(clearUrl.searchParams.get("q")).toBe("training");
     expect(clearUrl.searchParams.get("page")).toBe("3");
     expect(clearUrl.searchParams.get("view")).toBe("compact");
@@ -85,7 +93,7 @@ describe("ProjectFilterSelect", () => {
     expect(within(listbox).queryByRole("option", { name: "Run a marathon" })).not.toBeInTheDocument();
     fireEvent.click(goalOption);
     expect(routerPush).toHaveBeenCalledWith(
-      "/app/projects?q=training&view=compact&goal=goal-2",
+      "/app/projects?status=paused&q=training&view=compact&goal=goal-2",
     );
 
     fireEvent.change(goalSearch, {

@@ -190,17 +190,6 @@ export default function ActionItem({
         </div>
 
         <div className="flex shrink-0 items-center">
-          {action.status === "available" && (
-            <button
-              type="button"
-              className="mr-1 inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-primary px-3 py-1 text-[length:var(--font-size-small)] font-medium text-primary hover:bg-primary-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label={`Commit "${action.text}" as the next action`}
-              disabled={disabled}
-              onClick={() => onCommit(action)}
-            >
-              Commit
-            </button>
-          )}
           <button
             type="button"
             className={iconBtn}
@@ -251,6 +240,19 @@ export default function ActionItem({
           </button>
         </div>
       </div>
+      {action.status === "available" && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-primary px-3 py-1 text-[length:var(--font-size-small)] font-medium text-primary hover:bg-primary-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label={`Commit "${action.text}" as the next action`}
+            disabled={disabled}
+            onClick={() => onCommit(action)}
+          >
+            Commit
+          </button>
+        </div>
+      )}
     </li>
   );
 }

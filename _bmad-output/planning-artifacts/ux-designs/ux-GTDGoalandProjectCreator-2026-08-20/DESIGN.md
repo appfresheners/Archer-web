@@ -399,6 +399,10 @@ Used in Wizard Step 2. Per skill/attribute row:
 
 Inline pill. Seven statuses: Active (blue), Paused (amber on amber-subtle), Someday (gray outlined), Completed (emerald on emerald-subtle), Archived (gray), Not now (red on red-subtle). See `{components.badge.*}` tokens.
 
+## Projects Status Filter
+
+Use a labeled, keyboard-operable select alongside the goal filter. Offer All statuses, Active, Paused, Someday/Maybe, Completed, and Archived. Reuse existing form-control surface, border, focus, typography, and 44px minimum touch-target tokens. The two filters remain distinct and combine with search.
+
 ## Action Item Row
 
 Used in project views and Engage view. Structure: checkbox left — action text — optional context tag chips right.
@@ -420,6 +424,10 @@ Minimal: raw text + capture timestamp + overflow menu (Process | Delete). No pre
 ## Weekly Review Phase Bar
 
 Horizontal progress indicator at the top of the review view. Five beats (not three): **Snapshot (open)** → **Get Clear** → **Get Current** → **Get Creative** → **Snapshot (close)**. Active beat fills primary. Completed beats fill emerald. Upcoming: gray. Beat label below each segment. The two Snapshot beats are visually distinct — slightly narrower segments — to signal they are bookends, not phases.
+
+## Weekly Commitment Band
+
+Place a compact informational band above Engage action controls. Use existing surface and text tokens with a restrained primary border; this is not an alert, modal, or separate card section. Show the intention and saved date, wrap text naturally on narrow screens, and retain readable contrast and spacing. Do not display the blocker or add palette/type tokens.
 
 ## Output Panel (Project Mode generation)
 

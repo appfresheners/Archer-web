@@ -38,6 +38,7 @@ The experimental vault is an independent client-side layer (AES-GCM + PBKDF2, `l
 - **Binds:** All routes under `/app/*` render the authenticated shell (fixed 240px sidebar + max 720px main). `/sign-in`, `/sign-up`, `/forgot-password` render a minimal centred single-column layout (max 480px, no sidebar). There are no other layout modes — no unauthenticated landing page, no public-facing surfaces.
 - **Prevents:** Unauthenticated access to any feature; a two-layout system; sidebar on sign-in pages
 - **Rule:** Unauthenticated requests to any `/app/*` route are redirected to `/sign-in` by Next.js middleware. The root `/` redirects to `/app/engage` if authenticated, `/sign-in` if not.
+- **Navigation extension:** Breadcrumb return origins are validated same-origin `/app` paths using the existing origin helper. A valid origin takes precedence over a project parent relationship; an absent or unsafe origin uses the existing parent/Area/Projects fallback. Projects links preserve the full filtered list URL.
 
 ### AD-9: Focus Area → Goal → Project → Action Hierarchy [ADOPTED]
 
@@ -92,6 +93,7 @@ The experimental vault is an independent client-side layer (AES-GCM + PBKDF2, `l
 - **Binds:** An in-progress review session is persisted to Supabase (`review_sessions` row created at review start, updated on each phase transition). Phase progress, snapshot fields, and inbox processing position survive browser close and return.
 - **Prevents:** Losing review progress mid-session
 - **Rule:** Review completion writes the closing snapshot to `weekly_snapshots`. The `review_sessions` row is marked complete only when the closing snapshot is saved. Opening snapshot reads from the prior week's `weekly_snapshots` row.
+- **Engage read extension:** Engage reads at most one completed `review_sessions` row ordered by `completed_at DESC, id DESC`, then reads its `weekly_snapshots` row by `review_session_id`. RLS scopes both reads. The intention and snapshot `created_at` feed a read-only banner; absent data differs from read failure. No write or schema contract is added.
 
 ### AD-17: Vault Independence — Client-Side, Auth-Agnostic [ADOPTED]
 
@@ -128,6 +130,7 @@ The experimental vault is an independent client-side layer (AES-GCM + PBKDF2, `l
 - **Binds:** Long list pages (Projects, Goals, Inbox, Someday) read `?q=` and `?page=` in server components. One helper in `lib/` parses and clamps both, builds the range (page size 20), and escapes `%` and `_` for `ilike`. Queries are ranged with an exact count. Goals need status-precedence ordering in the query so order survives paging. Pickers whose options are already loaded filter in the browser through one shared `SearchableSelect` that follows the WAI-ARIA combobox pattern and caps rendered matches at 50.
 - **Prevents:** Unbounded list reads; client-side filtering of paged data; per-page search implementations that diverge; raw search text in SQL strings
 - **Rule:** No list page loads all rows. RLS still scopes every read. Pickers add no API route or write path. `project_status` gains `someday` through an additive enum migration only; existing rows are not updated.
+- **Projects status extension:** Validate the `status` query key against the existing project statuses and combine it with goal and search predicates before exact counting/ranging. Preserve all filter state in search, goal, pagination, and origin links; changing a filter removes `page`.
 
 ---
 

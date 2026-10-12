@@ -39,7 +39,7 @@
 # Original story statuses are preserved. Stories added by approved course corrections
 # remain 'backlog' until their implementation specs are authored.
 generated: 09-27-2026 16:30
-last_updated: 10-08-2026 (Story 8.4 implementation complete; ready for review)
+last_updated: 10-12-2026 00:00
 
 project: GTDGoalandProjectCreator
 project_key: NOKEY
@@ -156,3 +156,25 @@ development_status:
   #   2.3 / 4.1 (distinguish transient backend error from 404 / empty state)
   #   3.6 (friendly mapping for GenerationFormatError)
   epic-H-retrospective: optional
+
+action_items:
+  - epic: 4
+    action: "P1: Add project-status filtering combined with goal/search and server-side pagination (Stories 4.6, 8.3)."
+    owner: "Developer"
+    status: done
+    source: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-12.md"
+  - epic: 4
+    action: "P2: Make project breadcrumbs return to the exact originating list URL, with validated origin precedence (Stories 4.3, 4.6)."
+    owner: "Developer"
+    status: done
+    source: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-12.md"
+  - epic: 7
+    action: "P3: Add linked Focus breadcrumbs with Engage fallback and Weekly Review origin (Stories 7.2, 7.4)."
+    owner: "Developer"
+    status: done
+    source: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-12.md"
+  - epic: 5
+    action: "P4: Show the latest completed review's priority and saved date in an Engage banner until superseded (Stories 5.3, 5.5)."
+    owner: "Developer"
+    status: done
+    source: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-12.md"

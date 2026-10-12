@@ -24,6 +24,7 @@ import type {
   ReviewSomedayItem,
   ReviewSomedayProject,
 } from "@/lib/review/reviewData";
+import { withFrom } from "@/lib/navigation/from";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -236,7 +237,7 @@ export default function GetCreativePanel({
             Focus review (optional)
           </h3>
           <Link
-            href="/app/focus"
+            href={withFrom("/app/focus", "/app/review")}
             className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-border-strong px-3 py-2 text-[length:var(--font-size-small)] font-medium text-text-primary transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
           >
             Review Focus

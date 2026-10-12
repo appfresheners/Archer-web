@@ -44,8 +44,10 @@ const AREAS = [
   { id: "area-archived", name: "Old responsibility", description: null, sort_order: 1, archived_at: "2026-10-01T00:00:00Z" },
 ];
 
-async function renderPage() {
-  return render(await FocusPage());
+async function renderPage(searchParams: { from?: string | string[] } = {}) {
+  return render(
+    await FocusPage({ searchParams: Promise.resolve(searchParams) }),
+  );
 }
 
 describe("FocusPage", () => {
@@ -68,6 +70,10 @@ describe("FocusPage", () => {
     const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
     expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
     expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("Focus");
+    expect(screen.getByRole("link", { name: "Engage" })).toHaveAttribute(
+      "href",
+      "/app/engage",
+    );
     expect(screen.getByRole("heading", { name: "Focus" })).toBeInTheDocument();
     expect(screen.getByRole("note")).toHaveTextContent(
       "This page is for alignment with God, purpose, and long-term direction — not pressure.",
@@ -122,6 +128,26 @@ describe("FocusPage", () => {
     expect(screen.getByText("Paused")).toBeInTheDocument();
     expect(projectIs).toHaveBeenCalledWith("goal_id", null);
     expect(projectsIn).toHaveBeenCalledWith("area_id", ["area-active"]);
+  });
+
+  it("uses a validated Weekly Review origin as the return breadcrumb", async () => {
+    await renderPage({ from: "/app/review" });
+
+    expect(screen.getByRole("link", { name: "Weekly review" })).toHaveAttribute(
+      "href",
+      "/app/review",
+    );
+    expect(screen.queryByRole("link", { name: "Engage" })).not.toBeInTheDocument();
+  });
+
+  it("uses the Engage breadcrumb when the supplied origin is unsafe", async () => {
+    await renderPage({ from: "https://example.com/app/review" });
+
+    expect(screen.getByRole("link", { name: "Engage" })).toHaveAttribute(
+      "href",
+      "/app/engage",
+    );
+    expect(screen.queryByRole("link", { name: "Weekly review" })).not.toBeInTheDocument();
   });
 
   it("sorts linked Goals and standalone Projects by name", async () => {
@@ -316,6 +342,10 @@ describe("FocusPage", () => {
     await renderPage();
     expect(screen.getAllByRole("navigation", { name: "Breadcrumb" })).toHaveLength(1);
     expect(screen.getByRole("navigation", { name: "Breadcrumb" }).querySelector('[aria-current="page"]')).toHaveTextContent("Focus");
+    expect(screen.getByRole("link", { name: "Engage" })).toHaveAttribute(
+      "href",
+      "/app/engage",
+    );
     expect(screen.getByRole("alert")).toHaveTextContent("Something went wrong loading this view.");
   });
 
@@ -323,6 +353,17 @@ describe("FocusPage", () => {
     areasOrder.mockResolvedValue({ data: null, error: { message: "offline" } });
     await renderPage();
     expect(screen.getByRole("alert")).toHaveTextContent("Something went wrong loading this view.");
+  });
+
+  it("keeps a valid Weekly Review return breadcrumb when Focus reads fail", async () => {
+    profileSingle.mockResolvedValue({ data: null, error: { message: "offline" } });
+
+    await renderPage({ from: "/app/review" });
+
+    expect(screen.getByRole("link", { name: "Weekly review" })).toHaveAttribute(
+      "href",
+      "/app/review",
+    );
   });
 
   it("renders the Focus loading fallback", () => {

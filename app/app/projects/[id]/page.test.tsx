@@ -89,8 +89,14 @@ vi.mock("@/components/projects/ActionList", () => ({
   ),
 }));
 
-async function renderPage(id: string) {
-  const ui = await ProjectDetailPage({ params: Promise.resolve({ id }) });
+async function renderPage(
+  id: string,
+  searchParams: { from?: string | string[] } = {},
+) {
+  const ui = await ProjectDetailPage({
+    params: Promise.resolve({ id }),
+    searchParams: Promise.resolve(searchParams),
+  });
   return render(ui);
 }
 
@@ -177,6 +183,37 @@ describe("ProjectDetailPage", () => {
     expect(crumb).toHaveAttribute("href", "/app/projects");
     // The parent-goal lookup is never attempted for a goal-less project.
     expect(goalMaybeSingle).not.toHaveBeenCalled();
+  });
+
+  it("uses a valid Projects origin instead of the parent-goal breadcrumb", async () => {
+    projectMaybeSingle.mockResolvedValue({
+      data: {
+        id: "project-from-list",
+        name: "Training plan",
+        goal_id: "goal-1",
+        status: "active",
+        purpose: null,
+        successful_outcome: null,
+        planning_depth: "minimal",
+        planning_detail: null,
+      },
+      error: null,
+    });
+    goalMaybeSingle.mockResolvedValue({
+      data: { goal_text: "Run a marathon", area_id: null },
+      error: null,
+    });
+    const origin = "/app/projects?status=active&goal=goal-1&q=run&page=2";
+
+    await renderPage("project-from-list", { from: origin });
+
+    expect(screen.getByRole("link", { name: "Projects" })).toHaveAttribute(
+      "href",
+      origin,
+    );
+    expect(
+      screen.queryByRole("link", { name: "Run a marathon" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows a direct Area breadcrumb for a standalone Project", async () => {
@@ -397,6 +434,18 @@ describe("ProjectDetailPage", () => {
       screen.getByText("Something went wrong loading this view. Please try again."),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+
+  it("uses a validated origin in the project read-error breadcrumb", async () => {
+    projectMaybeSingle.mockResolvedValue({ data: null, error: { message: "boom" } });
+    const origin = "/app/projects?status=paused&q=training&page=3";
+
+    await renderPage("project-1", { from: origin });
+
+    expect(screen.getByRole("link", { name: "Projects" })).toHaveAttribute(
+      "href",
+      origin,
+    );
   });
 
   it("passes the project's goalId and the loaded goal options to the client", async () => {

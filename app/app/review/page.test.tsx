@@ -203,7 +203,7 @@ describe("ReviewPage", () => {
     expect(screen.getByRole("heading", { name: "Health" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Review Focus" })).toHaveAttribute(
       "href",
-      "/app/focus",
+      "/app/focus?from=%2Fapp%2Freview",
     );
     expect(screen.getByLabelText("Phase 4 of 5: Get Creative, current")).toHaveAttribute(
       "aria-current",
@@ -236,7 +236,7 @@ describe("ReviewPage", () => {
     );
     expect(screen.getByRole("link", { name: "Review Focus" })).toHaveAttribute(
       "href",
-      "/app/focus",
+      "/app/focus?from=%2Fapp%2Freview",
     );
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Life Areas could not be loaded",

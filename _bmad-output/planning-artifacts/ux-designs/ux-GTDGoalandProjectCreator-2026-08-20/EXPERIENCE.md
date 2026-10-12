@@ -96,6 +96,8 @@ Each Life Area row shows its name, optional description, linked Goals, and stand
 
 Goal-linked Projects inherit the Area shown for their Goal and cannot have a second direct Area assignment. A Project with no Goal may link directly to one Area. The Focus page links to existing Goal and Project detail views rather than duplicating their editors.
 
+Focus breadcrumbs link to Engage by default. When opened from Weekly Review, the validated review origin replaces the default return link. The breadcrumb is present in normal and read-error states; returning leaves review progress in its persisted phase.
+
 ---
 
 # Voice and Tone
@@ -215,9 +217,9 @@ Four sequential steps. Cannot skip forward. Can navigate back (prior inputs pres
 
 ## Projects List
 
-- Show all projects by default, with a goal filter offering All projects, each available goal, and No goal.
-- Selecting a goal filters to projects linked to that goal; No goal filters to projects whose `goal_id` is null.
-- Each row shows the project name, status, and parent goal when linked; the filter is keyboard-operable and preserves the selected value in the URL.
+- Show all projects by default, with independent goal and status filters. Goal options are All goals, each available goal, and No goal; status options are All statuses, Active, Paused, Someday/Maybe, Completed, and Archived.
+- Goal, status, and text search filters combine server-side before counting and pagination. Filter changes reset the page; invalid status normalizes to All statuses. Search, goal selection, pagination, and project links preserve other filter state in the URL.
+- Each row shows the project name, status, and parent goal when linked. The status selector is keyboard-operable and filters the project's own status.
 - The "New project" control opens the AI/manual creation choice.
 
 ## Goal Detail
@@ -238,7 +240,7 @@ Four sequential steps. Cannot skip forward. Can navigate back (prior inputs pres
 
 ## Project Detail
 
-- Header: project name + parent Goal or inherited/direct Area breadcrumb + status badge.
+- Header: project name + status badge. A valid originating path is the linked return breadcrumb and takes precedence over the parent Goal/Area; without an origin, retain the parent Goal or inherited/direct Area breadcrumb. Apply the same origin rule on read errors.
 - Provide a parent-goal selector that lists the user's goals and a "No goal" option; changes persist immediately and refresh the breadcrumb. A project can link to only one goal.
 - When "No goal" is selected, offer an optional direct Area selector. Linking to a Goal clears any direct Area; Goal-linked Projects inherit their Area, with no conflicting second Area assignment.
 - Purpose and Successful Outcome sections (collapsible).
@@ -267,6 +269,7 @@ Four sequential steps. Cannot skip forward. Can navigate back (prior inputs pres
 - Stuck project indicator: if a project is Active but has no committed action, it appears at the bottom of the goal group with amber stuck band and "Commit one →" CTA.
 - Optional filter bar: @energy / @location / @tool context tags.
 - Empty state (all caught up): "No committed actions. Open a project and commit one." — no celebration, no confetti.
+- Above the action controls, show a compact, read-only Weekly commitment with the latest completed review's intention and snapshot saved date. Do not show the blocker. Keep it visible when actions are empty or filtered out and until another review completes; distinguish no snapshot from a non-blocking snapshot-read failure.
 
 ## Weekly Review
 
@@ -323,6 +326,7 @@ Both fields stored as the week's closing snapshot. They become the "Last week yo
 - Stores the snapshot (week number, date range, opening retrospective, closing intention, closing blocker)
 - Updates sidebar: "Last review: today"
 - Returns user to Engage view
+- The newly completed intention and snapshot saved date are visible in Engage's Weekly commitment banner after return.
 
 **What the Weekly Snapshot is not:** it is not a task list, a goal-setting exercise, or a journaling prompt. It is two pieces of information — what happened, and what matters next — stored so the system has memory across weeks. The committed next actions in Engage remain the actual plan. The snapshot is the human context layer on top.
 

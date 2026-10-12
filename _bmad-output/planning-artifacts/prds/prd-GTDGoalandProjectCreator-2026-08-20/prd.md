@@ -226,7 +226,7 @@ Capture → Clarify → Organize → Reflect → Engage
 
 **FR94:** A user SHALL be able to set, change, or clear a project's parent goal from project detail, and attach an existing project from goal detail. Each project has at most one parent goal.
 
-**FR95:** The Projects view SHALL support filtering by all projects, a selected goal, or projects with no goal.
+**FR95:** The Projects view SHALL support independent goal and project-status filters. Status options SHALL be All statuses, Active, Paused, Someday/Maybe, Completed, and Archived. Goal, status, and text search filters SHALL combine server-side before exact counting and pagination, persist in the URL, and reset pagination when changed. Active filters the project's own status, not its parent Goal; invalid statuses SHALL normalize to All statuses.
 
 ### FR-Group: Focus Horizons & Areas of Focus
 
@@ -238,7 +238,7 @@ Capture → Clarify → Organize → Reflect → Engage
 
 **FR99:** A Project MAY be linked to a Goal or, when it has no Goal, directly to one Life Area. A Project linked to a Goal SHALL inherit its Area through that Goal and SHALL NOT store a conflicting direct Area assignment.
 
-**FR100:** The authenticated app SHALL provide a Focus view where a user can manage their Focus profile and Areas and see linked Goals and Projects.
+**FR100:** The authenticated app SHALL provide a Focus view where a user can manage their Focus profile and Areas and see linked Goals and Projects. Focus SHALL provide a linked return breadcrumb to Engage by default or to Weekly Review when opened from that flow, using a validated same-origin `/app` origin and preserving review progress.
 
 **FR101:** The Get Creative phase of the weekly review SHALL offer an optional Focus review entry point. Skipping it SHALL NOT block phase progression or review completion.
 
@@ -286,7 +286,7 @@ Capture → Clarify → Organize → Reflect → Engage
 
 ### FR-Group: Engage View (Daily Actions) [NOT YET BUILT]
 
-**FR65:** The Engage view SHALL show only the committed next actions across all active, non-paused goals and projects — not the full action list, not a Kanban board, not a project tree.
+**FR65:** The Engage view SHALL show only the committed next actions across all active, non-paused goals and projects — not the full action list, not a Kanban board, not a project tree. It SHALL also display the latest completed weekly snapshot's intention and saved date in a read-only Weekly commitment until superseded. The blocker SHALL NOT be displayed; missing data and read failure SHALL be distinct, and snapshot failure SHALL NOT block action use.
 
 **FR66:** The Engage view SHALL support optional filtering by context tag when actions have been tagged.
 

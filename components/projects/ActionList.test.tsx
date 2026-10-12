@@ -48,6 +48,19 @@ describe("ActionList", () => {
     expect(checkboxes[0]).not.toBeChecked();
   });
 
+  it("places Commit in a separate lower-right row below action text", () => {
+    render(<ActionList projectId="p1" actions={actions()} />);
+
+    const action = screen.getByText("Draft outline").closest("li")!;
+    const commit = screen.getByRole("button", {
+      name: 'Commit "Draft outline" as the next action',
+    });
+
+    expect(commit.parentElement?.parentElement).toBe(action);
+    expect(commit.parentElement?.className).toContain("justify-end");
+    expect(commit.closest(".items-start")).toBeNull();
+  });
+
   it("adds an action via the inline field", async () => {
     const user = userEvent.setup();
     render(<ActionList projectId="p1" actions={actions()} />);

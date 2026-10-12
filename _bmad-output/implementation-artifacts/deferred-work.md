@@ -443,3 +443,9 @@
   summary: Bound or replace the Projects page's all-goals read used to populate its existing goal-filter dropdown
   evidence: Review (blind-hunter) — `ProjectsPage` still loads every Goal to populate and validate `?goal=` options. The unbounded read predates Story 8.3; replacing the current filter with a bounded/searchable control would change its interaction contract and should be handled as a separate list-scaling decision.
   status: done # 2026-10-08 — user approved and Story 8.3 added selected-goal lookup plus bounded goal-name search.
+
+## Deferred from: sprint-change implementation verification (2026-10-12)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-2026-10-12-sprint-change-implementation.md`
+  summary: Verify the project Commit placement and long Engage next-action dialog in an authenticated desktop/mobile browser session
+  evidence: Review (blind-hunter + edge-case-hunter + verification-gap) — the local app redirects unauthenticated `/app` routes to sign-in. Focused component tests pass and verify the dialog's viewport-bound and scroll classes, but do not prove real-browser clipping or scrolling behavior.

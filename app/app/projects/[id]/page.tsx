@@ -280,7 +280,7 @@ export default async function ProjectDetailPage({
     // Stuck = Active project with zero committed actions (Story 4.5).
     const stuck = isProjectStuck({ status: project.status }, project.actions);
 
-    // Trail: origin (if any) > parent goal/area/projects list > this project.
+    // A valid origin is navigation context; otherwise show the data parent.
     const parent: BreadcrumbItem =
         project.goal_id && project.goalText
             ? { label: project.goalText, href: `/app/goals/${project.goal_id}` }
@@ -293,8 +293,7 @@ export default async function ProjectDetailPage({
     const crumbs: BreadcrumbItem[] = [];
     if (from) {
         crumbs.push({ label: labelForPath(from) ?? "Back", href: from });
-    }
-    if (!from || from.split(/[?#]/)[0] !== parent.href) {
+    } else {
         crumbs.push(parent);
     }
     crumbs.push({ label: project.name });
