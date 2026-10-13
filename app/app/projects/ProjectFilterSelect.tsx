@@ -18,7 +18,7 @@ export default function ProjectFilterSelect({
   goalOptionsError,
   selectedGoal,
   value,
-  statusValue = "all",
+  statusValue = "active",
   query,
   searchParams,
 }: {

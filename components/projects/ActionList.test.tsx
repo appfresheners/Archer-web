@@ -48,6 +48,32 @@ describe("ActionList", () => {
     expect(checkboxes[0]).not.toBeChecked();
   });
 
+  it("filters actions by active and completed status while keeping All available", async () => {
+    const user = userEvent.setup();
+    render(<ActionList projectId="p1" actions={actions()} />);
+
+    const filter = screen.getByRole("combobox", {
+      name: "Filter actions by status",
+    });
+    expect(filter).toHaveValue("all");
+    expect(screen.getByText("Publish")).toBeInTheDocument();
+
+    await user.selectOptions(filter, "active");
+    expect(screen.getByText("Draft outline")).toBeInTheDocument();
+    expect(screen.getByText("Write intro")).toBeInTheDocument();
+    expect(screen.queryByText("Publish")).not.toBeInTheDocument();
+
+    await user.selectOptions(filter, "done");
+    expect(screen.getByText("Publish")).toBeInTheDocument();
+    expect(screen.queryByText("Draft outline")).not.toBeInTheDocument();
+    expect(screen.queryByText("Write intro")).not.toBeInTheDocument();
+
+    await user.selectOptions(filter, "all");
+    expect(screen.getByText("Draft outline")).toBeInTheDocument();
+    expect(screen.getByText("Write intro")).toBeInTheDocument();
+    expect(screen.getByText("Publish")).toBeInTheDocument();
+  });
+
   it("places Commit in a separate lower-right row below action text", () => {
     render(<ActionList projectId="p1" actions={actions()} />);
 

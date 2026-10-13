@@ -127,7 +127,10 @@ describe("ProjectsPage", () => {
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
   });
 
-  it("shows all projects when no filter is supplied", async () => {
+  it("defaults the Projects list to Active status", async () => {
+    mockState.projectResults = [
+      { data: PROJECTS.slice(0, 2), count: 2, error: null },
+    ];
     await renderPage();
 
     const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
@@ -135,7 +138,13 @@ describe("ProjectsPage", () => {
     expect(breadcrumb.querySelector('[aria-current="page"]')).toHaveTextContent("Projects");
     expect(screen.getByText("Base training")).toBeInTheDocument();
     expect(screen.getByText("Write issue #1")).toBeInTheDocument();
-    expect(screen.getByText("Standalone")).toBeInTheDocument();
+    expect(screen.queryByText("Standalone")).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Filter by status" })).toHaveValue("active");
+    expect(
+      mockState.calls.some(
+        (call) => call.table === "project_search" && call.method === "eq" && call.args[0] === "status" && call.args[1] === "active",
+      ),
+    ).toBe(true);
   });
 
   it("filters to a specific goal and reflects the selection in the dropdown", async () => {
@@ -167,7 +176,7 @@ describe("ProjectsPage", () => {
     mockState.projectResults = [
       { data: [PROJECTS[2]], count: 1, error: null },
     ];
-    await renderPage({ goal: "none" });
+    await renderPage({ goal: "none", status: "all" });
 
     expect(screen.getByText("Standalone")).toBeInTheDocument();
     expect(screen.queryByText("Base training")).not.toBeInTheDocument();
@@ -249,7 +258,7 @@ describe("ProjectsPage", () => {
 
   it("falls back to All for an unknown goal filter", async () => {
     mockState.goalOptionsResults = [{ data: GOALS, error: null }];
-    await renderPage({ goal: "goal-does-not-exist" });
+    await renderPage({ goal: "goal-does-not-exist", status: "all" });
 
     expect(screen.getByText("Base training")).toBeInTheDocument();
     expect(screen.getByText("Write issue #1")).toBeInTheDocument();
@@ -377,6 +386,7 @@ describe("ProjectsPage", () => {
 
   it("shows the empty state when there are no projects at all", async () => {
     mockState.projectResults = [{ data: [], count: 0, error: null }];
+    mockState.totalProjectsResult = { data: null, count: 0, error: null };
     await renderPage();
 
     expect(screen.getByText("No projects yet.")).toBeInTheDocument();
@@ -403,7 +413,7 @@ describe("ProjectsPage", () => {
 
   it("uses exact-count ranged search across project and parent-goal text", async () => {
     const query = "Forest%_\\";
-    await renderPage({ q: query });
+    await renderPage({ q: query, status: "all" });
 
     expect(screen.getByRole("searchbox", { name: "Search Projects" })).toHaveValue(
       query,
@@ -441,7 +451,7 @@ describe("ProjectsPage", () => {
       { data: [PROJECTS[2]], count: 45, error: null },
     ];
 
-    await renderPage({ page: "9" });
+    await renderPage({ page: "9", status: "all" });
 
     expect(screen.getByText("Showing 41-45 of 45")).toBeInTheDocument();
     expect(
@@ -456,7 +466,7 @@ describe("ProjectsPage", () => {
       { data: [PROJECTS[2]], count: 35, error: null },
     ];
 
-    await renderPage({ page: "9" });
+    await renderPage({ page: "9", status: "all" });
 
     expect(screen.getByText("Showing 21-35 of 35")).toBeInTheDocument();
     expect(

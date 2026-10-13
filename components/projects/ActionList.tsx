@@ -24,6 +24,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 const GENERIC_ERROR = "Something went wrong. Please try again.";
+type ActionStatusFilter = "all" | "active" | "done";
 
 export default function ActionList({
   projectId,
@@ -36,6 +37,16 @@ export default function ActionList({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [newText, setNewText] = useState("");
+  const [statusFilter, setStatusFilter] = useState<ActionStatusFilter>("all");
+  const visibleActions = actions
+    .map((action, index) => ({ action, index }))
+    .filter(({ action }) =>
+      statusFilter === "all"
+        ? true
+        : statusFilter === "active"
+          ? action.status !== "done"
+          : action.status === "done",
+    );
 
   async function call(
     url: string,
@@ -136,21 +147,44 @@ export default function ActionList({
 
   return (
     <section id="actions" className="flex flex-col gap-3">
-      <h2 className="text-[length:var(--font-size-subheading)] font-semibold text-text-primary">
-        Next Actions
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-[length:var(--font-size-subheading)] font-semibold text-text-primary">
+          Next Actions
+        </h2>
+        {actions.length > 0 && (
+          <label className="flex items-center gap-2 text-[length:var(--font-size-small)] text-text-secondary">
+            Action status
+            <select
+              aria-label="Filter actions by status"
+              value={statusFilter}
+              onChange={(event) =>
+                setStatusFilter(event.target.value as ActionStatusFilter)
+              }
+              className="min-h-[44px] rounded-[var(--radius-sm)] border border-border-strong bg-surface-raised px-3 text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
+            >
+              <option value="all">All actions</option>
+              <option value="active">Active actions</option>
+              <option value="done">Completed actions</option>
+            </select>
+          </label>
+        )}
+      </div>
 
       {actions.length === 0 ? (
         <p className="text-text-secondary">No actions yet. Add one below.</p>
+      ) : visibleActions.length === 0 ? (
+        <p className="text-text-secondary" role="status">
+          No actions match this status.
+        </p>
       ) : (
         <ul className="flex flex-col gap-2">
-          {actions.map((action, i) => (
+          {visibleActions.map(({ action, index }) => (
             <ActionItem
               key={`${action.id}-${action.time_available_minutes}`}
               action={action}
               disabled={busy}
-              isFirst={i === 0}
-              isLast={i === actions.length - 1}
+              isFirst={index === 0}
+              isLast={index === actions.length - 1}
               onToggleDone={handleToggleDone}
               onSaveText={handleSaveText}
               onSaveTags={handleSaveTags}

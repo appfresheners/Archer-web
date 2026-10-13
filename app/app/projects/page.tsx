@@ -101,9 +101,12 @@ async function loadProjects(
       "completed",
       "archived",
     ];
-    const statusFilter = projectStatuses.includes(statusParam as ProjectStatus)
-      ? (statusParam as ProjectStatus)
-      : "all";
+    const statusFilter =
+      statusParam === undefined
+        ? "active"
+        : projectStatuses.includes(statusParam as ProjectStatus)
+          ? (statusParam as ProjectStatus)
+          : "all";
     let filter: ProjectFilter = "all";
     let selectedGoal: GoalListItem | null = null;
     if (goalParam === "none") {

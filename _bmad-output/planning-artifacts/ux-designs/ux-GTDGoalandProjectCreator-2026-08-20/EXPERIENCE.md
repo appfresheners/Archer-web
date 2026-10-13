@@ -217,7 +217,7 @@ Four sequential steps. Cannot skip forward. Can navigate back (prior inputs pres
 
 ## Projects List
 
-- Show all projects by default, with independent goal and status filters. Goal options are All goals, each available goal, and No goal; status options are All statuses, Active, Paused, Someday/Maybe, Completed, and Archived.
+- Show Active projects by default, with independent goal and status filters. Goal options are All goals, each available goal, and No goal; status options are Active (default), All statuses, Paused, Someday/Maybe, Completed, and Archived. All statuses remains available for viewing the full project set.
 - Goal, status, and text search filters combine server-side before counting and pagination. Filter changes reset the page; invalid status normalizes to All statuses. Search, goal selection, pagination, and project links preserve other filter state in the URL.
 - Each row shows the project name, status, and parent goal when linked. The status selector is keyboard-operable and filters the project's own status.
 - The "New project" control opens the AI/manual creation choice.

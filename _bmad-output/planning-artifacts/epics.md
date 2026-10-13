@@ -1129,8 +1129,9 @@ So that projects stay organized as my goals change.
 **Then** the route rejects it and writes nothing
 
 **Given** the Projects index
-**When** I select All goals, a specific goal, or No goal, and independently select All statuses, Active, Paused, Someday/Maybe, Completed, or Archived
+**When** I open the Projects index or select a goal/status filter
 **Then** the list shows projects matching the combined filters and preserves both selections in the URL
+**And** Active is the default status filter; All statuses remains an explicit option
 **And** status filters use the project's own status and are applied server-side before exact counts and pagination
 **And** changing either filter resets pagination to page 1; invalid status values normalize to All statuses
 **And** search submissions, goal selection, pagination, and project links preserve the other list state

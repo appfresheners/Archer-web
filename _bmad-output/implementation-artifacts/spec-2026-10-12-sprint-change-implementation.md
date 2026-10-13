@@ -56,6 +56,7 @@ context: []
 - [x] `components/engage/EngageBoard.tsx` and `components/engage/EngageBoard.test.tsx` -- bound the next-action dialog to the viewport, scroll its choices internally, and keep dismissal controls reachable.
 - [x] PRD, existing epic criteria, architecture spine, and UX docs -- record P1-P4 requirements and design constraints without new stories or schema changes.
 - [x] `_bmad-output/implementation-artifacts/sprint-status.yaml` -- mark the four existing proposal action items complete only after tests pass; retain unrelated content and historical statuses.
+- [x] Projects list status default -- user clarified on 2026-10-13 that Active, not All, is the default project-status filter; keep new project records Paused and the separate action filter unchanged.
 
 **Acceptance Criteria:**
 - Given more than 20 projects, when status, goal, and search are combined, then server results/counts/pagination intersect correctly, filter changes reset page, invalid status normalizes to All, and empty/no-match/error states remain distinct.
@@ -76,6 +77,7 @@ context: []
 - Acceptance coverage: focused tests cover invalid status, combined filters and URL/page state, true-empty/no-match/read-error states, valid/unsafe breadcrumb origins, Focus error return paths, latest-review ordering, absent/read-error states, blocker omission, and replacement across a year boundary. User scoping remains enforced by the existing RLS policies and authenticated SSR client; no live cross-user integration test was run.
 - Sprint-status utility reports no open action items and no illegal keys; it still reports the pre-existing unrecognized Epic H tracking keys.
 - Follow-up UI request added 2026-10-12: moved project Commit to its own lower-right row and constrained the Engage next-action dialog with an internally scrollable choice list and persistent dismissal footer.
+- Follow-up clarification added 2026-10-13: default the Projects list's project-status filter to Active; keep All statuses selectable, new records Paused, and the ActionList action-status default unchanged.
 - Review fix: bound the completed-session/snapshot read to three seconds; a stalled query now produces the existing unavailable state without delaying the action board. Fake-timer test verifies action availability.
 - Browser smoke attempted at `/app/projects`; auth middleware redirected to `/sign-in`. Authenticated desktop/mobile layout and real scrolling were not browser-verified because no signed-in session was available.
 

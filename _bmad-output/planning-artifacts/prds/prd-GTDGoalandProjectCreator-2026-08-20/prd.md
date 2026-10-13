@@ -226,7 +226,7 @@ Capture → Clarify → Organize → Reflect → Engage
 
 **FR94:** A user SHALL be able to set, change, or clear a project's parent goal from project detail, and attach an existing project from goal detail. Each project has at most one parent goal.
 
-**FR95:** The Projects view SHALL support independent goal and project-status filters. Status options SHALL be All statuses, Active, Paused, Someday/Maybe, Completed, and Archived. Goal, status, and text search filters SHALL combine server-side before exact counting and pagination, persist in the URL, and reset pagination when changed. Active filters the project's own status, not its parent Goal; invalid statuses SHALL normalize to All statuses.
+**FR95:** The Projects view SHALL support independent goal and project-status filters. Status options SHALL be Active (default), All statuses, Paused, Someday/Maybe, Completed, and Archived. Goal, status, and text search filters SHALL combine server-side before exact counting and pagination, persist in the URL, and reset pagination when changed. Active filters the project's own status, not its parent Goal; invalid statuses SHALL normalize to All statuses. This filter default SHALL NOT change the Paused default for newly created project records.
 
 ### FR-Group: Focus Horizons & Areas of Focus
 
