@@ -1,7 +1,7 @@
 ---
 status: draft
 created: 2026-08-20
-updated: 2026-10-04
+updated: 2026-10-14
 sources:
   - prd: ../../../prds/prd-GTDGoalandProjectCreator-2026-08-20/prd.md
   - brief: ../briefs/brief-GTDGoalandProjectCreator-2026-08-20/brief.md
@@ -355,9 +355,9 @@ Soft, consistent rounded corners. Nothing fully square, nothing pill-shaped exce
 
 ## App Shell — Authenticated
 
-Fixed left sidebar with: Archer wordmark, primary navigation (Inbox, Focus, Goals, Engage, Weekly Review), user avatar + settings at bottom. Sidebar background: `{colors.surface}`. Active nav item: `{components.sidebar.nav-item-active-bg}` with primary text.
+Fixed left sidebar with: Archer wordmark, primary navigation (Inbox, Focus, Goals, Engage, Analytics, Weekly Review), user avatar + settings at bottom. Sidebar background: `{colors.surface}`. Active nav item: `{components.sidebar.nav-item-active-bg}` with primary text.
 
-Top bar (mobile only): wordmark left, hamburger right. Bottom nav: Inbox, Focus, Goals, Engage, Review — icons + labels.
+Top bar (mobile only): wordmark left, hamburger right. Bottom nav: Inbox, Focus, Goals, Engage, Review — icons + labels. Analytics is reachable from the existing More/overflow navigation on mobile rather than crowding the bottom bar.
 
 A persistent floating capture button (keyboard: `C`) sits bottom-right in all authenticated views. Tapping/clicking it opens the Inbox capture drawer without navigating away.
 
@@ -429,6 +429,14 @@ Horizontal progress indicator at the top of the review view. Five beats (not thr
 
 Place a compact informational band above Engage action controls. Use existing surface and text tokens with a restrained primary border; this is not an alert, modal, or separate card section. Show the intention and saved date, wrap text naturally on narrow screens, and retain readable contrast and spacing. Do not display the blocker or add palette/type tokens.
 
+## Analytics View
+
+The authenticated `/app/analytics` view is an unframed, decision-oriented page, not a performance grade. Put the reporting period and “as of” date next to the title. Show current Goal and Project status counts separately from dated completion throughput. Completion rates show their cohort/window plus numerator and denominator; incomplete or immature cohorts are labeled, never silently omitted. Use direct-value tables or simple horizontal bars for status and gap comparisons. Use a line only for persisted, dated observations, with an accessible text summary/table alternative. Do not use color alone, pie/donut gauges, leaderboards, streaks, or congratulatory treatments.
+
+## Goal-Gap Progress
+
+For each stable Goal gap, visually separate “Projects linked to this gap” from “Your assessed gap.” Show target level, latest user-entered rating, remaining gap, assessment date, and the linked projects with current status. Historical ratings use a line only when dated snapshots exist; target changes are marked as a new baseline. Project completion updates linked work counts, never the user’s rating. Missing history is shown as unavailable/since a date rather than a zero-valued trend. Project-gap linking and reassessment controls use existing form, focus, contrast, and touch-target tokens.
+
 ## Output Panel (Project Mode generation)
 
 Card container rendering `react-markdown` output. Monospace font (`{typography.font-mono}`) for the generated template text — signals "this is the artifact, not interface copy." On successful generation, the user is navigated automatically to the new Project detail view. No copy or download buttons anywhere in the product — output is persisted to Supabase.
@@ -453,6 +461,6 @@ Centered single-column form over surface background. Lock icon above passphrase 
 
 - Add decorative illustrations, gradients, or icons that don't carry meaning
 - Use more than one action color per screen at a time
-- Show completion metrics, streaks, or progress bars that congratulate the user — Archer is not a habit tracker
+- Show streaks, leaderboards, achievement badges, composite productivity grades, or congratulatory progress bars. Neutral, clearly defined status/completion metrics and user-owned gap history are allowed when they support reflection without grading the user.
 - Hide stuck projects or overdue inbox items — surface them, every time
 - Use modals for anything that doesn't require a binary decision or a destructive confirmation

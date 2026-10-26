@@ -2,7 +2,7 @@
 title: "Archer — GTD Goal & Project Creator PRD"
 status: draft
 created: 2026-08-20
-updated: 2026-10-04
+updated: 2026-10-14
 project: GTDGoalandProjectCreator
 version: v1-full
 ---
@@ -254,6 +254,20 @@ Capture → Clarify → Organize → Reflect → Engage
 
 **FR106:** The Inbox clarify project link and the goal-detail attach-project control SHALL let the user find a project by typing.
 
+### FR-Group: Analytics & Goal-Gap Progress
+
+**FR107:** The authenticated app SHALL provide an Analytics view with current goal/project status counts and dated completion throughput, scoped to the signed-in user.
+
+**FR108:** The system SHALL record goal and project status transitions with timestamps after the analytics-history migration. It SHALL NOT infer historical transitions from `updated_at`, current status, project names, or AI prose.
+
+**FR109:** Any completion rate SHALL define its start event, completion event, denominator, cohort window, and as-of date. The user SHALL be able to compare mature 30-, 60-, or 90-day activation cohorts. Immature cohorts SHALL NOT be compared as if they had equal follow-up time. Reopened, paused, Someday, and archived work SHALL remain distinguishable.
+
+**FR110:** Each goal skill gap SHALL have a stable identity and MAY be explicitly associated with multiple projects; a project MAY be associated with multiple gaps in its parent goal. Association changes SHALL NOT rewrite historical assessment or status records.
+
+**FR111:** The system SHALL retain dated, immutable snapshots of user-entered gap ratings and the required level in effect at that assessment. Only explicit user reassessment SHALL change the assessed rating; project completion SHALL NOT infer capability gain.
+
+**FR112:** Analytics and Goal detail SHALL show work progress (linked project states/completions) separately from assessed gap progress (baseline/latest user ratings and remaining gap). Missing history SHALL be clearly indicated rather than fabricated.
+
 ### FR-Group: Action Management [NOT YET BUILT]
 
 **FR53:** Each action SHALL have: text (verb-first), status (available, committed, done), and a parent project.
@@ -455,6 +469,8 @@ Capture → Clarify → Organize → Reflect → Engage
 - Monthly goal check — separate flow (FR75–FR77)
 - Focus Horizons & Areas of Focus — user-level Vision/Purpose/Principles, Life Areas, Goal/Project Area associations, Focus page, and optional Get Creative review (FR96–FR101)
 - Someday/Maybe page, Someday project status, list search and pagination, and searchable project picker (FR102–FR106)
+- Analytics, Goal/Project lifecycle history, explicit Project-to-gap links, dated user-owned reassessments, and separate work-versus-capability progress (FR107–FR112)
+- Analytics overview, goal/project lifecycle history, explicit project-to-gap links, user-owned dated reassessments, and separate work-versus-capability progress views (FR107–FR112)
 - Data export on demand (FR80)
 - Architecture spine initial update ✅ (2026-09-27); Focus/Area extension updated (2026-10-04)
 

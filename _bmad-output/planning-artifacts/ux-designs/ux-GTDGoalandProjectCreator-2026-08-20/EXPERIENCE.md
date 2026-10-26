@@ -1,7 +1,7 @@
 ---
 status: draft
 created: 2026-08-20
-updated: 2026-10-04
+updated: 2026-10-14
 sources:
   - prd: ../../../prds/prd-GTDGoalandProjectCreator-2026-08-20/prd.md
   - gtd-method-reference: ../../../docs/gtd-method-reference.md
@@ -45,6 +45,7 @@ There is no unauthenticated layout. Project Mode generation, goal creation, and 
 | **Project detail**                 | Yes           | Actions list, edit, regenerate                                                             | Goal detail → project                                       |
 | **Inbox**                          | Yes           | Frictionless capture + processing                                                          | Sidebar → Inbox; floating capture button                    |
 | **Engage**                         | Yes           | Committed next actions across active goals                                                 | Sidebar → Engage (default post-login view)                  |
+| **Analytics**                      | Yes           | Current work state, completion movement, and goal-gap progress                            | Sidebar → Analytics; mobile More navigation                 |
 | **Weekly Review**                  | Yes           | 3-phase guided review: Get Clear / Get Current / Get Creative                              | Sidebar → Weekly Review                                     |
 | **Someday/Maybe**                  | Yes           | Parked inbox items, Someday projects, Someday goals; reactivate; search and pagination     | Sidebar → Someday; mobile placement set in Story 8.1        |
 | **Monthly Goal Check**             | Yes           | Per-goal relevance and status check; separate from weekly review                           | Goal detail or review prompt                                |
@@ -60,6 +61,7 @@ There is no unauthenticated layout. Project Mode generation, goal creation, and 
 
 /app (authenticated shell — sidebar present on all routes below)
 ├── /app/engage                     ← default post-login view
+├── /app/analytics                  ← work and goal-gap progress
 ├── /app/inbox
 ├── /app/focus                      ← Vision, Purpose, Principles, and Life Areas
 ├── /app/goals
@@ -74,9 +76,9 @@ There is no unauthenticated layout. Project Mode generation, goal creation, and 
 
 ## Content Model
 
-**Goal:** goal text · target date (auto: 3 months from creation) · status (Active / Paused / Not now / Someday / Completed / Archived) · skill framework (items with required levels) · user gap ratings · drivers · barriers · if–then plan · linked projects · creation date
+**Goal:** goal text · target date (auto: 3 months from creation) · status (Active / Paused / Not now / Someday / Completed / Archived) · stable skill-gap identities with required levels · current user ratings plus immutable dated assessment history · drivers · barriers · if–then plan · linked projects · creation date
 
-**Project:** outcome-based name · purpose · successful outcome · status (Active / Paused / Completed / Archived; new projects start Paused) · optional parent goal or direct Life Area · action list · creation date
+**Project:** outcome-based name · purpose · successful outcome · status (Active / Paused / Someday / Completed / Archived; new projects start Paused) · optional parent goal or direct Life Area · explicit Goal-gap associations · lifecycle status history · action list · creation date
 
 **Focus profile:** one per user · optional Vision · Purpose · Principles list
 
@@ -270,6 +272,21 @@ Four sequential steps. Cannot skip forward. Can navigate back (prior inputs pres
 - Optional filter bar: @energy / @location / @tool context tags.
 - Empty state (all caught up): "No committed actions. Open a project and commit one." — no celebration, no confetti.
 - Above the action controls, show a compact, read-only Weekly commitment with the latest completed review's intention and snapshot saved date. Do not show the blocker. Keep it visible when actions are empty or filtered out and until another review completes; distinguish no snapshot from a non-blocking snapshot-read failure.
+
+## Analytics and Goal-Gap Progress
+
+The authenticated `/app/analytics` page helps the user answer: what is active now, what reached completion, and which capability gaps have linked work or a changed self-assessment? It is a reflective tool, not a productivity grade.
+
+- Show current Goal and Project status counts with an “As of” date. Keep Goal completion separate from child Project completion.
+- Show first-completion throughput over a selected period separately from current status. A reopened item remains a single first-completion event and appears under its current status.
+- Provide 30-, 60-, and 90-day cohort windows. A rate counts Goals/Projects whose first Active transition occurred in the selected activation cohort and whose entire chosen maturity window has elapsed; numerator is first completions within that window, denominator is the matured cohort. Include Started, Completed, Active, Paused, Someday, and Archived counts so parked work remains visible. Immature or incomplete-history cohorts show “Not enough history/follow-up time,” not an inferred percentage.
+- Every percentage names the event window, numerator, denominator, and as-of date. The user can distinguish missing history from zero completions.
+- In each Goal's Gap Analysis, show each stable gap's required level, latest user-assessed rating, remaining gap, date of the latest assessment, and explicitly linked Project statuses/counts. Clearly label the two tracks “Projects linked to this gap” and “Your assessed gap.”
+- Projects contribute to work-progress counts only through explicit user links. Creating an association does not change a rating; completing a linked Project does not infer capability gain.
+- Provide explicit “Reassess” controls on Goal detail and Monthly Goal Check. Saving creates a dated assessment snapshot and leaves prior assessments intact. No scheduled nudge is added.
+- A migration-time baseline uses the values present at migration and is labeled with that date; it does not imply that the rating was originally made then. Do not derive history from `updated_at` or backfill unsupported completion dates.
+- Use simple bars for categorical comparisons and lines only for persisted dated data. Provide text summaries and equivalent values/table data. Color is supplementary; include labels/markers, keyboard access, and responsive horizontal layouts.
+- No aggregate score, leaderboards, streaks, “skills unlocked,” or congratulatory completion language.
 
 ## Weekly Review
 

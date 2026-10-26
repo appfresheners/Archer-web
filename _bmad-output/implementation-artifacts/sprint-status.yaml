@@ -39,7 +39,7 @@
 # Original story statuses are preserved. Stories added by approved course corrections
 # remain 'backlog' until their implementation specs are authored.
 generated: 09-27-2026 16:30
-last_updated: 10-12-2026 00:00
+last_updated: 10-14-2026 07:59
 
 project: GTDGoalandProjectCreator
 project_key: NOKEY
@@ -97,7 +97,7 @@ development_status:
   5-7-monthly-goal-check-prompted-manual: review
   epic-5-retrospective: optional
 
-  # Focus Horizons & Areas of Focus; scheduled after Epic 5 and before Epic 6.
+  # Focus Horizons & Areas of Focus; scheduled after Epic 5 and before Epic 8.
   epic-7: in-progress
   7-1-focus-profile-and-area-data-model: review
   7-2-focus-page-and-area-management: review
@@ -105,7 +105,7 @@ development_status:
   7-4-optional-focus-review-in-get-creative: review
   epic-7-retrospective: optional
 
-  # Someday/Maybe & List Scalability; scheduled after Epic 7 and before Epic 6.
+  # Someday/Maybe & List Scalability; scheduled after Epic 7 and before Epic 9.
   # Build order: 8.2, 8.3, then 8.1 and 8.4.
   epic-8: in-progress
   8-1-someday-maybe-page: review
@@ -113,6 +113,15 @@ development_status:
   8-3-shared-search-and-pagination-for-long-lists: review
   8-4-searchable-project-picker: review
   epic-8-retrospective: optional
+
+  # Analytics & Goal-Gap Progress; scheduled after Epic 8 and before Epic 6.
+  epic-9: backlog
+  9-1-goal-and-project-lifecycle-history: backlog
+  9-2-stable-goal-gaps-and-explicit-project-links: backlog
+  9-3-user-owned-gap-assessment-history: backlog
+  9-4-analytics-overview-and-completion-metrics: backlog
+  9-5-gap-work-and-assessed-progress-view: backlog
+  epic-9-retrospective: optional
 
   epic-6: backlog
   6-1-on-demand-data-export: backlog
@@ -161,20 +170,20 @@ action_items:
   - epic: 4
     action: "P1: Add project-status filtering combined with goal/search and server-side pagination (Stories 4.6, 8.3)."
     owner: "Developer"
-    status: done
+    status: open
     source: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-12.md"
   - epic: 4
     action: "P2: Make project breadcrumbs return to the exact originating list URL, with validated origin precedence (Stories 4.3, 4.6)."
     owner: "Developer"
-    status: done
+    status: open
     source: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-12.md"
   - epic: 7
     action: "P3: Add linked Focus breadcrumbs with Engage fallback and Weekly Review origin (Stories 7.2, 7.4)."
     owner: "Developer"
-    status: done
+    status: open
     source: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-12.md"
   - epic: 5
     action: "P4: Show the latest completed review's priority and saved date in an Engage banner until superseded (Stories 5.3, 5.5)."
     owner: "Developer"
-    status: done
+    status: open
     source: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-12.md"

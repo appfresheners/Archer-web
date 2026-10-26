@@ -2,7 +2,7 @@
 title: "Archer — Architecture Spine"
 status: final
 created: 2026-08-20
-updated: 2026-10-04
+updated: 2026-10-14
 altitude: initiative→features
 scope: Archer v1-full system
 ---
@@ -131,6 +131,19 @@ The experimental vault is an independent client-side layer (AES-GCM + PBKDF2, `l
 - **Prevents:** Unbounded list reads; client-side filtering of paged data; per-page search implementations that diverge; raw search text in SQL strings
 - **Rule:** No list page loads all rows. RLS still scopes every read. Pickers add no API route or write path. `project_status` gains `someday` through an additive enum migration only; existing rows are not updated.
 - **Projects status extension:** Validate the `status` query key against the existing project statuses and combine it with goal and search predicates before exact counting/ranging. Preserve all filter state in search, goal, pagination, and origin links; changing a filter removes `page`.
+
+### AD-24: Analytics History and User-Owned Gap Progress [PROPOSED — Epic 9]
+
+- **Binds:** Analytics uses first-class dated lifecycle events rather than inferring history from mutable status rows or `updated_at`. Use owner-scoped Goal and Project lifecycle event tables (or equivalent typed append-only records), stable Goal-gap identities, explicit owner/Goal-matched Project-gap associations, and immutable Goal-gap assessment snapshots containing the rating and required-level version in effect.
+- **Prevents:** Fabricated historical trends; treating Project completion as capability gain; inferring a gap link from AI prose/project names; mixing Goal completion with child Project completion; cross-user analytics reads.
+- **Rule:** Goal/Project creation and every actual status transition write an event atomically with the current-state mutation. No-op status writes add no event. Reopening preserves earlier completion events. On upgrade, current states may be recorded only as a migration-time baseline with explicit provenance; do not backdate from `created_at` or `updated_at`. Existing current user ratings may be snapshotted at migration time with a visible “baseline recorded” date, not as their original assessment date.
+- **Rule:** Project-gap associations are explicit user data and may be many-to-many within the same Goal. Store link/unlink effective timestamps so later association edits do not rewrite prior assessment/lifecycle facts. Enforce owner and parent-Goal consistency with RLS, foreign keys/constraints, and authenticated mutation validation.
+- **Rule:** Only explicit user reassessment writes a new rating snapshot. Store the required level/version alongside each rating. A changed required level starts a new comparison baseline or is labeled incomparable; history is never silently recalculated against a changed target.
+- **Rule:** Analytics queries use the authenticated server Supabase client/RLS, bounded date ranges, and only persisted events/snapshots. Display current status counts separately from first-completion throughput and maturity-qualified 30/60/90-day cohorts. Every rate exposes cohort, maturity window, numerator, denominator, and as-of date; immature or history-incomplete cohorts do not show a misleading percentage. No analytics vendor or telemetry is added.
+
+### Analytics data additions (Epic 9)
+
+The migration is expected to add Goal/Project status-event history, stable Goal-gap records, Project-gap link history, and immutable Goal-gap assessment history. Exact DDL, event retention, FK/owner strategy, indexes, RLS policies, and migration-time baseline behavior are specified and tested in Epic 9 Stories 9.1–9.3 before analytics queries are built. Keep `goals.skill_framework` as the current compatibility projection until the migration and existing mutation paths are deliberately moved to the stable gap/assessment records.
 
 ---
 
@@ -559,6 +572,8 @@ app/
     ├── layout.tsx            # Authenticated shell: sidebar + main content area
     ├── engage/
     │   └── page.tsx          # Default post-login view — committed next actions
+    ├── analytics/
+    │   └── page.tsx          # User-scoped status, completion, and gap-progress analytics
     ├── inbox/
     │   └── page.tsx
     ├── focus/
@@ -610,6 +625,9 @@ components/
 │   │   └── GetCreative.tsx
 │   └── engage/
 │       └── EngageView.tsx
+  │   └── analytics/
+  │       ├── AnalyticsOverview.tsx
+  │       └── GoalGapProgress.tsx
 ├── shared/
 │   ├── StatusBadge.tsx
 │   ├── GapSlider.tsx
@@ -705,6 +723,10 @@ graph LR
     DB --> EV[Navigate to /app/engage]
 ```
 
+  ### Analytics and Gap Progress
+
+  `/app/analytics` reads user-scoped lifecycle events and gap-assessment snapshots through the server Supabase client. Current-state counts read current Goal/Project rows. Completion cohorts read first Active and first Completed events and include only cohorts old enough for the selected maturity window. Goal detail and Analytics join explicit Project-gap associations to current Project status/history; assessment charts read immutable user-entered snapshots only. Project events update work-progress measures but never mutate a gap rating.
+
 ---
 
 ## Boundary Rules
@@ -728,6 +750,8 @@ graph LR
 9. **Stuck detection is always on.** Any component rendering an Active project with zero committed actions must show the stuck indicator. There is no quiet render path.
 
 10. **`rehype-raw` must always accompany `react-markdown`.** Removing it silently strips `<details>/<summary>` accordions from goal breakdowns with no visible error.
+
+11. **Analytics does not imply capability.** Completed work may be linked to a Goal gap as supporting work evidence, but only an explicit user reassessment creates a new rating snapshot. Missing pre-migration history is disclosed, not reconstructed.
 
 ---
 

@@ -82,6 +82,15 @@ FR104: The Projects, Goals, Inbox, and Someday lists SHALL support server-side t
 FR105: The same lists SHALL paginate at 20 per page with numbered navigation and a result count.
 FR106: The Inbox clarify project link and the goal-detail attach-project control SHALL let the user find a project by typing.
 
+**Analytics & Goal-Gap Progress**
+
+FR107: The authenticated app SHALL provide an Analytics view with current goal/project status counts and dated completion throughput, scoped to the signed-in user.
+FR108: The system SHALL record project and goal status transitions with timestamps after the analytics-history migration; it SHALL NOT infer historical transitions from `updated_at` or current status.
+FR109: Any completion rate SHALL define its start event, completion event, denominator, cohort window, and as-of date; immature cohorts SHALL NOT be compared as if they had equal follow-up time. Reopened, paused, Someday, and archived work SHALL remain distinguishable.
+FR110: A goal skill gap SHALL have a stable identity and MAY be explicitly associated with multiple projects; a project MAY be associated with multiple gaps in its parent goal. Association changes SHALL NOT silently rewrite historical assessment or status records.
+FR111: The system SHALL retain dated, immutable snapshots of user-entered gap ratings and the required level in effect at that assessment. Only explicit user reassessment SHALL change the assessed rating; project completion SHALL NOT infer capability gain.
+FR112: Analytics and Goal detail SHALL show work progress (linked project states/completions) separately from assessed gap progress (baseline/latest user ratings and remaining gap). Missing history SHALL be clearly indicated rather than fabricated.
+
 **AI Provider**
 
 FR32: The app SHALL support three AI providers selected via `AI_PROVIDER`: `gemini` (default), `groq`, `openai`.
@@ -255,6 +264,10 @@ UX-DR26: Enabled clickable controls SHALL show a pointer cursor and disabled con
 UX-DR27: Implement the authenticated Focus page at `/app/focus` with editable Vision, Purpose, and Principles; Life Area create/edit/reorder/archive; and linked Goal/Project roll-ups. Archived Areas are hidden from new assignment choices but retained on existing records.
 UX-DR28: Provide optional Area selectors on Goal create/edit and standalone Project create/detail. Goal-linked Projects show the Area inherited from their Goal and do not offer a conflicting direct Area selector.
 UX-DR29: Add a non-blocking Focus review entry in Get Creative, showing Areas and linked work with a link to `/app/focus`; skipping it never blocks the phase or review completion.
+UX-DR30: Implement an authenticated `/app/analytics` view with clearly labeled current status counts, selected-period completion throughput, and mature 30/60/90-day completion cohorts; show numerator, denominator, cohort, and as-of date with each rate.
+UX-DR31: Show per-goal gap progress as separate measures for linked project work and dated user-assessed ratings. Do not turn project completion into automatic rating changes, scores, streaks, or achievement language.
+UX-DR32: Let users explicitly link/unlink projects to stable skill gaps within the same goal; preserve historical associations for past analytics and enforce ownership.
+UX-DR33: Provide user-triggered gap reassessment from Goal detail and Monthly Goal Check. Record the rating and required level in effect; identify the first available baseline date and do not imply older assessment history.
 
 ### FR Coverage Map
 
@@ -367,10 +380,16 @@ UX-DR29: Add a non-blocking Focus review entry in Get Creative, showing Areas an
 | FR104 | Epic 8 | Server-side search on Projects, Goals, Inbox, Someday                                         |
 | FR105 | Epic 8 | Numbered pagination (20 per page) on the same lists                                           |
 | FR106 | Epic 8 | Searchable project picker in Clarify and goal-detail attach                                   |
+| FR107 | Epic 9 | Analytics overview of current goal/project status and completion throughput                  |
+| FR108 | Epic 9 | Timestamped goal/project lifecycle transitions                                               |
+| FR109 | Epic 9 | Explicit cohort completion metric semantics and maturity windows                            |
+| FR110 | Epic 9 | Stable gap identities and explicit many-to-many project-gap associations                    |
+| FR111 | Epic 9 | Immutable user-authored assessment history; no inferred rating gains                        |
+| FR112 | Epic 9 | Separate linked-work progress from assessed gap progress                                    |
 
 **NFR coverage:** NFR2 (Node runtime/Vercel), NFR6 (privacy), NFR7 (vault security), NFR9 (data integrity) anchor in Epic 1 and Epic 6. NFR1 (performance), NFR3 (responsive), NFR4 (accessibility), NFR5 (browser support), NFR8 (error resilience) are cross-cutting — verified within every epic that ships UI, with the baseline established in Epic 1.
 
-**AR coverage:** AR1, AR2, AR3, AR7, AR8, AR12, AR14, AR15, AR20 → Epic 1 (foundation; Focus tables extended in Epic 7). AR4, AR13, AR16, AR17, AR19, AR25 → Epic 2 (generation endpoint + render stack + dead-code cleanup). AR9, AR16 → Epic 3 (wizard transient state, user-owned data). AR5, AR6, AR18 → Epic 4 (hierarchy, commit trigger, stuck detection). AR10 → Epic 5 (review persistence). AR8, AR15 → Epic 7 (Focus profile and Areas remain owner-scoped); AR11 → Epic 6 (vault independence).
+**AR coverage:** AR1, AR2, AR3, AR7, AR8, AR12, AR14, AR15, AR20 → Epic 1 (foundation; Focus tables extended in Epic 7). AR4, AR13, AR16, AR17, AR19, AR25 → Epic 2 (generation endpoint + render stack + dead-code cleanup). AR9, AR16 → Epic 3 (wizard transient state, user-owned data). AR5, AR6, AR18 → Epic 4 (hierarchy, commit trigger, stuck detection). AR10 → Epic 5 (review persistence). AR8, AR15 → Epic 7 (Focus profile and Areas remain owner-scoped); AR11 → Epic 6 (vault independence); AD-24 → Epic 9 (analytics lifecycle history, gap links, and assessment snapshots).
 
 ## Epic List
 
@@ -411,16 +430,24 @@ A signed-in user can run the full GTD reflect-and-engage loop: capture raw input
 
 ### Epic 7: Focus Horizons & Areas of Focus
 
-A signed-in user can record Vision, Purpose, and Principles as persistent personal context, maintain ongoing Life Areas, connect Goals and standalone Projects to those Areas, and optionally review the roll-up from Get Creative. Existing Goal semantics and target-date behavior remain unchanged. Schedule this epic after Epic 5 and before Epic 6; retain Epic 6's existing ID.
+A signed-in user can record Vision, Purpose, and Principles as persistent personal context, maintain ongoing Life Areas, connect Goals and standalone Projects to those Areas, and optionally review the roll-up from Get Creative. Existing Goal semantics and target-date behavior remain unchanged. Schedule this epic after Epic 5 and before Epic 8; retain all existing epic IDs.
 **FRs covered:** FR96, FR97, FR98, FR99, FR100, FR101
 **NFRs covered:** NFR3, NFR4, NFR6, NFR9
 **ARs covered:** AR5, AR8, AR15
 
 ### Epic 8: Someday/Maybe & List Scalability
 
-A signed-in user can review everything parked as Someday/Maybe in one place, find any goal or project through search, and work through long Inbox, Goals and Projects lists without scrolling through every row. Schedule this epic after Epic 7 and before Epic 6; retain Epic 6's existing ID. Suggested build order: 8.2, 8.3, then 8.1 and 8.4.
+A signed-in user can review everything parked as Someday/Maybe in one place, find any goal or project through search, and work through long Inbox, Goals and Projects lists without scrolling through every row. Schedule this epic after Epic 7 and before Epic 9; retain all existing epic IDs. Suggested build order: 8.2, 8.3, then 8.1 and 8.4.
 **FRs covered:** FR102, FR103, FR104, FR105, FR106
 **NFRs covered:** NFR1, NFR3, NFR4, NFR9
+
+### Epic 9: Analytics & Goal-Gap Progress
+
+A signed-in user can see the current state and movement of goals/projects, understand which projects are explicitly applied to each capability gap, and compare dated self-assessments over time. The epic keeps work evidence separate from assessed capability: project completion never changes a user rating. Schedule after Epic 8 and before Epic 6; retain all existing epic IDs.
+**FRs covered:** FR107, FR108, FR109, FR110, FR111, FR112
+**NFRs covered:** NFR1, NFR3, NFR4, NFR6, NFR9
+**Architecture:** AD-24
+**Relevant UX-DRs:** UX-DR24, UX-DR30, UX-DR31, UX-DR32, UX-DR33
 
 ### Epic 6: Data Portability & Experimental Vault
 
@@ -1668,6 +1695,166 @@ So that I am not scrolling a long dropdown.
 **Then** inputs and options are at least 44px and use the existing design tokens and clickable-cursor affordance (H-4)
 
 Technical notes: one shared hand-written `SearchableSelect` in `components/shared/`. Goal pickers and `AreaSelect` are not changed in this story.
+
+## Epic 9: Analytics & Goal-Gap Progress
+
+A signed-in user can understand whether their system is moving work forward and whether their self-assessed gap has changed, without confusing completed projects with demonstrated capability.
+
+**Relevant UX-DRs:** UX-DR24 (accessibility), UX-DR30 (analytics overview), UX-DR31 (two-track gap progress), UX-DR32 (explicit gap links), UX-DR33 (user reassessment).
+
+### Story 9.1: Goal and Project Lifecycle History
+
+As a signed-in user,
+I want the system to retain dated goal and project status transitions,
+So that analytics can report honest completion cohorts without guessing when work started or finished.
+
+**Acceptance Criteria:**
+
+**Given** the analytics history migration
+**When** it is applied
+**Then** owner-scoped lifecycle event storage exists for Goals and Projects with entity ID, prior/new status, event time, and event type
+**And** indexes support per-user/entity chronological reads
+**And** RLS and same-owner constraints prevent cross-user event access or writes
+
+**Given** an authenticated Goal or Project is created or its status changes after the migration
+**When** the database mutation commits
+**Then** the current row and a corresponding immutable lifecycle event are written atomically
+**And** setting a status to its current value does not create a transition event
+**And** reopening a Completed item creates a new transition without erasing its first completion
+
+**Given** existing Goals and Projects when the migration is applied
+**When** history is initialized
+**Then** the migration does not infer old start/completion dates from `created_at` or `updated_at`
+**And** pre-existing current states may be recorded only as a clearly typed migration-time baseline, not represented as historical transitions
+**And** analytics labels older records as lacking lifecycle history
+
+**Given** a status mutation fails
+**When** the database transaction rolls back
+**Then** neither the current status nor its lifecycle event is partially written
+
+### Story 9.2: Stable Goal Gaps and Explicit Project Links
+
+As a signed-in user,
+I want stable identities for a Goal's skill gaps and explicit links from Projects to those gaps,
+So that project work can be attributed to the capability it was intended to support.
+
+**Acceptance Criteria:**
+
+**Given** the schema migration
+**When** it is applied
+**Then** each Goal gap has a stable ID, owning user/Goal, description, and current required level
+**And** a user-owned association can link a Project to a gap only when both belong to the same user and Goal
+**And** one Project may link to multiple gaps and one gap may link to multiple Projects
+**And** RLS, owner-matched foreign keys/constraints, and authenticated mutation validation reject cross-user or cross-Goal associations
+
+**Given** an existing Goal with a skill framework
+**When** the migration seeds stable gap IDs
+**Then** it preserves each current name, description, required level, and rating without inventing a historical assessment date
+**And** existing Projects are not auto-linked by name, AI prose, or inferred priority
+
+**Given** a user changes a Project-gap link
+**When** the change is saved
+**Then** the association is recorded with effective link/unlink timestamps
+**And** previously recorded lifecycle and assessment history remains unchanged
+
+### Story 9.3: User-Owned Gap Assessment History
+
+As a signed-in user,
+I want to reassess a Goal gap and see my dated prior ratings,
+So that capability progress is based on my judgment rather than an inference from completed work.
+
+**Acceptance Criteria:**
+
+**Given** Goal detail or Monthly Goal Check
+**When** I choose to reassess a gap
+**Then** I can enter a rating from 1 to 10 and confirm the required level currently in effect
+**And** the UI identifies the assessment date and preserves the previous assessment as history
+
+**Given** an assessment is saved
+**When** it is persisted
+**Then** a new immutable, owner-scoped assessment snapshot records gap ID, rating, required level/version, and assessed timestamp
+**And** the current Goal framework view is updated from the explicit user input
+**And** no Project status, completion event, AI output, or Project action can create or change a rating
+
+**Given** current ratings exist when assessment history ships
+**When** history is initialized
+**Then** current user-provided values may be saved as a clearly labeled starting snapshot at migration time
+**And** the UI does not claim this is when the user originally made the assessment
+
+**Given** the required level changes after an assessment
+**When** analytics compares ratings
+**Then** the prior target level remains attached to that assessment
+**And** the UI starts or labels a new comparison baseline rather than implying an unchanged target
+
+### Story 9.4: Analytics Overview and Completion Metrics
+
+As a signed-in user,
+I want a focused Analytics page for Goal/Project state and completion movement,
+So that I can tell whether my GTD system is moving without relying on a vanity score.
+
+**Acceptance Criteria:**
+
+**Given** the authenticated navigation
+**When** it renders
+**Then** Analytics is reachable at `/app/analytics` on desktop and mobile
+
+**Given** the Analytics page
+**When** it loads
+**Then** it shows current Goal and Project status counts with an explicit as-of date
+**And** it shows first-completion throughput for a selectable period separately from current Completed status
+**And** no aggregate productivity score, streak, leaderboard, or congratulatory metric is shown
+
+**Given** the completion-rate control
+**When** I select a 30-, 60-, or 90-day maturity window and an activation cohort
+**Then** the rate uses Goals/Projects whose first Active transition occurred in the cohort and had the full selected window to mature
+**And** the numerator counts cohort items whose first Completed transition occurred within that maturity window
+**And** the denominator and counts for Active, Paused, Someday, and Archived items remain visible
+**And** an immature cohort shows “Not enough follow-up time” rather than a misleading rate
+
+**Given** a Completed item is reopened
+**When** analytics renders
+**Then** first-completion throughput retains one completion event and current-state counts show its current status
+
+**Given** a Goal's status and its child Project statuses
+**When** Goal and Project analytics render
+**Then** they remain separate measures and child completion is not treated as Goal completion
+
+**Given** an authenticated analytics query
+**When** records are loaded
+**Then** all reads are user-scoped through the server Supabase client/RLS and bounded by the requested date/status filters
+**And** read errors render an error state, not zero-valued charts
+
+### Story 9.5: Gap Work and Assessed Progress View
+
+As a signed-in user,
+I want to see which linked Projects address each Goal gap and how my own rating changes,
+So that completed work informs my next reassessment without pretending the work itself proves proficiency.
+
+**Acceptance Criteria:**
+
+**Given** a Goal detail or Analytics gap view
+**When** it renders
+**Then** each gap shows required level, latest user rating, remaining gap, assessment date, and explicit linked-Project states/counts
+**And** work progress and assessed rating history are separate labeled visualizations/sections
+
+**Given** no Project is linked to a gap
+**When** the gap is shown
+**Then** the UI says no Project is linked; it does not infer a link from a Project name or generated prose
+
+**Given** no dated assessment history exists
+**When** the gap is shown
+**Then** the UI identifies the first available baseline date or says history is unavailable; it does not draw a fabricated trend
+
+**Given** a Project completes
+**When** it is linked to one or more gaps
+**Then** the linked-work count/status updates from Project lifecycle history
+**And** the gap rating and remaining capability gap do not change until the user reassesses
+
+**Given** assessment trend charts and comparisons
+**When** they render
+**Then** only persisted, dated assessment snapshots appear as points
+**And** target-level changes are annotated or shown as a new baseline
+**And** charts provide a text summary/table alternative, never rely on color alone, and remain usable at mobile widths and by keyboard
 
 ## Epic 6: Data Portability & Experimental Vault
 
