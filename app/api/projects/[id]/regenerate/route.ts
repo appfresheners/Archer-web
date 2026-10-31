@@ -16,6 +16,7 @@
 
 import { generateProject } from "@/lib/projects/generate-project";
 import { GenerationFormatError } from "@/lib/ai";
+import { withHttpMetrics } from "@/lib/observability/http";
 import type { PlanningDepth } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
@@ -64,7 +65,7 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
-export async function POST(request: NextRequest, context: RouteContext) {
+async function postHandler(request: NextRequest, context: RouteContext) {
   const userId = await getAuthenticatedUserId();
   if (!userId) {
     return NextResponse.json(
@@ -154,3 +155,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 }
+
+export const POST = withHttpMetrics(
+  {
+    method: "POST",
+    route: "/api/projects/[id]/regenerate",
+    expectedStatusCodes: [200, 401, 404],
+  },
+  postHandler,
+);

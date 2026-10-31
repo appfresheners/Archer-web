@@ -10,6 +10,7 @@
  */
 
 import { sanitizeInboxText } from "@/lib/inbox/validate";
+import { withHttpMetrics } from "@/lib/observability/http";
 import type { InboxItemInsert } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
@@ -24,7 +25,7 @@ async function getAuthenticatedUserId(): Promise<string | null> {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   const userId = await getAuthenticatedUserId();
   if (!userId) {
     return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
@@ -84,3 +85,12 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withHttpMetrics(
+  {
+    method: "POST",
+    route: "/api/inbox",
+    expectedStatusCodes: [200, 400, 401],
+  },
+  postHandler,
+);

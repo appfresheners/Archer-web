@@ -1,8 +1,9 @@
 import { sanitizeFocusProfile } from "@/lib/focus/validate";
+import { withHttpMetrics } from "@/lib/observability/http";
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function PUT(request: NextRequest) {
+async function putHandler(request: NextRequest) {
   let supabase: Awaited<ReturnType<typeof createClient>>;
   let userId: string;
   try {
@@ -68,3 +69,12 @@ export async function PUT(request: NextRequest) {
     );
   }
 }
+
+export const PUT = withHttpMetrics(
+  {
+    method: "PUT",
+    route: "/api/focus/profile",
+    expectedStatusCodes: [200, 400, 401],
+  },
+  putHandler,
+);

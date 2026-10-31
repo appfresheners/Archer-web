@@ -91,6 +91,10 @@ FR110: A goal skill gap SHALL have a stable identity and MAY be explicitly assoc
 FR111: The system SHALL retain dated, immutable snapshots of user-entered gap ratings and the required level in effect at that assessment. Only explicit user reassessment SHALL change the assessed rating; project completion SHALL NOT infer capability gain.
 FR112: Analytics and Goal detail SHALL show work progress (linked project states/completions) separately from assessed gap progress (baseline/latest user ratings and remaining gap). Missing history SHALL be clearly indicated rather than fabricated.
 
+FR113: The Node.js App Router SHALL expose `/api/metrics` using one Prometheus registry and the correct content type. It SHALL provide bounded HTTP request counters and duration histogram, plus endpoint availability counts. Route handlers SHALL declare expected statuses; expected non-5xx responses may be available, while every 5xx is unavailable. Exceptions SHALL be recorded as 500/unavailable. Metrics SHALL not expose high-cardinality or sensitive labels, and `/api/metrics` SHALL not instrument itself.
+
+FR114: The application SHALL expose `/api/health`, `/api/health/live`, and `/api/health/ready`. Liveness SHALL report process availability without dependency checks. Readiness SHALL return 503 when the critical Supabase dependency is unavailable. Responses SHALL contain only overall status and bounded check results, never secrets or sensitive error details.
+
 **AI Provider**
 
 FR32: The app SHALL support three AI providers selected via `AI_PROVIDER`: `gemini` (default), `groq`, `openai`.
@@ -386,8 +390,10 @@ UX-DR33: Provide user-triggered gap reassessment from Goal detail and Monthly Go
 | FR110 | Epic 9 | Stable gap identities and explicit many-to-many project-gap associations                    |
 | FR111 | Epic 9 | Immutable user-authored assessment history; no inferred rating gains                        |
 | FR112 | Epic 9 | Separate linked-work progress from assessed gap progress                                    |
+| FR113 | Epic H | Prometheus HTTP metrics with bounded labels and per-route availability                       |
+| FR114 | Epic H | Sanitized liveness, readiness, and aggregate health endpoints                                |
 
-**NFR coverage:** NFR2 (Node runtime/Vercel), NFR6 (privacy), NFR7 (vault security), NFR9 (data integrity) anchor in Epic 1 and Epic 6. NFR1 (performance), NFR3 (responsive), NFR4 (accessibility), NFR5 (browser support), NFR8 (error resilience) are cross-cutting — verified within every epic that ships UI, with the baseline established in Epic 1.
+**NFR coverage:** NFR2 (Node runtime/Vercel), NFR6 (privacy), NFR7 (vault security), NFR9 (data integrity) anchor in Epic 1 and Epic 6. NFR6's bounded in-process operational-metrics exception and sanitized public health endpoints are delivered by Epic H-5. NFR1 (performance), NFR3 (responsive), NFR4 (accessibility), NFR5 (browser support), NFR8 (error resilience) are cross-cutting — verified within every epic that ships UI, with the baseline established in Epic 1.
 
 **AR coverage:** AR1, AR2, AR3, AR7, AR8, AR12, AR14, AR15, AR20 → Epic 1 (foundation; Focus tables extended in Epic 7). AR4, AR13, AR16, AR17, AR19, AR25 → Epic 2 (generation endpoint + render stack + dead-code cleanup). AR9, AR16 → Epic 3 (wizard transient state, user-owned data). AR5, AR6, AR18 → Epic 4 (hierarchy, commit trigger, stuck detection). AR10 → Epic 5 (review persistence). AR8, AR15 → Epic 7 (Focus profile and Areas remain owner-scoped); AR11 → Epic 6 (vault independence); AD-24 → Epic 9 (analytics lifecycle history, gap links, and assessment snapshots).
 
@@ -1956,7 +1962,7 @@ So that I can access my encrypted history without an account or server.
 
 ## Epic H: Cross-cutting Hardening
 
-Epic H tracks cross-cutting hardening work promoted from the implementation deferred-work ledger. Existing H-1 through H-3 remain as tracked in `sprint-status.yaml`; this change adds a focused UI affordance story without pulling unrelated deferred items into this course correction.
+Epic H tracks cross-cutting hardening work promoted from the implementation deferred-work ledger. Existing H-1 through H-4 remain as tracked in `sprint-status.yaml`; this course correction adds H-5 for HTTP observability and health checks without pulling unrelated deferred items into this change.
 
 ### Story H-4: App-wide Clickable Cursor Affordance
 
@@ -1985,3 +1991,45 @@ So that mouse interaction is consistently discoverable.
 **Given** browser-level verification
 **When** representative enabled and disabled controls are inspected
 **Then** computed cursors match the rules across app surfaces
+
+### Story H-5: HTTP Observability and Health Checks
+
+As a developer,
+I want shared HTTP metrics and dependency health probes,
+So that API availability and operational health can be monitored without adding a third-party telemetry service or changing route contracts.
+
+**Acceptance Criteria:**
+
+**Given** any existing API handler
+**When** its route is instrumented
+**Then** its response, async behavior, and second App Router context argument are preserved
+**And** exactly one request observation is recorded using the explicit fixed route template
+**And** its expected status codes are configured for that handler rather than assumed globally
+
+**Given** an instrumented request
+**When** it returns an expected non-5xx status
+**Then** its availability outcome is `available`
+**And** any 5xx or unexpected status is `unavailable`
+**And** a thrown exception is observed as HTTP 500/unavailable and rethrown
+
+**Given** `/api/metrics`
+**When** it is scraped
+**Then** it exposes `http_requests_total`, `http_request_duration_seconds`, and `http_endpoint_requests_total` with the Prometheus content type
+**And** it also exposes default process, event-loop, and garbage-collection metrics supported by the runtime
+**And** it does not instrument itself or expose raw URLs, query strings, user IDs, secrets, or request content
+
+**Given** `/api/health`, `/api/health/live`, and `/api/health/ready`
+**When** process and Supabase dependency states vary
+**Then** liveness checks only process availability, readiness checks the critical Supabase dependency, and aggregate health reports both
+**And** healthy responses use 200 and dependency-unhealthy readiness/aggregate responses use 503
+**And** responses include only bounded check names/statuses, never sensitive errors or credentials
+
+**Given** metrics are initialized across development hot reloads
+**When** handlers and the scrape endpoint access the registry
+**Then** each metric is registered once in the single default registry
+
+**Given** local tests and verification
+**When** the helper, health checks, and metrics route are exercised
+**Then** mocked tests cover success, expected 4xx, 5xx, thrown errors, duration, dynamic templates, health success/failure, and exposition without production services
+**And** documentation explains wrapping, expected statuses, availability, adding checks, metric names, and PromQL for request/error rates, average/P95 latency, and endpoint availability
+**And** TypeScript, lint, test, and production-build checks pass

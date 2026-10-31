@@ -16,6 +16,7 @@
  */
 
 import { isoWeek, weekBounds } from "@/lib/review/week";
+import { withHttpMetrics } from "@/lib/observability/http";
 import type { ReviewSessionInsert } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
@@ -30,7 +31,7 @@ async function getAuthenticatedUserId(): Promise<string | null> {
   }
 }
 
-export async function POST() {
+async function postHandler() {
   const userId = await getAuthenticatedUserId();
   if (!userId) {
     return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
@@ -127,3 +128,12 @@ export async function POST() {
     );
   }
 }
+
+export const POST = withHttpMetrics(
+  {
+    method: "POST",
+    route: "/api/review",
+    expectedStatusCodes: [200, 401],
+  },
+  postHandler,
+);

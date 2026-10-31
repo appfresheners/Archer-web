@@ -268,6 +268,10 @@ Capture → Clarify → Organize → Reflect → Engage
 
 **FR112:** Analytics and Goal detail SHALL show work progress (linked project states/completions) separately from assessed gap progress (baseline/latest user ratings and remaining gap). Missing history SHALL be clearly indicated rather than fabricated.
 
+**FR113:** The Node.js App Router SHALL expose `/api/metrics` using one Prometheus registry and the correct Prometheus content type. It SHALL provide `http_requests_total` and `http_request_duration_seconds` labeled by method, fixed route template, and status code, plus `http_endpoint_requests_total` labeled by method, route template, status code, and outcome (`available` or `unavailable`). Route handlers SHALL declare expected status codes; expected non-5xx responses may be available, while every 5xx is unavailable. Exceptions SHALL be recorded as 500/unavailable. Metrics SHALL not expose high-cardinality or sensitive labels, and `/api/metrics` SHALL not instrument itself.
+
+**FR114:** The application SHALL expose `/api/health`, `/api/health/live`, and `/api/health/ready`. Liveness SHALL report process availability without dependency checks. Readiness SHALL return 503 when the critical Supabase dependency is unavailable. Health responses SHALL contain only overall status and bounded check results, never credentials, connection strings, or sensitive error details.
+
 ### FR-Group: Action Management [NOT YET BUILT]
 
 **FR53:** Each action SHALL have: text (verb-first), status (available, committed, done), and a parent project.
@@ -398,7 +402,7 @@ Capture → Clarify → Organize → Reflect → Engage
 
 **NFR5 — Browser support:** Latest two versions of Chrome, Firefox, Safari, and Edge.
 
-**NFR6 — Privacy:** No cookies, analytics, tracking, or data collection. The only outbound network requests are: AI generation calls to the configured provider, and Supabase read/write for authenticated users. All vault operations are client-side only.
+**NFR6 — Privacy:** No cookies, product analytics, tracking, or third-party telemetry. Permit in-process operational metrics exposed through `/api/metrics`, with no outbound metrics exporter. Do not include user identifiers, request bodies, raw URLs, query strings, credentials, or other sensitive/high-cardinality values in metric labels or operational logs. The only outbound network requests remain AI generation calls and Supabase read/write, including the bounded readiness probe. All vault operations are client-side only.
 
 **NFR7 — Security (vault):** Vault data encrypted with Web Crypto API (AES-GCM, PBKDF2 key derivation) before localStorage persistence. Passphrase never stored. Portable identity key material scrubbed from address bar immediately after processing.
 
@@ -422,7 +426,7 @@ Capture → Clarify → Organize → Reflect → Engage
 | AI (alt)      | Groq (`llama-3.1-8b-instant`) / OpenAI (`gpt-4o-mini`)                   |
 | Vault crypto  | Web Crypto API — AES-GCM + PBKDF2 (experimental vault, client-side only) |
 | QR generation | `qrcode` library, client-side SVG render only                            |
-| Analytics     | None                                                                     |
+| Product analytics | None. Operational metrics use the in-process Prometheus endpoint; no exporter or monitoring SDK. |
 
 > **Architecture note:** All generation requires auth. There is no unauthenticated generation path. All output saves to Supabase automatically on generation. Copy Markdown and Download .md actions are removed from the product entirely.
 

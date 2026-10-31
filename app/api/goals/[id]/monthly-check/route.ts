@@ -1,11 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
+import { withHttpMetrics } from "@/lib/observability/http";
 import { NextResponse } from "next/server";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
-export async function POST(_request: Request, context: RouteContext) {
+async function postHandler(_request: Request, context: RouteContext) {
   let supabase: Awaited<ReturnType<typeof createClient>> | null = null;
   let userId: string | null = null;
   try {
@@ -78,3 +79,12 @@ export async function POST(_request: Request, context: RouteContext) {
     );
   }
 }
+
+export const POST = withHttpMetrics(
+  {
+    method: "POST",
+    route: "/api/goals/[id]/monthly-check",
+    expectedStatusCodes: [200, 400, 401, 404],
+  },
+  postHandler,
+);

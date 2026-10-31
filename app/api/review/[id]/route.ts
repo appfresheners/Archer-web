@@ -14,6 +14,7 @@
  */
 
 import { sanitizeReviewPatch } from "@/lib/review/validate";
+import { withHttpMetrics } from "@/lib/observability/http";
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -31,7 +32,7 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
-export async function PATCH(request: NextRequest, context: RouteContext) {
+async function patchHandler(request: NextRequest, context: RouteContext) {
   const userId = await getAuthenticatedUserId();
   if (!userId) {
     return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
@@ -90,3 +91,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     );
   }
 }
+
+export const PATCH = withHttpMetrics(
+  {
+    method: "PATCH",
+    route: "/api/review/[id]",
+    expectedStatusCodes: [200, 400, 401, 404],
+  },
+  patchHandler,
+);

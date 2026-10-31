@@ -28,6 +28,7 @@ import { generateFramework } from "@/lib/goals/generate-framework";
 import { generateGoal } from "@/lib/goals/generate-goal";
 import { generateProject } from "@/lib/projects/generate-project";
 import { GenerationFormatError } from "@/lib/ai";
+import { withHttpMetrics } from "@/lib/observability/http";
 import type {
     ActionInsert,
     PlanningDepth,
@@ -109,7 +110,7 @@ async function getAuthenticatedUserId(): Promise<string | null> {
     }
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
     // 1. Auth guard — before parsing the body or calling any provider.
     const userId = await getAuthenticatedUserId();
     if (!userId) {
@@ -490,6 +491,15 @@ async function handleGoalGenerate(
         generated,
     );
 }
+
+export const POST = withHttpMetrics(
+    {
+        method: "POST",
+        route: "/api/generate",
+        expectedStatusCodes: [200, 400, 401],
+    },
+    postHandler,
+);
 
 /**
  * Persist the generated breakdown as linked `goals` + `projects` + `actions`

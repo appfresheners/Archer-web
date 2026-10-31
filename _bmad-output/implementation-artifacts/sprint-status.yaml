@@ -159,6 +159,7 @@ development_status:
   H-2-provider-resilience-and-error-observability: review
   H-3-app-wide-clickable-cursor-affordance: review
   H-4-shared-focus-trap-modal-and-a11y-announcements: backlog
+  H-5-http-observability-and-health-checks: backlog
   # H-3 absorbs resilience/observability. Ledger sources:
   #   1.7 (provider retry/backoff; error diagnostics + AbortSignal; log gating)
   #   3.6 (client AbortController on generate)

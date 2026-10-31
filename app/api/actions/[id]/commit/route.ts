@@ -13,6 +13,7 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
+import { withHttpMetrics } from "@/lib/observability/http";
 import { NextRequest, NextResponse } from "next/server";
 
 async function getAuthenticatedUserId(): Promise<string | null> {
@@ -29,7 +30,7 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
-export async function POST(_request: NextRequest, context: RouteContext) {
+async function postHandler(_request: NextRequest, context: RouteContext) {
   const userId = await getAuthenticatedUserId();
   if (!userId) {
     return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
@@ -78,3 +79,12 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     );
   }
 }
+
+export const POST = withHttpMetrics(
+  {
+    method: "POST",
+    route: "/api/actions/[id]/commit",
+    expectedStatusCodes: [200, 401, 404, 409],
+  },
+  postHandler,
+);

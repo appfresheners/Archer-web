@@ -1,10 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
+import { withHttpMetrics } from "@/lib/observability/http";
 import { NextRequest, NextResponse } from "next/server";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function PATCH(request: NextRequest) {
+async function patchHandler(request: NextRequest) {
   let supabase: Awaited<ReturnType<typeof createClient>>;
   try {
     supabase = await createClient();
@@ -83,3 +84,12 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
+
+export const PATCH = withHttpMetrics(
+  {
+    method: "PATCH",
+    route: "/api/areas/reorder",
+    expectedStatusCodes: [200, 400, 401],
+  },
+  patchHandler,
+);

@@ -16,6 +16,7 @@
  */
 
 import { sanitizeActionCreate } from "@/lib/actions/create";
+import { withHttpMetrics } from "@/lib/observability/http";
 import type { ActionInsert } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
@@ -30,7 +31,7 @@ async function getAuthenticatedUserId(): Promise<string | null> {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   const userId = await getAuthenticatedUserId();
   if (!userId) {
     return NextResponse.json(
@@ -122,3 +123,12 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withHttpMetrics(
+  {
+    method: "POST",
+    route: "/api/actions",
+    expectedStatusCodes: [200, 400, 401],
+  },
+  postHandler,
+);

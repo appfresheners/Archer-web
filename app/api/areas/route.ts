@@ -1,9 +1,10 @@
 import { sanitizeAreaInput } from "@/lib/focus/validate";
+import { withHttpMetrics } from "@/lib/observability/http";
 import type { AreaOfFocusInsert } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   let supabase: Awaited<ReturnType<typeof createClient>>;
   let userId: string;
   try {
@@ -90,3 +91,12 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withHttpMetrics(
+  {
+    method: "POST",
+    route: "/api/areas",
+    expectedStatusCodes: [200, 400, 401],
+  },
+  postHandler,
+);

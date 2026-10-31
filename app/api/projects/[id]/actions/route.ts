@@ -17,6 +17,7 @@
 
 import { sanitizeActionText } from "@/lib/actions/validate";
 import { sanitizeContextTags } from "@/lib/actions/tags";
+import { withHttpMetrics } from "@/lib/observability/http";
 import type { ActionInsert } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
@@ -50,7 +51,7 @@ async function userOwnsProject(
   return Boolean(data);
 }
 
-export async function POST(request: NextRequest, context: RouteContext) {
+async function postHandler(request: NextRequest, context: RouteContext) {
   const userId = await getAuthenticatedUserId();
   if (!userId) {
     return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
@@ -136,7 +137,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 }
 
-export async function PATCH(request: NextRequest, context: RouteContext) {
+async function patchHandler(request: NextRequest, context: RouteContext) {
   const userId = await getAuthenticatedUserId();
   if (!userId) {
     return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
@@ -228,3 +229,21 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     );
   }
 }
+
+export const POST = withHttpMetrics(
+  {
+    method: "POST",
+    route: "/api/projects/[id]/actions",
+    expectedStatusCodes: [200, 400, 401, 404],
+  },
+  postHandler,
+);
+
+export const PATCH = withHttpMetrics(
+  {
+    method: "PATCH",
+    route: "/api/projects/[id]/actions",
+    expectedStatusCodes: [200, 400, 401, 404],
+  },
+  patchHandler,
+);

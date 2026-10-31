@@ -13,6 +13,7 @@
  */
 
 import { validateManualProject } from "@/lib/projects/create";
+import { withHttpMetrics } from "@/lib/observability/http";
 import type { ProjectInsert } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
@@ -27,7 +28,7 @@ async function getAuthenticatedUserId(): Promise<string | null> {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   // 1. Auth guard — before any DB work.
   const userId = await getAuthenticatedUserId();
   if (!userId) {
@@ -155,3 +156,12 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withHttpMetrics(
+  {
+    method: "POST",
+    route: "/api/projects",
+    expectedStatusCodes: [200, 400, 401],
+  },
+  postHandler,
+);

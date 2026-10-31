@@ -1,3 +1,4 @@
+- Health probes: process liveness is dependency-free; readiness calls Supabase Auth `/auth/v1/health` with only the server-side `SUPABASE_SERVICE_ROLE_KEY` in the `apikey` header and a bounded timeout. Never use a publishable/anon key or user JWT for this probe. This check indicates Auth service availability, not Postgres/table-level health. Return status-only results; never expose credentials or raw dependency errors.
 # Epic H Context: Cross-cutting Hardening
 
 <!-- Compiled from planning artifacts. Edit freely. Regenerate with compile-epic-context if planning docs change. -->
@@ -12,6 +13,7 @@ Epic H consolidates the cross-cutting hardening findings promoted from the imple
 - Story H-2: Shared focus-trap modal & a11y announcements
 - Story H-3: Provider resilience & error observability
 - Story H-4: App-wide clickable cursor affordance
+- Story H-5: HTTP observability and health checks
 
 ## Requirements & Constraints
 
@@ -21,6 +23,8 @@ Epic H consolidates the cross-cutting hardening findings promoted from the imple
 - Data integrity: no user data is lost on reload, crash, or session end (Supabase persistence); every stored item must be present in any export.
 - Privacy: no cookies beyond the Supabase Auth session, no analytics or tracking, and outbound network requests are limited to AI generation and Supabase reads/writes.
 - Pointer affordance: enabled interactive controls show a pointer cursor and disabled controls show `not-allowed`; the cursor must never be the sole interaction signal, only a supplement to semantic controls and visible hover/focus states.
+- Operational observability: use one process-local Prometheus registry, fixed route-template labels, and sanitized structured logs. The metrics and health endpoints are the only new public operational endpoints; do not add a vendor SDK, exporter, user-identifying labels, or database migration.
+- Health probes: process liveness is dependency-free; readiness checks Supabase Auth through its unauthenticated `/auth/v1/health` endpoint with a bounded timeout. This check indicates Auth service availability, not Postgres/table-level health. Return status-only results; never expose credentials or raw dependency errors.
 
 ## Technical Decisions
 
@@ -48,3 +52,4 @@ Epic H consolidates the cross-cutting hardening findings promoted from the imple
 - H-1's atomicity RPCs and DB constraints touch the same multi-write routes (generate saves, goal delete, regenerate, reorder) and complement the `fn_commit_action` concurrency/INSERT coverage.
 - H-3's error-vs-empty distinction spans all read surfaces (goals list, project/inbox detail, Engage), and its error surfaces are the natural consumers of H-2's focus-to-error and announcement patterns.
 - H-4 is UI-only and independent of the other stories.
+- H-5 is server-side and independent of H-1/H-2 database and accessibility changes; it wraps existing handlers without changing business behavior or response contracts.

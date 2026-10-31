@@ -121,9 +121,9 @@ The experimental vault is an independent client-side layer (AES-GCM + PBKDF2, `l
 
 ### AD-22: Accessibility and Privacy Constraints [ADOPTED]
 
-- **Binds:** All interactive components meet WCAG 2.1 Level AA: full keyboard navigation, ARIA roles and live regions, minimum 44×44px touch targets, 4.5:1 contrast for body text, `prefers-reduced-motion` respected. No cookies beyond Supabase Auth session. No analytics, no tracking, no third-party telemetry. Only outbound network requests: AI generation calls and Supabase reads/writes.
-- **Prevents:** Analytics SDKs, error monitoring services (Sentry etc.), third-party scripts, components that are mouse-only
-- **Rule:** Accessibility is a component-level invariant, not a post-build audit.
+- **Binds:** All interactive components meet WCAG 2.1 Level AA: full keyboard navigation, ARIA roles and live regions, minimum 44×44px touch targets, 4.5:1 contrast for body text, `prefers-reduced-motion` respected. No cookies beyond Supabase Auth session, product analytics, tracking, or third-party telemetry. Permit only bounded in-process Prometheus metrics exposed at `/api/metrics` and sanitized public operational health endpoints; no outbound metrics exporter or monitoring SDK. Metrics/logs exclude user IDs, request content, raw URLs/query strings, credentials, and other sensitive/high-cardinality values. The health probe is server-only and uses `SUPABASE_SERVICE_ROLE_KEY`; the secret never reaches client code, responses, metrics, or logs.
+- **Prevents:** Product analytics SDKs, error monitoring services (Sentry etc.), third-party scripts/exporters, components that are mouse-only, and sensitive/high-cardinality operational labels
+- **Rule:** Accessibility is a component-level invariant, not a post-build audit. Operational endpoints expose no user data or secrets and are the only public application API surfaces.
 
 ### AD-23: List Search, Pagination, and Searchable Pickers [PROPOSED — Epic 8]
 
@@ -556,6 +556,12 @@ create trigger commit_action_trigger
 ```
 app/
 ├── api/
+│   ├── metrics/
+│   │   └── route.ts          # Prometheus exposition; intentionally not instrumented
+│   ├── health/
+│   │   ├── route.ts          # Aggregate process + critical dependency health
+│   │   ├── live/route.ts     # Process liveness only
+│   │   └── ready/route.ts    # Critical dependency readiness
 │   ├── generate/
 │   │   └── route.ts          # AI generation — Pattern A (built), B+C (to build); auth-checked
 │   └── projects/
@@ -637,6 +643,9 @@ components/
 ├── SavedBreakdowns.tsx       # Vault UI — auth-independent, always accessible
 └── ModeToggle.tsx            # Segmented control (authenticated views only)
 lib/
+├── observability/
+│   ├── http.ts               # Singleton metrics + reusable App Router wrapper
+│   └── health.ts             # Bounded server-side dependency checks
 ├── templates/
 │   ├── goal-template.ts      # Legacy — retained but superseded by AI route
 │   └── project-template.ts
@@ -731,7 +740,7 @@ graph LR
 
 ## Boundary Rules
 
-1. **No unauthenticated surfaces.** Every route except `/sign-in`, `/sign-up`, `/forgot-password` requires a valid Supabase session. Middleware enforces this — it is not left to individual pages.
+1. **Authenticated product surfaces.** Every product route except `/sign-in`, `/sign-up`, and `/forgot-password` requires a valid Supabase session. Add only `/api/metrics`, `/api/health`, `/api/health/live`, and `/api/health/ready` as public operational endpoints. They expose bounded aggregate metrics or sanitized check status only; all existing API routes retain their current handler-level authentication. Middleware enforces the `/app/*` boundary.
 
 2. **Component layer never calls AI providers.** All AI calls go through `app/api/` route handlers. Components call `fetch('/api/generate', ...)`. Route handlers verify auth before any AI call.
 
