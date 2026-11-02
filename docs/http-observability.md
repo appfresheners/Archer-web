@@ -38,12 +38,24 @@ Use only fixed route templates such as `/api/projects/[id]`. Never use the reque
 ## Health Checks
 
 - `GET /api/health/live` checks only whether the application process is alive. It does not call Supabase or another external service.
-- `GET /api/health/ready` checks the Supabase Auth service at `/auth/v1/health` with the server-side `SUPABASE_SERVICE_ROLE_KEY` in the `apikey` header and no end-user JWT. Never use a publishable/anon key for this server-side check. The secret is not returned or logged. It returns `503` if the service check fails.
-- `GET /api/health` reports both process and Supabase Auth service check results and returns `503` if either is unavailable.
+- `GET /api/health/ready` checks database connectivity with one bounded `goals.id` read using a server-side Supabase client configured with `SUPABASE_SERVICE_ROLE_KEY`. The service-role client bypasses RLS for this fixed read; no row data is returned by the health handler. The key is never sent to client code or included in responses, logs, or metrics. It returns `503` if the query fails or times out.
+- `GET /api/health` reports both process and database check results and returns `503` if either is unavailable.
 
 Responses contain an overall status and named `available`/`unavailable` checks only. They do not include credentials, connection strings, or dependency error details.
 
-This check establishes that Supabase Auth is responding; it does not prove that a particular RLS-protected table is readable or independently verify Postgres. To add another critical dependency check, implement a small bounded server-side function in `lib/observability/health.ts` that returns only a status, handles errors internally, and does not expose or log raw error messages. Add it to readiness and aggregate health only if required for core product flows. Keep liveness dependency-free. Add mocked tests for success and failure; tests must not contact production services.
+Readiness establishes that the database/Data API can complete the fixed service-role query; it does not verify end-user RLS policies or Supabase Auth availability. Keep the service-role operation fixed, read-only, bounded, and server-side. To add another critical dependency check, implement a small bounded function in `lib/observability/health.ts` that returns only a status, handles errors internally, and does not expose or log raw error messages. Add it to readiness and aggregate health only if required for core product flows. Keep liveness dependency-free. Add mocked tests for success and failure; tests must not contact production services.
+
+## Scraper Access
+
+`/api/metrics` is intentionally unauthenticated for scraping. On Internet-facing deployments, restrict it at the reverse proxy or ingress to the Prometheus scraper's network or an approved authentication policy. Do not put credentials in the application URL or metric labels. For Prometheus running on the same Docker network, a minimal job is:
+
+```yaml
+scrape_configs:
+  - job_name: archer
+    metrics_path: /api/metrics
+    static_configs:
+      - targets: ["archer:3000"]
+```
 
 ## Metrics
 

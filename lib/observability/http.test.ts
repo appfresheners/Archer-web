@@ -145,8 +145,13 @@ describe("HTTP instrumentation", () => {
     expect(
       await metricSample("http_endpoint_requests_total", route, "500"),
     ).toMatchObject({ value: 1, labels: { outcome: "unavailable" } });
-    expect(console.error).toHaveBeenCalledWith(
-      expect.not.stringContaining("private provider detail"),
-    );
+    const [loggedEvent] = vi.mocked(console.error).mock.calls[0];
+    expect(JSON.parse(String(loggedEvent))).toMatchObject({
+      route,
+      status_code: 500,
+      outcome: "unavailable",
+      failure_type: "exception",
+    });
+    expect(loggedEvent).not.toContain("private provider detail");
   });
 });

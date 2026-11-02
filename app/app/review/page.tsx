@@ -36,7 +36,7 @@ import {
   type ReviewInboxInput,
   type ReviewProjectInput,
 } from "@/lib/review/reviewData";
-import { isoWeek } from "@/lib/review/week";
+import { isoWeek, type IsoWeek } from "@/lib/review/week";
 import type { ReviewPhase } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
@@ -45,8 +45,6 @@ export const metadata: Metadata = {
   title: "Weekly Review — Archer",
 };
 
-/** Milliseconds in one day (for computing the prior ISO week). */
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 interface CurrentWeekSession {
   id: string;
@@ -61,7 +59,7 @@ interface CurrentWeekSession {
 }
 
 interface ReviewLanding {
-  /** The in-progress current-week session to resume, or null. */
+  /** The in-progress target-week session to resume, or null. */
   session: CurrentWeekSession | null;
   /** ISO timestamp of the most recently completed review, or null. */
   lastCompletedAt: string | null;
@@ -69,6 +67,8 @@ interface ReviewLanding {
   priorSnapshot: PriorSnapshotDisplay | null;
   /** Middle-phase data, loaded only when a session is resumable. */
   reviewData: ReviewData;
+  /** The week the next review session should be created for. */
+  targetWeek: IsoWeek;
 }
 
 const EMPTY_REVIEW_DATA: ReviewData = {
@@ -86,19 +86,35 @@ const EMPTY_REVIEW_DATA: ReviewData = {
  * review's timestamp. Returns a safe empty landing on any failure.
  */
 async function loadReviewLanding(): Promise<ReviewLanding> {
+  const now = new Date();
   const empty: ReviewLanding = {
     session: null,
     lastCompletedAt: null,
     priorSnapshot: null,
     reviewData: EMPTY_REVIEW_DATA,
+    targetWeek: isoWeek(now),
   };
   try {
     const supabase = await createClient();
-    const now = new Date();
-    const { week_number, week_year } = isoWeek(now);
-    // The prior week's identity = the ISO week of seven days ago. This drives
-    // the "Last week you said:" read of `weekly_snapshots` (closed loop).
-    const prior = isoWeek(new Date(now.getTime() - 7 * DAY_MS));
+    const currentWeek = isoWeek(now);
+    const priorDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const priorWeek = isoWeek(priorDate);
+
+    // Determine the target week for this review session.
+    // If the prior week has no completed session the user missed their Sunday
+    // review — target that week so they can catch up. Otherwise target the
+    // current week (normal flow: reviewing the week you're in or just ended).
+    const { data: priorCompleted } = await supabase
+      .from("review_sessions")
+      .select("id")
+      .eq("week_number", priorWeek.week_number)
+      .eq("week_year", priorWeek.week_year)
+      .not("completed_at", "is", null)
+      .limit(1)
+      .maybeSingle();
+
+    const target: IsoWeek = priorCompleted ? currentWeek : priorWeek;
+    const { week_number, week_year } = target;
 
     const [
       { data: current, error: currentError },
@@ -120,11 +136,17 @@ async function loadReviewLanding(): Promise<ReviewLanding> {
         .order("completed_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
+      // Fetch the most recent snapshot strictly before the current week.
+      // Using (week_year desc, week_number desc) + limit 1 means a skipped
+      // week doesn't produce a miss — whatever the last completed review was
+      // is shown, regardless of how many weeks ago it was.
       supabase
         .from("weekly_snapshots")
         .select("intention, blocker, opening_retrospective")
-        .eq("week_number", prior.week_number)
-        .eq("week_year", prior.week_year)
+        .or(`week_year.lt.${week_year},and(week_year.eq.${week_year},week_number.lt.${week_number})`)
+        .order("week_year", { ascending: false })
+        .order("week_number", { ascending: false })
+        .limit(1)
         .maybeSingle(),
     ]);
 
@@ -147,20 +169,20 @@ async function loadReviewLanding(): Promise<ReviewLanding> {
         { data: goals },
         { data: areas, error: areasError },
       ] = await Promise.all([
-          supabase
-            .from("inbox_items")
-            .select("id, raw_text, processing_status")
-            .neq("processing_status", "trashed"),
-          supabase
-            .from("projects")
-            .select("id, name, status, updated_at, goal_id, area_id"),
-          supabase.from("actions").select("id, project_id, text, status, sort_order"),
-          supabase.from("goals").select("id, goal_text, status, area_id"),
-          supabase
-            .from("areas_of_focus")
-            .select("id, name, sort_order, archived_at")
-            .order("sort_order", { ascending: true }),
-        ]);
+        supabase
+          .from("inbox_items")
+          .select("id, raw_text, processing_status")
+          .neq("processing_status", "trashed"),
+        supabase
+          .from("projects")
+          .select("id, name, status, updated_at, goal_id, area_id"),
+        supabase.from("actions").select("id, project_id, text, status, sort_order"),
+        supabase.from("goals").select("id, goal_text, status, area_id"),
+        supabase
+          .from("areas_of_focus")
+          .select("id, name, sort_order, archived_at")
+          .order("sort_order", { ascending: true }),
+      ]);
       reviewData = {
         ...buildReviewData(
           (inbox ?? []) as ReviewInboxInput[],
@@ -180,6 +202,7 @@ async function loadReviewLanding(): Promise<ReviewLanding> {
         null,
       priorSnapshot: (priorSnapshotRow as PriorSnapshotDisplay | null) ?? null,
       reviewData,
+      targetWeek: target,
     };
   } catch {
     return empty;
@@ -201,9 +224,11 @@ function formatDate(iso: string): string {
 function Landing({
   lastCompletedAt,
   currentWeekCompleted,
+  targetWeek,
 }: {
   lastCompletedAt: string | null;
   currentWeekCompleted: boolean;
+  targetWeek: IsoWeek;
 }) {
   return (
     <div className="flex flex-col items-start gap-4 rounded-[var(--radius-md)] border border-border bg-surface p-[var(--spacing-card-p)]">
@@ -221,7 +246,7 @@ function Landing({
           <p className="text-text-secondary">
             Ready to run this week&rsquo;s review?
           </p>
-          <StartReview />
+          <StartReview targetWeek={targetWeek} />
         </>
       )}
     </div>
@@ -229,7 +254,7 @@ function Landing({
 }
 
 export default async function ReviewPage() {
-  const { session, lastCompletedAt, priorSnapshot, reviewData } =
+  const { session, lastCompletedAt, priorSnapshot, reviewData, targetWeek } =
     await loadReviewLanding();
 
   // Resume only an in-progress session parked on a navigable beat (not the
@@ -267,6 +292,7 @@ export default async function ReviewPage() {
         <Landing
           lastCompletedAt={lastCompletedAt}
           currentWeekCompleted={session?.completed_at != null}
+          targetWeek={targetWeek}
         />
       )}
     </section>

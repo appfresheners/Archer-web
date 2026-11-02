@@ -2,9 +2,15 @@
  * Authenticated weekly-review session endpoint (Story 5.4 — shell).
  *
  *   POST /api/review  — create or return the acting user's review session for
- *   the current ISO week.
+ *   the target ISO week.
  *
- * Idempotent for the current week: if a `review_sessions` row already exists
+ * The request body may carry `{ week_number, week_year }` to target a specific
+ * week (used when the user missed their Sunday review and needs to catch up on
+ * the prior week). If omitted or invalid, defaults to the current ISO week.
+ * The target week must not be in the future and must be within the last 2 weeks
+ * as a sanity bound.
+ *
+ * Idempotent for the target week: if a `review_sessions` row already exists
  * for the user + ISO week (the table's `unique (user_id, week_number,
  * week_year)` enforces one), it is returned as-is (including a completed one);
  * otherwise a fresh row is inserted with the computed week identity + Mon/Sun
@@ -15,11 +21,11 @@
  * Mirrors the auth/validation/error shape of `app/api/inbox/route.ts`.
  */
 
-import { isoWeek, weekBounds } from "@/lib/review/week";
 import { withHttpMetrics } from "@/lib/observability/http";
+import { isoWeek, weekBounds } from "@/lib/review/week";
 import type { ReviewSessionInsert } from "@/lib/supabase/schema";
 import { createClient } from "@/lib/supabase/server";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 async function getAuthenticatedUserId(): Promise<string | null> {
   try {
@@ -31,15 +37,74 @@ async function getAuthenticatedUserId(): Promise<string | null> {
   }
 }
 
-async function postHandler() {
+/**
+ * Resolve the target week from the request body. Accepts `{ week_number,
+ * week_year }` if both are integers and the week is not in the future and
+ * no more than 2 weeks in the past. Falls back to the current week.
+ */
+async function resolveTargetWeek(
+  req: NextRequest,
+): Promise<{ week_number: number; week_year: number; monday: string; sunday: string }> {
+  const now = new Date();
+  const current = isoWeek(now);
+
+  try {
+    const body = await req.json().catch(() => null);
+    if (
+      body &&
+      typeof body.week_number === "number" &&
+      typeof body.week_year === "number" &&
+      Number.isInteger(body.week_number) &&
+      Number.isInteger(body.week_year) &&
+      body.week_number >= 1 &&
+      body.week_number <= 53
+    ) {
+      const { week_number, week_year } = body as { week_number: number; week_year: number };
+
+      // Reject future weeks.
+      const isFuture =
+        week_year > current.week_year ||
+        (week_year === current.week_year && week_number > current.week_number);
+      if (isFuture) throw new Error("future week");
+
+      // Reject anything older than 2 weeks as a sanity bound.
+      const weeksAgo =
+        (current.week_year - week_year) * 52 + (current.week_number - week_number);
+      if (weeksAgo > 2) throw new Error("too far in the past");
+
+      // Compute Mon/Sun for the requested week by stepping back from now.
+      // We find the Monday of the target week via ISO week arithmetic.
+      const targetMonday = new Date(
+        Date.UTC(week_year, 0, 1 + (week_number - 1) * 7),
+      );
+      // Adjust to the actual Monday of that ISO week.
+      const dayOfWeek = targetMonday.getUTCDay() === 0 ? 7 : targetMonday.getUTCDay();
+      const monday = new Date(targetMonday.getTime() - (dayOfWeek - 1) * 24 * 60 * 60 * 1000);
+      // Verify the computed date actually maps to the requested ISO week.
+      const check = isoWeek(monday);
+      if (check.week_number !== week_number || check.week_year !== week_year) {
+        throw new Error("week identity mismatch");
+      }
+      const sunday = new Date(monday.getTime() + 6 * 24 * 60 * 60 * 1000);
+      const fmt = (d: Date) =>
+        `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+      return { week_number, week_year, monday: fmt(monday), sunday: fmt(sunday) };
+    }
+  } catch {
+    // fall through to current week
+  }
+
+  const { monday, sunday } = weekBounds(now);
+  return { ...current, monday, sunday };
+}
+
+async function postHandler(req: NextRequest) {
   const userId = await getAuthenticatedUserId();
   if (!userId) {
     return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
   }
 
-  const now = new Date();
-  const { week_number, week_year } = isoWeek(now);
-  const { monday, sunday } = weekBounds(now);
+  const { week_number, week_year, monday, sunday } = await resolveTargetWeek(req);
 
   try {
     const supabase = await createClient();

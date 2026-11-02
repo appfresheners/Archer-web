@@ -93,7 +93,7 @@ FR112: Analytics and Goal detail SHALL show work progress (linked project states
 
 FR113: The Node.js App Router SHALL expose `/api/metrics` using one Prometheus registry and the correct content type. It SHALL provide bounded HTTP request counters and duration histogram, plus endpoint availability counts. Route handlers SHALL declare expected statuses; expected non-5xx responses may be available, while every 5xx is unavailable. Exceptions SHALL be recorded as 500/unavailable. Metrics SHALL not expose high-cardinality or sensitive labels, and `/api/metrics` SHALL not instrument itself.
 
-FR114: The application SHALL expose `/api/health`, `/api/health/live`, and `/api/health/ready`. Liveness SHALL report process availability without dependency checks. Readiness SHALL return 503 when the critical Supabase dependency is unavailable. Responses SHALL contain only overall status and bounded check results, never secrets or sensitive error details.
+FR114: The application SHALL expose `/api/health`, `/api/health/live`, and `/api/health/ready`. Liveness SHALL report process availability without dependency checks. Readiness SHALL verify critical Supabase database connectivity with a bounded server-side query using only `SUPABASE_SERVICE_ROLE_KEY`; it SHALL return 503 when the check fails. Responses SHALL contain only overall status and bounded check results, never secrets, row data, or sensitive error details.
 
 **AI Provider**
 
@@ -205,7 +205,7 @@ NFR2 — Deployment: Vercel with Node.js runtime required for the API route. Not
 NFR3 — Responsiveness: Fully functional across mobile (< 640px), tablet (640–1024px), and desktop (> 1024px).
 NFR4 — Accessibility: WCAG 2.1 Level AA — full keyboard navigation including wizard steps, screen reader support (ARIA roles, live regions, focus management between steps), minimum 44×44px touch targets, 4.5:1 body / 3:1 large text contrast, respect `prefers-reduced-motion`.
 NFR5 — Browser support: Latest two versions of Chrome, Firefox, Safari, and Edge.
-NFR6 — Privacy: No cookies (beyond Supabase Auth session), analytics, tracking, or data collection. Only outbound requests: AI generation calls and Supabase read/write. Vault operations are client-side only.
+NFR6 — Privacy: No cookies (beyond Supabase Auth session), product analytics, tracking, or third-party telemetry. Permit in-process operational metrics exposed through `/api/metrics`, with no outbound exporter. Do not include user identifiers, request bodies, raw URLs/query strings, credentials, or other sensitive/high-cardinality values in metric labels or operational logs. Outbound calls remain AI generation, authenticated Supabase reads/writes, and one bounded server-side Supabase readiness query using `SUPABASE_SERVICE_ROLE_KEY`. Vault operations are client-side only.
 NFR7 — Security (vault): Vault data encrypted with Web Crypto API (AES-GCM, PBKDF2) before localStorage persistence. Passphrase never stored. Portable identity key material scrubbed from address bar immediately.
 NFR8 — Error resilience: Missing/invalid API key produces a clear, actionable error with provider key issuance guidance. Generation timeout surfaces a retry option. Wizard retains inputs on failure.
 NFR9 — Data integrity: No data loss on reload, crash, or session end (Supabase persistence). Export integrity: every item in the store is present in the export file.
@@ -393,7 +393,7 @@ UX-DR33: Provide user-triggered gap reassessment from Goal detail and Monthly Go
 | FR113 | Epic H | Prometheus HTTP metrics with bounded labels and per-route availability                       |
 | FR114 | Epic H | Sanitized liveness, readiness, and aggregate health endpoints                                |
 
-**NFR coverage:** NFR2 (Node runtime/Vercel), NFR6 (privacy), NFR7 (vault security), NFR9 (data integrity) anchor in Epic 1 and Epic 6. NFR6's bounded in-process operational-metrics exception and sanitized public health endpoints are delivered by Epic H-5. NFR1 (performance), NFR3 (responsive), NFR4 (accessibility), NFR5 (browser support), NFR8 (error resilience) are cross-cutting — verified within every epic that ships UI, with the baseline established in Epic 1.
+**NFR coverage:** NFR2 (Node runtime/Vercel), NFR6 (privacy), NFR7 (vault security), NFR9 (data integrity) anchor in Epic 1 and Epic 6. NFR6's bounded in-process operational-metrics exception, sanitized public health endpoints, and one bounded server-side service-role readiness query are delivered by Epic H-5. NFR1 (performance), NFR3 (responsive), NFR4 (accessibility), NFR5 (browser support), NFR8 (error resilience) are cross-cutting — verified within every epic that ships UI, with the baseline established in Epic 1.
 
 **AR coverage:** AR1, AR2, AR3, AR7, AR8, AR12, AR14, AR15, AR20 → Epic 1 (foundation; Focus tables extended in Epic 7). AR4, AR13, AR16, AR17, AR19, AR25 → Epic 2 (generation endpoint + render stack + dead-code cleanup). AR9, AR16 → Epic 3 (wizard transient state, user-owned data). AR5, AR6, AR18 → Epic 4 (hierarchy, commit trigger, stuck detection). AR10 → Epic 5 (review persistence). AR8, AR15 → Epic 7 (Focus profile and Areas remain owner-scoped); AR11 → Epic 6 (vault independence); AD-24 → Epic 9 (analytics lifecycle history, gap links, and assessment snapshots).
 
@@ -2020,7 +2020,7 @@ So that API availability and operational health can be monitored without adding 
 
 **Given** `/api/health`, `/api/health/live`, and `/api/health/ready`
 **When** process and Supabase dependency states vary
-**Then** liveness checks only process availability, readiness checks the critical Supabase dependency, and aggregate health reports both
+**Then** liveness checks only process availability, readiness performs one bounded server-side database query using the service-role secret, and aggregate health reports both
 **And** healthy responses use 200 and dependency-unhealthy readiness/aggregate responses use 503
 **And** responses include only bounded check names/statuses, never sensitive errors or credentials
 

@@ -1,9 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkProcess, checkSupabase } from "./health";
 
-const { getServiceRoleKey, getSupabaseUrl } = vi.hoisted(() => ({
+const { createSupabaseClient, getServiceRoleKey, getSupabaseUrl } = vi.hoisted(() => ({
+  createSupabaseClient: vi.fn(),
   getServiceRoleKey: vi.fn(),
   getSupabaseUrl: vi.fn(),
+}));
+
+vi.mock("@supabase/supabase-js", () => ({
+  createClient: createSupabaseClient,
 }));
 
 vi.mock("@/lib/supabase/env", () => ({
@@ -27,29 +32,78 @@ describe("health checks", () => {
     expect(checkProcess()).toEqual({ status: "available" });
   });
 
-  it("checks Supabase Auth health with the server-only secret and no user JWT", async () => {
-    vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 200 }));
+  it("checks the database with the server-only secret and a bounded query", async () => {
+    const abortSignal = vi.fn().mockResolvedValue({ error: null });
+    const limit = vi.fn(() => ({ abortSignal }));
+    const select = vi.fn(() => ({ limit }));
+    const from = vi.fn(() => ({ select }));
+    createSupabaseClient.mockReturnValue({ from } as never);
 
     await expect(checkSupabase()).resolves.toEqual({ status: "available" });
-    expect(fetch).toHaveBeenCalledWith(
-      new URL("https://supabase.example.test/auth/v1/health"),
+    expect(createSupabaseClient).toHaveBeenCalledWith(
+      "https://supabase.example.test",
+      "server-only-secret",
       expect.objectContaining({
-        headers: { apikey: "server-only-secret" },
-        signal: expect.any(AbortSignal),
-        cache: "no-store",
+        auth: { autoRefreshToken: false, persistSession: false },
+        global: { fetch: expect.any(Function) },
       }),
     );
-    expect(vi.mocked(fetch).mock.calls[0][1]?.headers).not.toHaveProperty("Authorization");
+    const options = vi.mocked(createSupabaseClient).mock.calls[0][2];
+    const guardedFetch = options?.global?.fetch as typeof fetch;
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+    await guardedFetch("https://supabase.example.test/rest/v1/goals", {});
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://supabase.example.test/rest/v1/goals",
+      expect.objectContaining({ cache: "no-store", redirect: "error" }),
+    );
+    expect(from).toHaveBeenCalledWith("goals");
+    expect(select).toHaveBeenCalledWith("id");
+    expect(limit).toHaveBeenCalledWith(1);
+    expect(abortSignal).toHaveBeenCalledWith(expect.any(AbortSignal));
   });
 
-  it("reports an unavailable Supabase Auth service without response details", async () => {
-    vi.mocked(fetch).mockResolvedValue(new Response("private detail", { status: 503 }));
+  it("rejects redirects so the service-role secret cannot be forwarded elsewhere", async () => {
+    createSupabaseClient.mockReturnValue({
+      from: () => ({
+        select: () => ({
+          limit: () => ({ abortSignal: () => ({ error: null }) }),
+        }),
+      }),
+    } as never);
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+
+    await checkSupabase();
+    const options = vi.mocked(createSupabaseClient).mock.calls[0][2];
+    const guardedFetch = options?.global?.fetch as typeof fetch;
+    await guardedFetch("https://supabase.example.test/rest/v1/goals", {
+      redirect: "follow",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://supabase.example.test/rest/v1/goals",
+      expect.objectContaining({ redirect: "error" }),
+    );
+  });
+
+  it("reports an unavailable database query without exposing error details", async () => {
+    const abortSignal = vi.fn().mockResolvedValue({ error: { message: "private detail" } });
+    createSupabaseClient.mockReturnValue({
+      from: () => ({
+        select: () => ({
+          limit: () => ({ abortSignal }),
+        }),
+      }),
+    } as never);
 
     await expect(checkSupabase()).resolves.toEqual({ status: "unavailable" });
   });
 
   it("turns thrown dependency errors into a sanitized unavailable result", async () => {
-    vi.mocked(fetch).mockRejectedValue(new Error("secret connection detail"));
+    createSupabaseClient.mockImplementation(() => {
+      throw new Error("secret connection detail");
+    });
 
     await expect(checkSupabase()).resolves.toEqual({ status: "unavailable" });
   });

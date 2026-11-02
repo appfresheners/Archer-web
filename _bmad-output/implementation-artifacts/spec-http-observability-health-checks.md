@@ -2,7 +2,7 @@
 title: "HTTP Observability and Health Checks"
 type: "feature"
 created: "2026-10-31"
-status: "in-progress"
+status: "in-review"
 route: "dispatch"
 review_loop_iteration: 0
 context: []
@@ -19,7 +19,7 @@ baseline_commit: "adf2e5a5ad35902e1606ecfada15beb733664a93"
 
 ## Boundaries & Constraints
 
-**Always:** Preserve every existing handler response and business behavior; pass the App Router context through unchanged; use `performance.now()`; label only by method, fixed route template, status code, and bounded availability outcome; record thrown errors as 500/unavailable then rethrow; classify expected non-5xx status codes per handler and all 5xx as unavailable; use one registry with registration safe across hot reload; do not instrument `/api/metrics`; use the Prometheus content type; expose only sanitized health results; readiness checks Supabase Auth at `/auth/v1/health` with a bounded timeout and the server-only `SUPABASE_SERVICE_ROLE_KEY` in the `apikey` header; never send a publishable/anon key or user JWT; tests use mocks, not production services.
+**Always:** Preserve every existing handler response and business behavior; pass the App Router context through unchanged; use `performance.now()`; label only by method, fixed route template, status code, and bounded availability outcome; record thrown errors as 500/unavailable then rethrow; classify expected non-5xx status codes per handler and all 5xx as unavailable; use one registry with registration safe across hot reload; do not instrument `/api/metrics`; use the Prometheus content type; expose only sanitized health results; readiness verifies database connectivity with one bounded `goals.id` query through a server-only Supabase client using `SUPABASE_SERVICE_ROLE_KEY`; this fixed read bypasses RLS and returns no row data; never send a publishable/anon key or user JWT; reject redirects to prevent forwarding the secret; tests use mocks, not production services.
 
 **Never:** Log request bodies, authorization/cookie headers, raw URLs/query strings, user IDs, secrets, or raw dependency errors. Never expose the service-role secret to a client, response, metric, or log. Do not change API contracts, add a monitoring vendor/exporter, create a database migration, or mark AI providers critical for general readiness. Public metrics and health endpoints are the only new unauthenticated operational surfaces.
 
@@ -40,7 +40,7 @@ baseline_commit: "adf2e5a5ad35902e1606ecfada15beb733664a93"
 - `app/api/metrics/route.ts` -- new GET exposition endpoint; exclude from instrumentation.
 - `app/api/health/route.ts`, `app/api/health/live/route.ts`, `app/api/health/ready/route.ts` -- public operational probes; instrument health routes but not metrics.
 - `lib/observability/http.ts` -- shared metrics, safe singleton setup, wrapper, and availability classification. Use `prom-client` default `register`; no second registry exists today.
-- `lib/observability/health.ts` -- bounded unauthenticated Supabase Auth health probe and injectable fetch seam for tests. Do not send API keys or user tokens.
+- `lib/observability/health.ts` -- bounded database probe using one `goals.id` read with a server-only service-role Supabase client; redirects are rejected and the secret is not exposed or logged.
 - `package.json`, `package-lock.json` -- install and pin only `prom-client`.
 - `app/api/**/route.test.ts`, `lib/observability/*.test.ts` -- extend route tests and cover wrapper, health, and metrics without production dependencies.
 - `docs/http-observability.md` -- usage, expected statuses, health-check extension, metrics, and PromQL.
@@ -68,15 +68,18 @@ baseline_commit: "adf2e5a5ad35902e1606ecfada15beb733664a93"
 ## Implementation Notes
 
 - Pinned `prom-client@15.1.3` as requested. npm reports this release deprecated in favor of `@prometheus-io/client`; retained `prom-client` to follow the approved dependency requirement.
-- At the user's direction, readiness uses `GET /auth/v1/health` with only the server-side `SUPABASE_SERVICE_ROLE_KEY` in the `apikey` header and a 2-second abort signal. It sends no publishable/anon key or user JWT and returns only available/unavailable. The secret never reaches the client, response, metrics, or logs. This confirms Supabase Auth service availability, not Postgres or table/RLS access.
-- `npm run lint`, `npx tsc --noEmit`, and `npm run build` passed. `npm run test` ran 1,103 tests: 1,102 passed and one unrelated existing `Sidebar.test.tsx` assertion failed because the rendered navigation includes Someday while its expected list does not.
-- Focused observability tests passed: 20 tests across the helper, health checks, and route exposition; the singleton-focused helper suite passed 10 tests. Metrics exposition verified the three HTTP names, process/event-loop/GC series, content type, and no self-observation.
-- An HTTP smoke request to liveness returned 200. The readiness and aggregate smoke requests returned healthy despite the intended loopback override; Next.js may have retained build-time public Supabase configuration. The server was stopped, and these responses are not treated as dependency-failure verification. Mocked tests cover ready/unready behavior without production services.
+- At the user's direction, readiness uses a server-only Supabase client configured with `SUPABASE_SERVICE_ROLE_KEY` and performs one `goals.id` read limited to one row, with a 2-second abort signal. Supabase client redirects are rejected so the secret is not forwarded to another origin. The result is reduced to available/unavailable; no row data or secret reaches the response, metrics, or logs. The service-role query bypasses RLS and verifies Postgres/Data API connectivity.
+- `npm run lint`, `npx tsc --noEmit`, `npm run build`, and `docker compose config -q` passed. `npm run test` ran 1,104 tests: 1,103 passed and one unrelated existing `Sidebar.test.tsx` assertion failed because the rendered navigation includes Someday while its expected list does not.
+- Focused observability tests passed: 24 tests across the helper, route coverage, health checks, and exposition. They verify all 26 instrumented methods have fixed templates and exact expected-status maps, along with bounded database probing and redirect rejection. Metrics exposition verified the three HTTP names, process/event-loop/GC series, content type, and no self-observation.
+- The pre-database-probe HTTP smoke returned 200 for liveness; its earlier readiness response used the then-current Auth health probe and is not evidence for the final database query. No production database probe was run. Mocked tests cover ready/unready behavior without production services.
+- Docker Compose now checks `/api/health/live`, keeping container liveness independent of Supabase readiness. `docker compose config -q` validates the compose file.
 
 ## Spec Change Log
 
-- User reported readiness 503 due to unauthenticated access to the RLS-protected `goals` table and directed the check to use a Supabase endpoint that does not require user authentication. Updated readiness to the documented public Supabase Auth `/auth/v1/health` endpoint; this avoids the false RLS failure and explicitly does not claim database-level health.
+- User reported readiness 503 due to unauthenticated access to the RLS-protected `goals` table and directed the check to use a Supabase endpoint that does not require user authentication. The initial implementation used `/auth/v1/health`; review identified that this did not check Postgres, so readiness now makes a bounded service-role database query instead.
 - User explicitly renegotiated the probe credential rule: use the server-side secret key only, never a publishable/anon key. Readiness now sends `SUPABASE_SERVICE_ROLE_KEY` only as the server-side `apikey` header, with no user JWT and no secret in output/logs/metrics.
+- Implementation review replaced the Auth-only endpoint probe with the service-role Supabase client query. The server client may use the service-role secret for Supabase request authentication; no end-user JWT or publishable/anon key is used, and the secret is never exposed outside the server-side request.
+- Review identified that the Auth health endpoint does not test the database required by Archer. Readiness now performs one bounded server-side `goals.id` query using the service-role client, rejects redirects, and documents that the probe bypasses RLS while returning no row data.
 
 ## Design Notes
 
@@ -87,7 +90,7 @@ Availability is deliberately status-aware: any 5xx is unavailable even if a rout
 **Commands:**
 - `npx tsc --noEmit` -- no type errors.
 - `npm run lint` -- clean.
-- `npm run test` -- 1,102 passed; one unrelated Sidebar navigation expectation failed.
+- `npm run test` -- 1,105 passed; one unrelated Sidebar navigation expectation failed (1106 total).
 - `npm run build` -- successful production build.
 
 **Manual checks:**

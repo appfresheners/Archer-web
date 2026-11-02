@@ -60,6 +60,7 @@ function observeRequest(
   expectedStatusCodes: ReadonlySet<number>,
   statusCode: number,
   durationSeconds: number,
+  failureType: "response" | "exception",
 ): void {
   const status = String(statusCode);
   const outcome =
@@ -84,6 +85,7 @@ function observeRequest(
         route: options.route,
         status_code: statusCode,
         outcome,
+        failure_type: failureType,
       }),
     );
   }
@@ -105,6 +107,7 @@ export function withHttpMetrics<Args extends unknown[]>(
         expectedStatusCodes,
         response.status,
         (performance.now() - startedAt) / 1000,
+        "response",
       );
       return response;
     } catch (error) {
@@ -113,6 +116,7 @@ export function withHttpMetrics<Args extends unknown[]>(
         expectedStatusCodes,
         500,
         (performance.now() - startedAt) / 1000,
+        "exception",
       );
       throw error;
     }

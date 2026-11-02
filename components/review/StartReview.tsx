@@ -6,18 +6,22 @@
  * lazily creating a session on page load, so glancing at the page never writes
  * an empty session.
  *
- * Clicking POSTs `/api/review` (idempotent for the current week) and, on
+ * Clicking POSTs `/api/review` (idempotent for the target week) and, on
  * success, calls `router.refresh()` so the server page re-resolves and renders
  * the `ReviewShell` for the now-existing session. Failures surface inline as a
  * `role="alert"` error and leave the landing in place.
+ *
+ * `targetWeek` is computed server-side: normally the current ISO week, but the
+ * prior week if the user missed their Sunday review.
  */
 
+import type { IsoWeek } from "@/lib/review/week";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 const GENERIC_ERROR = "Couldn't start the review. Please try again.";
 
-export default function StartReview() {
+export default function StartReview({ targetWeek }: { targetWeek: IsoWeek }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -27,7 +31,11 @@ export default function StartReview() {
     setError("");
     setBusy(true);
     try {
-      const res = await fetch("/api/review", { method: "POST" });
+      const res = await fetch("/api/review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(targetWeek),
+      });
       if (!res.ok) {
         const payload = (await res.json().catch(() => null)) as {
           error?: string;

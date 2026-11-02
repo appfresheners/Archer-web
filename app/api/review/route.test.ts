@@ -45,7 +45,16 @@ type RouteResponse = {
   status: number;
 };
 
-const call = () => POST() as unknown as Promise<RouteResponse>;
+/** Build a minimal NextRequest stub. Body defaults to no JSON (no target week override). */
+function makeRequest(body?: object): Request {
+  return new Request("http://localhost/api/review", {
+    method: "POST",
+    headers: body ? { "Content-Type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : null,
+  });
+}
+
+const call = (body?: object) => POST(makeRequest(body) as never) as unknown as Promise<RouteResponse>;
 
 function authed() {
   getUser.mockResolvedValue({ data: { user: { id: "user-123" } } });

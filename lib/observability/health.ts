@@ -1,4 +1,6 @@
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { getServiceRoleKey, getSupabaseUrl } from "@/lib/supabase/env";
+import type { Database } from "@/lib/supabase/schema";
 
 const SUPABASE_CHECK_TIMEOUT_MS = 2_000;
 
@@ -19,16 +21,24 @@ export function checkProcess(): HealthCheckResult {
 
 export async function checkSupabase(): Promise<HealthCheckResult> {
   try {
-    const response = await fetch(
-      new URL("/auth/v1/health", getSupabaseUrl()),
+    const supabase = createSupabaseClient<Database>(
+      getSupabaseUrl(),
+      getServiceRoleKey(),
       {
-        headers: { apikey: getServiceRoleKey() },
-        signal: AbortSignal.timeout(SUPABASE_CHECK_TIMEOUT_MS),
-        cache: "no-store",
+        auth: { autoRefreshToken: false, persistSession: false },
+        global: {
+          fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+            fetch(input, { ...init, cache: "no-store", redirect: "error" }),
+        },
       },
     );
+    const { error } = await supabase
+      .from("goals")
+      .select("id")
+      .limit(1)
+      .abortSignal(AbortSignal.timeout(SUPABASE_CHECK_TIMEOUT_MS));
 
-    return { status: response.ok ? "available" : "unavailable" };
+    return { status: error ? "unavailable" : "available" };
   } catch {
     return { status: "unavailable" };
   }

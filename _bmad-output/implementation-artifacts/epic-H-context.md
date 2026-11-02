@@ -1,4 +1,3 @@
-- Health probes: process liveness is dependency-free; readiness calls Supabase Auth `/auth/v1/health` with only the server-side `SUPABASE_SERVICE_ROLE_KEY` in the `apikey` header and a bounded timeout. Never use a publishable/anon key or user JWT for this probe. This check indicates Auth service availability, not Postgres/table-level health. Return status-only results; never expose credentials or raw dependency errors.
 # Epic H Context: Cross-cutting Hardening
 
 <!-- Compiled from planning artifacts. Edit freely. Regenerate with compile-epic-context if planning docs change. -->
@@ -24,7 +23,7 @@ Epic H consolidates the cross-cutting hardening findings promoted from the imple
 - Privacy: no cookies beyond the Supabase Auth session, no analytics or tracking, and outbound network requests are limited to AI generation and Supabase reads/writes.
 - Pointer affordance: enabled interactive controls show a pointer cursor and disabled controls show `not-allowed`; the cursor must never be the sole interaction signal, only a supplement to semantic controls and visible hover/focus states.
 - Operational observability: use one process-local Prometheus registry, fixed route-template labels, and sanitized structured logs. The metrics and health endpoints are the only new public operational endpoints; do not add a vendor SDK, exporter, user-identifying labels, or database migration.
-- Health probes: process liveness is dependency-free; readiness checks Supabase Auth through its unauthenticated `/auth/v1/health` endpoint with a bounded timeout. This check indicates Auth service availability, not Postgres/table-level health. Return status-only results; never expose credentials or raw dependency errors.
+- Health probes: process liveness is dependency-free; readiness makes one bounded `goals.id` query using a server-only Supabase client and `SUPABASE_SERVICE_ROLE_KEY`. This fixed read bypasses RLS, returns no row data from the health endpoint, rejects redirects, and never exposes or logs the secret. It checks database/Data API availability, not end-user RLS behavior.
 
 ## Technical Decisions
 
