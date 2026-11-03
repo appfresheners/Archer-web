@@ -18,6 +18,7 @@
 
 import BottomNav from "@/components/authenticated/BottomNav";
 import FloatingCapture from "@/components/authenticated/FloatingCapture";
+import GlobalShortcuts from "@/components/authenticated/GlobalShortcuts";
 import MonthlyGoalCheckPrompt, {
   type MonthlyGoalCheckPromptGoal,
 } from "@/components/authenticated/MonthlyGoalCheckPrompt";
@@ -81,6 +82,7 @@ export default async function AppLayout({
 
       <BottomNav />
       <FloatingCapture />
+      <GlobalShortcuts />
     </div>
   );
 }

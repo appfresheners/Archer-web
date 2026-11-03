@@ -1,4 +1,3 @@
-
 # STATUS DEFINITIONS:
 # ==================
 # Epic Status:
@@ -39,7 +38,7 @@
 # Original story statuses are preserved. Stories added by approved course corrections
 # remain 'backlog' until their implementation specs are authored.
 generated: 09-27-2026 16:30
-last_updated: 10-14-2026 07:59
+last_updated: 11-03-2026 20:15
 
 project: GTDGoalandProjectCreator
 project_key: NOKEY
@@ -122,6 +121,12 @@ development_status:
   9-4-analytics-overview-and-completion-metrics: backlog
   9-5-gap-work-and-assessed-progress-view: backlog
   epic-9-retrospective: optional
+
+  # Daily Shutdown Routine; scheduled after Epic 5 and before Epic 6.
+  epic-10: in-progress
+  10-1-daily-shutdown-flow-complete-feature: review
+  10-2-engage-indicator-and-data-export: backlog
+  epic-10-retrospective: optional
 
   epic-6: backlog
   6-1-on-demand-data-export: backlog

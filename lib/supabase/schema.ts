@@ -83,6 +83,33 @@ export interface PlanningDetail {
 export interface Database {
   public: {
     Tables: {
+      daily_shutdowns: {
+        Row: {
+          id: string;
+          user_id: string;
+          completed_at: string;
+          intention: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          completed_at?: string;
+          intention?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          completed_at?: string;
+          intention?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       focus_profiles: {
         Row: {
           id: string;
@@ -515,6 +542,10 @@ export interface Database {
 // -----------------------------------------------------------------------------
 
 type PublicTables = Database['public']['Tables'];
+
+export type DailyShutdown = PublicTables['daily_shutdowns']['Row'];
+export type DailyShutdownInsert = PublicTables['daily_shutdowns']['Insert'];
+export type DailyShutdownUpdate = PublicTables['daily_shutdowns']['Update'];
 
 export type FocusProfile = PublicTables['focus_profiles']['Row'];
 export type FocusProfileInsert = PublicTables['focus_profiles']['Insert'];
