@@ -24,17 +24,23 @@ create table if not exists daily_shutdowns (
   completed_at    timestamptz not null default now(),
   intention       text,  -- optional, 500 char limit enforced in app layer
   created_at      timestamptz not null default now(),
-  updated_at      timestamptz not null default now(),
-
-  -- one completion per calendar day per user
-  unique (user_id, (date(completed_at at time zone 'UTC')))
+  updated_at      timestamptz not null default now()
 );
 
 comment on table daily_shutdowns is
-  'Daily shutdown completions. Each row records one completed shutdown with optional intention for tomorrow. One per calendar day per user (enforced by unique constraint).';
+  'Daily shutdown completions. Each row records one completed shutdown with optional intention for tomorrow. One per calendar day per user (enforced by unique index).';
 
 comment on column daily_shutdowns.intention is
   'Optional free-text intention for tomorrow (500 char limit enforced at app layer). NULL when user leaves blank.';
+
+-- -----------------------------------------------------------------------------
+-- Unique constraint: one completion per calendar day per user
+-- -----------------------------------------------------------------------------
+-- Using a unique index with an expression since PostgreSQL doesn't support
+-- expression-based UNIQUE constraints in the table definition.
+
+create unique index if not exists daily_shutdowns_user_date_unique
+  on daily_shutdowns (user_id, (date(completed_at at time zone 'UTC')));
 
 -- -----------------------------------------------------------------------------
 -- Index: most recent shutdown per user (for "already completed today" check)
