@@ -305,6 +305,7 @@ export default function EngageBoard({ model }: { model: EngageModel }) {
                       <EngageActionRow
                         key={row.id}
                         row={row}
+                        availableContexts={allContexts}
                         disabled={busy}
                         onDone={handleDone}
                       />
@@ -337,6 +338,7 @@ export default function EngageBoard({ model }: { model: EngageModel }) {
                     <EngageActionRow
                       key={row.id}
                       row={row}
+                      availableContexts={allContexts}
                       disabled={busy}
                       onDone={handleDone}
                     />
@@ -361,6 +363,7 @@ export default function EngageBoard({ model }: { model: EngageModel }) {
                   <EngageActionRow
                     key={row.id}
                     row={row}
+                    availableContexts={allContexts}
                     disabled={busy}
                     onDone={handleDone}
                   />

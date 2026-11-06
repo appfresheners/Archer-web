@@ -95,82 +95,45 @@ export default function Sidebar() {
 
       {/* Settings / avatar footer */}
       <div className="border-t border-border px-2 py-3 lg:px-3">
-        <div className="flex flex-col gap-1">
-          <Link
-            href="/app/shutdown"
-            title="Daily Shutdown"
-            className={[
-              "flex min-h-[44px] items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2",
-              "justify-center lg:justify-start",
-              "text-[length:var(--font-size-small)] font-medium",
-              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]",
-              "motion-safe:transition-colors motion-safe:duration-150",
-              isActive(pathname, "/app/shutdown")
-                ? "bg-primary-subtle text-primary"
-                : "text-text-secondary hover:bg-surface hover:text-text-primary",
-            ].join(" ")}
+        <Link
+          href="/app/settings"
+          title="Settings"
+          aria-current={isActive(pathname, "/app/settings") ? "page" : undefined}
+          className={[
+            "flex min-h-[44px] items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2",
+            "justify-center lg:justify-start",
+            "text-[length:var(--font-size-small)] font-medium",
+            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]",
+            "motion-safe:transition-colors motion-safe:duration-150",
+            isActive(pathname, "/app/settings")
+              ? "bg-primary-subtle text-primary"
+              : "text-text-secondary hover:bg-surface hover:text-text-primary",
+          ].join(" ")}
+        >
+          {/* Avatar placeholder */}
+          <span
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-border text-[length:var(--font-size-caption)] font-medium text-text-secondary"
+            aria-hidden="true"
           >
-            {/* Shutdown icon (power symbol) */}
-            <span className="shrink-0" aria-hidden="true">
-              <svg
-                width={20}
-                height={20}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <path d="M12 2v10" />
-                <path d="M18.4 6.6a9 9 0 1 1-12.77.04" />
-              </svg>
-            </span>
-            <span className="hidden lg:inline">Daily Shutdown</span>
-            <span className="sr-only lg:hidden">Daily Shutdown</span>
-          </Link>
-          <Link
-            href="/app/settings"
-            title="Settings"
-            aria-current={isActive(pathname, "/app/settings") ? "page" : undefined}
-            className={[
-              "flex min-h-[44px] items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2",
-              "justify-center lg:justify-start",
-              "text-[length:var(--font-size-small)] font-medium",
-              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]",
-              "motion-safe:transition-colors motion-safe:duration-150",
-              isActive(pathname, "/app/settings")
-                ? "bg-primary-subtle text-primary"
-                : "text-text-secondary hover:bg-surface hover:text-text-primary",
-            ].join(" ")}
-          >
-            {/* Avatar placeholder */}
-            <span
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-border text-[length:var(--font-size-caption)] font-medium text-text-secondary"
+            <svg
+              width={16}
+              height={16}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
               aria-hidden="true"
+              focusable="false"
             >
-              <svg
-                width={16}
-                height={16}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <circle cx={12} cy={8} r={4} />
-                <path d="M4 20a8 8 0 0 1 16 0" />
-              </svg>
-            </span>
-            <span className="hidden lg:inline">Settings</span>
-            <span className="sr-only lg:hidden">Settings</span>
-          </Link>
-        </div>
+              <circle cx={12} cy={8} r={4} />
+              <path d="M4 20a8 8 0 0 1 16 0" />
+            </svg>
+          </span>
+          <span className="hidden lg:inline">Settings</span>
+          <span className="sr-only lg:hidden">Settings</span>
+        </Link>
       </div>
     </aside>
   );

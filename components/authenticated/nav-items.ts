@@ -135,6 +135,19 @@ function SomedayIcon(): ReactNode {
   );
 }
 
+/** Daily Shutdown — a power symbol. */
+function ShutdownIcon(): ReactNode {
+  return createElement(
+    "svg",
+    iconProps,
+    createElement("path", { key: "line", d: "M12 2v10" }),
+    createElement("path", {
+      key: "arc",
+      d: "M18.4 6.6a9 9 0 1 1-12.77.04",
+    }),
+  );
+}
+
 /**
  * Desktop navigation, in workflow order. The mobile bar groups secondary
  * destinations under More to keep its frequent actions easy to reach.
@@ -188,5 +201,12 @@ export const navItems: NavItem[] = [
     href: "/app/someday",
     mobileGroup: "more",
     icon: SomedayIcon(),
+  },
+  {
+    label: "Daily Shutdown",
+    shortLabel: "Shutdown",
+    href: "/app/shutdown",
+    mobileGroup: "more",
+    icon: ShutdownIcon(),
   },
 ];

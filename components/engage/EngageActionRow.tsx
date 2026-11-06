@@ -12,20 +12,27 @@
 
 import type { EngageRow } from "@/lib/engage/model";
 import { useState } from "react";
+import ActionMenu from "./ActionMenu";
 import PomodoroTimer from "./PomodoroTimer";
+import QuickEditDialog from "./QuickEditDialog";
+
+type EditMode = "context" | "energy" | "time" | "schedule" | null;
 
 export interface EngageActionRowProps {
   row: EngageRow;
+  availableContexts: string[]; // All existing contexts from committed actions
   disabled?: boolean;
   onDone: (row: EngageRow) => void;
 }
 
 export default function EngageActionRow({
   row,
+  availableContexts,
   disabled,
   onDone,
 }: EngageActionRowProps) {
   const [focusOpen, setFocusOpen] = useState(false);
+  const [editMode, setEditMode] = useState<EditMode>(null);
 
   return (
     <li className="flex flex-col gap-2 rounded-[var(--radius-md)] border border-border bg-surface-raised p-3 sm:flex-row sm:items-start sm:justify-between">
@@ -66,6 +73,16 @@ export default function EngageActionRow({
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <ActionMenu
+          actionText={row.text}
+          projectId={row.projectId}
+          projectName={row.projectName}
+          onEditContext={() => setEditMode("context")}
+          onEditEnergy={() => setEditMode("energy")}
+          onEditTime={() => setEditMode("time")}
+          onReschedule={() => setEditMode("schedule")}
+          disabled={disabled}
+        />
         <button
           type="button"
           disabled={disabled}
@@ -87,6 +104,19 @@ export default function EngageActionRow({
         </button>
       </div>
 
+      {editMode && (
+        <QuickEditDialog
+          actionId={row.id}
+          actionText={row.text}
+          mode={editMode}
+          initialContextTags={row.context_tags}
+          initialEnergy={row.energy}
+          initialTimeMinutes={row.time_available_minutes}
+          initialScheduledFor={null}
+          availableContexts={availableContexts}
+          onClose={() => setEditMode(null)}
+        />
+      )}
     </li>
   );
 }

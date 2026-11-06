@@ -1,16 +1,15 @@
 /**
  * ShutdownFlow (client component) — Story 10.1.
  *
- * Vertical single-page shutdown flow with four sections: inbox check, today's
- * progress, tomorrow's intention, and termination phrase. All sections are
- * visible on one scrollable page (no wizard/steps). Each section has a
- * "Continue" button that smooth-scrolls to the next section.
+ * Stepper-based shutdown flow with four phases: inbox check, progress review,
+ * intention, and termination. Uses Back/Next navigation like the weekly review.
+ * Each phase is a separate panel component.
  *
  * Exit link in header returns to Engage without saving. Completing the flow
  * saves to `daily_shutdowns` table and navigates to Engage on success.
  *
  * Intention is optional (500 char limit). Termination phrase "Shutdown complete"
- * is fixed and must be typed exactly to enable the Done button.
+ * is fixed and must be typed exactly to enable completion.
  *
  * Error handling: on save failure (duplicate or network error), show error
  * message with retry option, keeping form state intact.
@@ -18,10 +17,23 @@
 
 "use client";
 
+import ShutdownBar from "@/components/shutdown/ShutdownBar";
+import InboxCheckPanel from "@/components/shutdown/panels/InboxCheckPanel";
+import IntentionPanel from "@/components/shutdown/panels/IntentionPanel";
+import ProgressReviewPanel from "@/components/shutdown/panels/ProgressReviewPanel";
+import TerminationPanel from "@/components/shutdown/panels/TerminationPanel";
+import {
+  nextPhase,
+  PHASE_COUNT,
+  PHASE_LABELS,
+  phaseIndex,
+  prevPhase,
+  type ShutdownPhase,
+} from "@/lib/shutdown/phases";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 interface ShutdownFlowProps {
   unprocessedCount: number;
@@ -32,35 +44,39 @@ interface ShutdownFlowProps {
   }>;
 }
 
-const TERMINATION_PHRASE = "Shutdown complete";
-const MAX_INTENTION_LENGTH = 500;
+const GENERIC_ERROR = "Something went wrong. Please try again.";
 
 export default function ShutdownFlow({
   unprocessedCount,
   completedActions,
 }: ShutdownFlowProps) {
   const router = useRouter();
+  const [phase, setPhase] = useState<ShutdownPhase>("inbox_check");
   const [intention, setIntention] = useState("");
   const [terminationInput, setTerminationInput] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const progressRef = useRef<HTMLDivElement>(null);
-  const intentionRef = useRef<HTMLDivElement>(null);
-  const phraseRef = useRef<HTMLDivElement>(null);
+  const forward = nextPhase(phase);
+  const back = prevPhase(phase);
+  const positionLabel = `Step ${phaseIndex(phase) + 1} of ${PHASE_COUNT}: ${PHASE_LABELS[phase]}`;
 
-  const scrollToSection = (ref: React.RefObject<HTMLDivElement | null>) => {
-    if (ref.current) {
-      ref.current.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  };
+  const isTerminating = phase === "termination";
 
-  const isTerminationValid = terminationInput.trim() === TERMINATION_PHRASE;
+  async function handleNext() {
+    if (!forward || busy) return;
+    setPhase(forward);
+  }
 
-  const handleSave = async () => {
-    if (!isTerminationValid) return;
+  async function handleBack() {
+    if (!back || busy) return;
+    setPhase(back);
+  }
 
-    setSaving(true);
+  async function handleComplete() {
+    if (busy) return;
+
+    setBusy(true);
     setError(null);
 
     try {
@@ -84,7 +100,7 @@ export default function ShutdownFlow({
         } else {
           throw insertError;
         }
-        setSaving(false);
+        setBusy(false);
         return;
       }
 
@@ -92,13 +108,41 @@ export default function ShutdownFlow({
       router.push("/app/engage");
     } catch (err) {
       console.error("Failed to save shutdown:", err);
-      setError("Failed to save shutdown. Please try again.");
-      setSaving(false);
+      setError(GENERIC_ERROR);
+      setBusy(false);
     }
-  };
+  }
+
+  function renderPanel() {
+    if (phase === "inbox_check") {
+      return <InboxCheckPanel unprocessedCount={unprocessedCount} />;
+    }
+    if (phase === "progress_review") {
+      return <ProgressReviewPanel completedActions={completedActions} />;
+    }
+    if (phase === "intention") {
+      return (
+        <IntentionPanel
+          value={intention}
+          onChange={setIntention}
+          disabled={busy}
+        />
+      );
+    }
+    // termination
+    return (
+      <TerminationPanel
+        value={terminationInput}
+        onChange={setTerminationInput}
+        onComplete={handleComplete}
+        disabled={busy}
+        error={error}
+      />
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-[var(--spacing-section-y)]">
       <header className="flex items-center justify-between">
         <h1 className="text-[length:var(--font-size-section)] font-bold text-text-primary">
           Daily Shutdown
@@ -111,180 +155,50 @@ export default function ShutdownFlow({
         </Link>
       </header>
 
-      {/* Section 1: Inbox Check */}
-      <div className="flex flex-col gap-4 rounded-[var(--radius-md)] border border-border bg-surface p-[var(--spacing-card-p)]">
-        <h2 className="text-[length:var(--font-size-card)] font-semibold text-text-primary">
-          Inbox Check
-        </h2>
-        <div className="flex items-center gap-3">
-          {unprocessedCount === 0 ? (
-            <>
-              <svg
-                width={20}
-                height={20}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="shrink-0 text-primary"
-                aria-hidden="true"
-              >
-                <circle cx={12} cy={12} r={10} />
-                <path d="m9 12 2 2 4-4" />
-              </svg>
-              <p className="text-text-primary">
-                Unprocessed: <strong>0 items</strong>
-              </p>
-            </>
-          ) : (
-            <>
-              <svg
-                width={20}
-                height={20}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="shrink-0 text-text-secondary"
-                aria-hidden="true"
-              >
-                <circle cx={12} cy={12} r={10} />
-                <path d="m12 8 0 4" />
-                <path d="m12 16 0 .01" />
-              </svg>
-              <p className="text-text-primary">
-                Unprocessed: <strong>{unprocessedCount} items</strong>
-              </p>
-              <Link
-                href="/app/inbox"
-                className="ml-auto text-[length:var(--font-size-small)] text-primary underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] hover:text-primary-hover"
-              >
-                Process inbox
-              </Link>
-            </>
-          )}
+      <ShutdownBar current={phase} />
+
+      {/* Polite live region: text derived from `phase`, re-rendered on change. */}
+      <p aria-live="polite" className="sr-only">
+        {positionLabel}
+      </p>
+
+      {renderPanel()}
+
+      {/* Back/Next navigation - hidden on termination step where panel has its own completion button */}
+      {!isTerminating && (
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={handleBack}
+            disabled={busy || back === null}
+            className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-border-strong px-4 py-2 font-medium text-text-primary transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            onClick={handleNext}
+            disabled={busy || forward === null}
+            className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] bg-primary px-4 py-2 font-medium text-text-inverse transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Next
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => scrollToSection(progressRef)}
-          className="mt-2 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-primary px-[var(--spacing-button-px)] py-[var(--spacing-button-py)] text-[length:var(--font-size-body)] font-medium text-text-inverse focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] motion-safe:transition-colors motion-safe:duration-150 hover:bg-primary-hover"
-        >
-          Continue
-        </button>
-      </div>
+      )}
 
-      {/* Section 2: Today's Progress */}
-      <div
-        ref={progressRef}
-        className="flex flex-col gap-4 rounded-[var(--radius-md)] border border-border bg-surface p-[var(--spacing-card-p)]"
-      >
-        <h2 className="text-[length:var(--font-size-card)] font-semibold text-text-primary">
-          Today&apos;s Progress
-        </h2>
-        {completedActions.length === 0 ? (
-          <p className="text-text-secondary">No actions completed today.</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {completedActions.map((action) => (
-              <li
-                key={action.id}
-                className="flex flex-col gap-1 border-l-2 border-primary pl-3"
-              >
-                <p className="text-text-primary">{action.text}</p>
-                {action.project_name && (
-                  <p className="text-[length:var(--font-size-small)] text-text-secondary">
-                    {action.project_name}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-        <button
-          type="button"
-          onClick={() => scrollToSection(intentionRef)}
-          className="mt-2 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-primary px-[var(--spacing-button-px)] py-[var(--spacing-button-py)] text-[length:var(--font-size-body)] font-medium text-text-inverse focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] motion-safe:transition-colors motion-safe:duration-150 hover:bg-primary-hover"
-        >
-          Continue
-        </button>
-      </div>
-
-      {/* Section 3: Tomorrow's Intention */}
-      <div
-        ref={intentionRef}
-        className="flex flex-col gap-4 rounded-[var(--radius-md)] border border-border bg-surface p-[var(--spacing-card-p)]"
-      >
-        <div className="flex flex-col gap-1">
-          <h2 className="text-[length:var(--font-size-card)] font-semibold text-text-primary">
-            Tomorrow&apos;s Intention
-          </h2>
-          <p className="text-[length:var(--font-size-small)] text-text-secondary">
-            Optional — What matters most tomorrow? (Max 500 characters)
-          </p>
+      {/* Back button on termination step */}
+      {isTerminating && (
+        <div className="flex items-center justify-start">
+          <button
+            type="button"
+            onClick={handleBack}
+            disabled={busy || back === null}
+            className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-border-strong px-4 py-2 font-medium text-text-primary transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Back
+          </button>
         </div>
-        <textarea
-          value={intention}
-          onChange={(e) => {
-            if (e.target.value.length <= MAX_INTENTION_LENGTH) {
-              setIntention(e.target.value);
-            }
-          }}
-          placeholder="e.g., Ship the proposal review by noon, then focus on the client call prep..."
-          rows={4}
-          className="w-full rounded-[var(--radius-sm)] border border-border bg-background px-3 py-2 text-[length:var(--font-size-body)] text-text-primary placeholder:text-text-tertiary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
-        />
-        <p className="text-[length:var(--font-size-small)] text-text-secondary">
-          {intention.length} / {MAX_INTENTION_LENGTH} characters
-        </p>
-        <button
-          type="button"
-          onClick={() => scrollToSection(phraseRef)}
-          className="mt-2 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-primary px-[var(--spacing-button-px)] py-[var(--spacing-button-py)] text-[length:var(--font-size-body)] font-medium text-text-inverse focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] motion-safe:transition-colors motion-safe:duration-150 hover:bg-primary-hover"
-        >
-          Continue
-        </button>
-      </div>
-
-      {/* Section 4: Termination Phrase */}
-      <div
-        ref={phraseRef}
-        className="flex flex-col gap-4 rounded-[var(--radius-md)] border border-border bg-surface p-[var(--spacing-card-p)]"
-      >
-        <div className="flex flex-col gap-1">
-          <h2 className="text-[length:var(--font-size-card)] font-semibold text-text-primary">
-            Complete Shutdown
-          </h2>
-          <p className="text-[length:var(--font-size-small)] text-text-secondary">
-            Say it aloud: &ldquo;<strong>{TERMINATION_PHRASE}</strong>&rdquo;
-          </p>
-        </div>
-        <input
-          type="text"
-          value={terminationInput}
-          onChange={(e) => setTerminationInput(e.target.value)}
-          placeholder="Then type it here to confirm"
-          className="w-full rounded-[var(--radius-sm)] border border-border bg-background px-3 py-2 text-[length:var(--font-size-body)] text-text-primary placeholder:text-text-tertiary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)]"
-        />
-
-        {error && (
-          <div className="rounded-[var(--radius-sm)] border border-red-600 bg-red-50 p-3 text-red-800">
-            <p className="text-[length:var(--font-size-small)]">{error}</p>
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={!isTerminationValid || saving}
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-primary px-[var(--spacing-button-px)] py-[var(--spacing-button-py)] text-[length:var(--font-size-body)] font-medium text-text-inverse focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] motion-safe:transition-colors motion-safe:duration-150 hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {saving ? "Saving..." : "Done"}
-        </button>
-      </div>
+      )}
     </div>
   );
 }
